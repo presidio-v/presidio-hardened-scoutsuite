@@ -1,0 +1,71 @@
+{
+  "about": "Presidio-hardened AWS baseline for ScoutSuite. CIS-aligned, fail-closed: high-impact IAM/logging/network controls are forced to 'danger'. Rule filenames track the pinned upstream ScoutSuite version declared in requirements.lock; CI validates that every referenced rule exists before release.",
+  "rules": {
+    "iam-root-account-with-active-keys.json": [
+      { "enabled": true, "level": "danger" }
+    ],
+    "iam-root-account-used-recently.json": [
+      { "enabled": true, "level": "danger" }
+    ],
+    "iam-root-account-no-mfa.json": [
+      { "enabled": true, "level": "danger" }
+    ],
+    "iam-password-policy-minimum-length.json": [
+      { "enabled": true, "level": "danger", "args": ["14"] }
+    ],
+    "iam-password-policy-no-expiration.json": [
+      { "enabled": true, "level": "warning" }
+    ],
+    "iam-user-with-multiple-access-keys.json": [
+      { "enabled": true, "level": "warning" }
+    ],
+    "iam-user-with-password-and-key.json": [
+      { "enabled": true, "level": "warning" }
+    ],
+    "iam-mfa-with-active-accesskeys.json": [
+      { "enabled": true, "level": "warning" }
+    ],
+    "cloudtrail-no-logging.json": [
+      { "enabled": true, "level": "danger" }
+    ],
+    "cloudtrail-no-global-services-logging.json": [
+      { "enabled": true, "level": "danger" }
+    ],
+    "cloudtrail-no-log-file-validation.json": [
+      { "enabled": true, "level": "danger" }
+    ],
+    "cloudtrail-no-encryption-with-kms.json": [
+      { "enabled": true, "level": "warning" }
+    ],
+    "config-recorder-not-configured.json": [
+      { "enabled": true, "level": "warning" }
+    ],
+    "s3-bucket-world-acl.json": [
+      { "enabled": true, "level": "danger" }
+    ],
+    "s3-bucket-allowing-cleartext.json": [
+      { "enabled": true, "level": "danger" }
+    ],
+    "s3-bucket-no-default-encryption.json": [
+      { "enabled": true, "level": "warning" }
+    ],
+    "ec2-security-group-opens-all-ports-to-all.json": [
+      { "enabled": true, "level": "danger" }
+    ],
+    "ec2-security-group-opens-ssh-port-to-all.json": [
+      { "enabled": true, "level": "danger" }
+    ],
+    "ec2-security-group-opens-rdp-port-to-all.json": [
+      { "enabled": true, "level": "danger" }
+    ],
+    "ec2-default-security-group-in-use.json": [
+      { "enabled": true, "level": "warning" }
+    ],
+    "vpc-default-security-group-with-rules.json": [
+      { "enabled": true, "level": "warning" }
+    ],
+    "rds-instance-publicly-accessible.json": [
+      { "enabled": true, "level": "danger" }
+    ]
+  }
+}

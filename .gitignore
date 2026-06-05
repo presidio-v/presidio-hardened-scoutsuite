@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# ScoutSuite output (may contain sensitive cloud configuration)
+scoutsuite-report/
+scoutsuite-results/
+*.sqlite
+
+# SBOM / build artifacts
+sbom*.json
+*.spdx.json
+
+# Editor
+.idea/
+.vscode/
+*.swp

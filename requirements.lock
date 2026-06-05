@@ -1,0 +1,16 @@
+# Hash-pinned runtime lock for the hardened container / reproducible installs.
+#
+# This file pins ScoutSuite (GPL-2.0) and its full transitive dependency tree to
+# exact versions + SHA-256 hashes, so the image is reproducible and the supply
+# chain is auditable. Install with:
+#
+#     pip install --require-hashes -r requirements.lock
+#
+# Regenerate (and re-hash) whenever the pinned ScoutSuite version changes:
+#
+#     pip-compile --generate-hashes --output-file requirements.lock \
+#         --extra scoutsuite pyproject.toml
+#
+# The placeholder below is intentionally un-hashed; CI fails the build until it
+# is replaced with a fully hash-pinned lock (see .github/workflows/ci.yml).
+ScoutSuite==5.14.0

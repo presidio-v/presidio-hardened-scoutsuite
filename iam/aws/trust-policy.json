@@ -1,0 +1,17 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "PresidioScoutAssumeWithMfaAndExternalId",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::REPLACE_AUDITOR_ACCOUNT_ID:root"
+      },
+      "Action": "sts:AssumeRole",
+      "Condition": {
+        "Bool": { "aws:MultiFactorAuthPresent": "true" },
+        "StringEquals": { "sts:ExternalId": "REPLACE_WITH_RANDOM_EXTERNAL_ID" }
+      }
+    }
+  ]
+}
