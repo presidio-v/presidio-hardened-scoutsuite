@@ -4,7 +4,7 @@
 # Builder: install ScoutSuite (GPL-2.0) + this MIT wrapper into a venv, pinned
 # and hash-verified. Nothing from this stage ships except the finished venv.
 # ---------------------------------------------------------------------------
-FROM python:3.12-slim AS builder
+FROM python:3.14-slim AS builder
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
