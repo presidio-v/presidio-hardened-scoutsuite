@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "presidio-hardened-scoutsuite"
-version = "0.1.0"
+version = "0.2.0"
 description = "Presidio security-hardened distribution of ScoutSuite — runs the multi-cloud auditor out of process with hardened defaults, report redaction, and a least-privilege deployment model."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -33,6 +33,7 @@ dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.6"]
 
 [project.scripts]
 presidio-scout = "presidio_scoutsuite.cli:main"
+presidio-scout-validate = "presidio_scoutsuite.ruleset:_main"
 
 [project.urls]
 Homepage = "https://github.com/presidio-v/presidio-hardened-scoutsuite"
@@ -41,9 +42,13 @@ Upstream = "https://github.com/nccgroup/ScoutSuite"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/presidio_scoutsuite"]
-
-[tool.hatch.build.targets.wheel.force-include]
-"src/presidio_scoutsuite/policy" = "presidio_scoutsuite/policy"
+# The curated baselines + rule manifests under policy/ are package data; they are
+# included automatically because policy/ lives inside the package. (Globs are
+# listed explicitly so a stray data extension can't be silently dropped.)
+artifacts = [
+  "src/presidio_scoutsuite/policy/*.json",
+  "src/presidio_scoutsuite/policy/*.rules.txt",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

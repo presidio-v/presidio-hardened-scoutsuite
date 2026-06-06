@@ -1,0 +1,21 @@
+{
+  "Name": "PresidioScoutAuditor",
+  "IsCustom": true,
+  "Description": "Least-privilege read-only role for ScoutSuite audits. Grants control-plane reads only; every write/action/delete and all dataActions are denied by omission.",
+  "Actions": [
+    "*/read"
+  ],
+  "NotActions": [
+    "Microsoft.Compute/disks/beginGetAccess/action",
+    "Microsoft.Storage/storageAccounts/listkeys/action",
+    "Microsoft.Storage/storageAccounts/listAccountSas/action",
+    "Microsoft.Storage/storageAccounts/listServiceSas/action",
+    "Microsoft.KeyVault/vaults/secrets/read",
+    "Microsoft.KeyVault/vaults/keys/read"
+  ],
+  "DataActions": [],
+  "NotDataActions": [],
+  "AssignableScopes": [
+    "/subscriptions/REPLACE_SUBSCRIPTION_ID"
+  ]
+}

@@ -28,6 +28,8 @@ jobs:
         run: |
           ruff check .
           ruff format --check .
+      - name: Validate curated baselines reference known rule names
+        run: presidio-scout-validate --source manifest
       - name: Test
         run: pytest --cov=presidio_scoutsuite --cov-report=term-missing --cov-fail-under=90
 

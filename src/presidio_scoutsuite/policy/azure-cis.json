@@ -1,0 +1,47 @@
+{
+  "about": "Presidio-hardened Azure baseline for ScoutSuite. CIS-aligned, fail-closed: high-impact storage/SQL/network/identity controls are forced to 'danger'. Rule filenames track the pinned upstream ScoutSuite version declared in requirements.lock; CI validates every referenced rule against the policy/azure.rules.txt inventory before release.",
+  "rules": {
+    "storageaccount-not-requiring-secure-transfer.json": [
+      { "enabled": true, "level": "danger" }
+    ],
+    "storageaccount-public-blob-access.json": [
+      { "enabled": true, "level": "danger" }
+    ],
+    "storageaccount-no-network-restriction.json": [
+      { "enabled": true, "level": "warning" }
+    ],
+    "sqldatabase-no-transparent-data-encryption.json": [
+      { "enabled": true, "level": "danger" }
+    ],
+    "sqlserver-no-auditing.json": [
+      { "enabled": true, "level": "danger" }
+    ],
+    "sqlserver-public-network-access-enabled.json": [
+      { "enabled": true, "level": "danger" }
+    ],
+    "network-security-group-allowing-ssh-from-all.json": [
+      { "enabled": true, "level": "danger" }
+    ],
+    "network-security-group-allowing-rdp-from-all.json": [
+      { "enabled": true, "level": "danger" }
+    ],
+    "vm-no-disk-encryption.json": [
+      { "enabled": true, "level": "danger" }
+    ],
+    "keyvault-no-purge-protection.json": [
+      { "enabled": true, "level": "warning" }
+    ],
+    "keyvault-secret-no-expiration.json": [
+      { "enabled": true, "level": "warning" }
+    ],
+    "aad-no-mfa-for-privileged-users.json": [
+      { "enabled": true, "level": "danger" }
+    ],
+    "rbac-custom-role-with-subscription-owner-permissions.json": [
+      { "enabled": true, "level": "warning" }
+    ],
+    "monitor-no-activity-log-alert-for-policy-changes.json": [
+      { "enabled": true, "level": "warning" }
+    ]
+  }
+}

@@ -26,3 +26,13 @@ class RedactionError(PresidioScoutError):
 
 class ReportGuardError(PresidioScoutError):
     """The generated report failed an integrity or sanitization check."""
+
+
+class RulesetValidationError(PresidioScoutError):
+    """A curated ruleset references rule names the pinned ScoutSuite does not
+    provide.
+
+    Raised when a bundled baseline points at a finding rule that is missing from
+    the upstream rule inventory — a typo or upstream rename that would otherwise
+    make ScoutSuite silently ignore the rule and weaken the audit.
+    """

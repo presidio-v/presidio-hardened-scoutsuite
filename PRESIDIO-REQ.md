@@ -14,11 +14,10 @@ least-privilege deployment model — without trusting a modified ScoutSuite.
 The requester asked to weigh **fork vs. drop-in vs. distribution** and to scope
 what "hardened" means. Key facts and decisions:
 
-### Why not the AngelList pattern (MIT, single-import wrapper)?
+### Why not the single-import wrapper pattern (MIT, drop-in client)?
 
-The sibling `presidio-hardened-angellist` hardens an **API client**: swap one
-import and outbound HTTP is hardened. That doesn't transfer to ScoutSuite for two
-reasons:
+Several sibling projects harden an **API client**: swap one import and outbound
+HTTP is hardened. That pattern doesn't transfer to ScoutSuite for two reasons:
 
 1. **License.** ScoutSuite is **GPL-2.0-only**
    (<https://github.com/nccgroup/ScoutSuite/blob/master/LICENSE>). Forking or
@@ -111,12 +110,56 @@ rulesets + IAM deferred to 0.2.0.
 
 ---
 
+## v0.2.0 — Multi-cloud baselines + rule-name validation (2026-06-06)
+
+**Design decisions:**
+
+- **Curated baselines for Azure & GCP.** `policy/azure-cis.json` and
+  `policy/gcp-cis.json` follow the AWS pattern: a CIS-aligned subset with
+  high-impact storage/SQL/network/identity controls forced to `danger`. The CLI
+  now applies them by default (`_BUNDLED_RULESETS` covers aws/azure/gcp);
+  remaining providers still warn and fall back to ScoutSuite's default.
+- **Rule-name validation closes a silent-failure gap.** A ruleset's keys are the
+  *filenames* of finding rules inside ScoutSuite. A typo or an upstream rename
+  makes ScoutSuite **silently ignore** the rule — the control vanishes with no
+  error. New `ruleset.py` validates that every referenced rule exists.
+- **Two inventory sources, fail-closed.** *manifest* (default): a checked-in
+  `policy/<provider>.rules.txt` inventory of the pinned ScoutSuite's finding
+  rules, so CI validates on every push **without installing GPL ScoutSuite**.
+  *installed*: discovered from an actually-installed ScoutSuite, run at release
+  to catch manifest drift. `installed_rules` raises (never returns empty) when
+  ScoutSuite is absent, so a missing dependency can't pass the check.
+- **Validation wired into both pipelines.** `presidio-scout-validate` console
+  script; `ci.yml` runs `--source manifest`; a new `verify-rulesets` release gate
+  installs the pinned ScoutSuite and runs `--source installed` before any image
+  is built/signed.
+- **Least-privilege IAM for Azure & GCP, as data.** `iam/azure/` (built-in
+  `Reader`+`Security Reader`, or a custom `*/read` role with **empty
+  `dataActions`** so secret/key *values* stay unreadable; minimal directory read
+  for AAD). `iam/gcp/` (`roles/viewer`+`roles/iam.securityReviewer`, or a custom
+  role of `*.list`/`*.get`/`*.getIamPolicy` only; service-account impersonation
+  preferred over downloaded keys).
+
+**Delivered:**
+- `policy/azure-cis.json`, `policy/gcp-cis.json`; `policy/{aws,azure,gcp}.rules.txt`
+- `ruleset.py` + `RulesetValidationError`; `presidio-scout-validate` script
+- `iam/azure/` and `iam/gcp/` (custom role data + README each)
+- CI offline-validation step; release `verify-rulesets` hard gate
+- `test_ruleset.py`; coverage maintained (95%, ≥90% gate); ruff clean
+
+**Assumption (documented):** the rule manifests are seeded for ScoutSuite 5.14.0;
+because `requirements.lock` is still a placeholder, the manifests are regenerated
+from the installed package (`ruleset.installed_rules`) and the release-time
+`--source installed` gate is the authority that keeps them honest.
+
+---
+
 ## Roadmap
 
 | Version | Planned |
 |---|---|
 | **0.1.0** | Out-of-process hardened launcher + redaction/guard + AWS ruleset/IAM + container + supply-chain posture |
-| **0.2.0** | Azure & GCP curated rulesets + least-privilege roles; **CI validation of ruleset rule names** against the pinned ScoutSuite |
+| **0.2.0** | Azure & GCP curated baselines + least-privilege roles; **rule-name validation** against the pinned ScoutSuite (offline manifest in CI, installed-source drift gate at release) ✓ |
 | **0.3.0** | Deeper report guard (SRI, offline viewer), signed report manifests |
 | **0.4.0** | SLSA provenance verification on install; reproducible-build attestation |
 

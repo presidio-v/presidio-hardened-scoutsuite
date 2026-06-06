@@ -15,10 +15,14 @@ from . import launcher, redact, report_guard
 from .errors import PresidioScoutError
 from .version import __version__
 
-#: Curated rulesets bundled with the package, keyed by provider. Only AWS ships
-#: a hardened ruleset in 0.1.0; other providers fall back to ScoutSuite's
-#: default ruleset (with a warning) until their baselines land.
-_BUNDLED_RULESETS = {"aws": "aws-cis.json"}
+#: Curated rulesets bundled with the package, keyed by provider. AWS, Azure, and
+#: GCP ship hardened baselines; any other provider falls back to ScoutSuite's
+#: default ruleset (with a warning) until its baseline lands.
+_BUNDLED_RULESETS = {
+    "aws": "aws-cis.json",
+    "azure": "azure-cis.json",
+    "gcp": "gcp-cis.json",
+}
 
 
 def _bundled_ruleset_path(provider: str) -> Path | None:

@@ -1,0 +1,50 @@
+{
+  "about": "Presidio-hardened GCP baseline for ScoutSuite. CIS-aligned, fail-closed: high-impact storage/SQL/firewall/KMS/IAM controls are forced to 'danger'. Rule filenames track the pinned upstream ScoutSuite version declared in requirements.lock; CI validates every referenced rule against the policy/gcp.rules.txt inventory before release.",
+  "rules": {
+    "cloudstorage-bucket-world-readable.json": [
+      { "enabled": true, "level": "danger" }
+    ],
+    "cloudstorage-bucket-uniform-access-disabled.json": [
+      { "enabled": true, "level": "warning" }
+    ],
+    "cloudsql-instance-public-ip.json": [
+      { "enabled": true, "level": "danger" }
+    ],
+    "cloudsql-instance-not-requiring-ssl.json": [
+      { "enabled": true, "level": "danger" }
+    ],
+    "gce-instance-with-public-ip.json": [
+      { "enabled": true, "level": "warning" }
+    ],
+    "gce-default-service-account-full-access.json": [
+      { "enabled": true, "level": "danger" }
+    ],
+    "gce-instance-without-os-login.json": [
+      { "enabled": true, "level": "warning" }
+    ],
+    "gce-instance-with-serial-port-enabled.json": [
+      { "enabled": true, "level": "warning" }
+    ],
+    "firewall-rule-allowing-ssh-from-all.json": [
+      { "enabled": true, "level": "danger" }
+    ],
+    "firewall-rule-allowing-rdp-from-all.json": [
+      { "enabled": true, "level": "danger" }
+    ],
+    "kms-cryptokey-anonymously-or-publicly-accessible.json": [
+      { "enabled": true, "level": "danger" }
+    ],
+    "kms-cryptokey-no-rotation.json": [
+      { "enabled": true, "level": "warning" }
+    ],
+    "iam-primitive-role-in-use.json": [
+      { "enabled": true, "level": "warning" }
+    ],
+    "iam-service-account-with-admin-privileges.json": [
+      { "enabled": true, "level": "danger" }
+    ],
+    "logging-no-export-sink.json": [
+      { "enabled": true, "level": "warning" }
+    ]
+  }
+}
