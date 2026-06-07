@@ -1,0 +1,49 @@
+# Finding-rule inventory for the pinned ScoutSuite (see requirements.lock).
+#
+# One finding-rule filename per line; '#' starts a comment. This is the offline
+# source of truth the curated aws-cis.json baseline is validated against in CI,
+# so the wrapper can be checked without installing GPL ScoutSuite.
+#
+# Regenerate against the actually-pinned ScoutSuite (run inside an env with the
+# '[scoutsuite]' extra installed):
+#
+#     python - <<'PY'
+#     from presidio_scoutsuite import ruleset
+#     print("\n".join(sorted(ruleset.installed_rules("aws"))))
+#     PY
+#
+# 'presidio-scout-validate --source installed' flags any drift between this
+# inventory and the installed ScoutSuite.
+
+iam-root-account-with-active-keys.json
+iam-root-account-used-recently.json
+iam-root-account-no-mfa.json
+iam-password-policy-minimum-length.json
+iam-password-policy-no-expiration.json
+iam-password-policy-reuse.json
+iam-user-with-multiple-access-keys.json
+iam-user-with-password-and-key.json
+iam-mfa-with-active-accesskeys.json
+iam-user-no-key-rotation.json
+iam-inline-policy-allows-NotActions.json
+cloudtrail-no-logging.json
+cloudtrail-no-global-services-logging.json
+cloudtrail-no-log-file-validation.json
+cloudtrail-no-encryption-with-kms.json
+cloudtrail-not-configured.json
+config-recorder-not-configured.json
+s3-bucket-world-acl.json
+s3-bucket-allowing-cleartext.json
+s3-bucket-no-default-encryption.json
+s3-bucket-no-logging.json
+s3-bucket-no-versioning.json
+ec2-security-group-opens-all-ports-to-all.json
+ec2-security-group-opens-ssh-port-to-all.json
+ec2-security-group-opens-rdp-port-to-all.json
+ec2-default-security-group-in-use.json
+ec2-instance-with-user-data-secrets.json
+vpc-default-security-group-with-rules.json
+vpc-subnet-without-flow-log.json
+rds-instance-publicly-accessible.json
+rds-instance-no-encryption.json
+kms-cmk-rotation-disabled.json

@@ -26,8 +26,18 @@ def test_invalid_passthrough_returns_2(tmp_path, capsys):
     assert "not on the hardened pass-through" in capsys.readouterr().err
 
 
+def test_azure_and_gcp_apply_bundled_baseline(tmp_path, capsys):
+    for provider in ("azure", "gcp"):
+        rc = cli.main([provider, "--report-dir", str(tmp_path / provider), "--dry-run"])
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert f"scout {provider}" in out
+        assert "--ruleset" in out  # bundled baseline applied by default
+
+
 def test_warns_when_no_bundled_ruleset(tmp_path, capsys):
-    rc = cli.main(["gcp", "--report-dir", str(tmp_path / "out"), "--dry-run"])
+    # oci ships no curated baseline yet → falls back to ScoutSuite's default.
+    rc = cli.main(["oci", "--report-dir", str(tmp_path / "out"), "--dry-run"])
     assert rc == 0
     err = capsys.readouterr().err
     assert "no bundled baseline ruleset" in err

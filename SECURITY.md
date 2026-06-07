@@ -4,7 +4,8 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 0.1.x   | ✅ Yes (current) |
+| 0.2.x   | ✅ Yes (current) |
+| 0.1.x   | ✅ Yes |
 
 ## Reporting a Vulnerability
 
@@ -44,13 +45,23 @@ redaction, supply-chain controls, and a least-privilege deployment model.
 - **Report guard (`report_guard`)** — a strict **Content-Security-Policy** is
   injected into every HTML report file (no remote/inline scripts), and a
   SHA-256 **integrity manifest** is recorded for the rendered report.
-- **Secure-by-default ruleset** — a curated, CIS-aligned AWS baseline is applied
-  by default (`--ruleset`), forcing high-impact IAM/logging/network controls to
-  `danger`. Opt out with `--no-baseline`.
-- **Least-privilege deployment** — bundled AWS audit role (`iam/aws/`): the two
-  managed read-only policies plus a supplemental policy with an explicit
-  **`Deny` on any non-read action**, and a trust policy requiring **MFA + a
-  random `ExternalId`**.
+- **Secure-by-default rulesets** — curated, CIS-aligned **AWS, Azure, and GCP**
+  baselines are applied by default (`--ruleset`), forcing high-impact
+  identity/logging/network/storage controls to `danger`. Opt out with
+  `--no-baseline`.
+- **Ruleset rule-name validation (`ruleset`)** — a baseline references finding
+  rules by *filename*; a typo or an upstream rename would make ScoutSuite
+  **silently drop** that control. `presidio-scout-validate` checks every
+  referenced rule against the pinned ScoutSuite's inventory — offline against a
+  checked-in manifest in CI, and against the **installed** ScoutSuite as a
+  hard release gate (`verify-rulesets`) so the manifest can't drift unnoticed.
+- **Least-privilege deployment** — bundled read-only audit identities per cloud:
+  AWS (`iam/aws/`: managed read-only policies + supplemental policy with an
+  explicit **`Deny` on any non-read action** + **MFA/`ExternalId`** trust),
+  Azure (`iam/azure/`: `Reader`+`Security Reader` or a custom `*/read` role with
+  **empty `dataActions`** so secret/key values stay unreadable), and GCP
+  (`iam/gcp/`: `viewer`+`securityReviewer` or a `*.list`/`*.get`-only custom
+  role, via service-account **impersonation** over downloaded keys).
 - **Supply-chain integrity** — hash-pinned `requirements.lock`
   (`--require-hashes`), CycloneDX **SBOM**, CodeQL, Dependabot, and
   **cosign-signed** release images with build **provenance** attestation. The

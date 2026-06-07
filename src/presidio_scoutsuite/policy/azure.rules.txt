@@ -1,0 +1,38 @@
+# Finding-rule inventory for the pinned ScoutSuite (see requirements.lock).
+#
+# One finding-rule filename per line; '#' starts a comment. This is the offline
+# source of truth the curated azure-cis.json baseline is validated against in CI,
+# so the wrapper can be checked without installing GPL ScoutSuite.
+#
+# Regenerate against the actually-pinned ScoutSuite (run inside an env with the
+# '[scoutsuite]' extra installed):
+#
+#     python - <<'PY'
+#     from presidio_scoutsuite import ruleset
+#     print("\n".join(sorted(ruleset.installed_rules("azure"))))
+#     PY
+#
+# 'presidio-scout-validate --source installed' flags any drift between this
+# inventory and the installed ScoutSuite.
+
+storageaccount-not-requiring-secure-transfer.json
+storageaccount-public-blob-access.json
+storageaccount-no-network-restriction.json
+storageaccount-no-soft-delete.json
+sqldatabase-no-transparent-data-encryption.json
+sqlserver-no-auditing.json
+sqlserver-public-network-access-enabled.json
+sqlserver-no-active-directory-admin.json
+network-security-group-allowing-ssh-from-all.json
+network-security-group-allowing-rdp-from-all.json
+network-watcher-disabled.json
+vm-no-disk-encryption.json
+vm-no-managed-disks.json
+keyvault-no-purge-protection.json
+keyvault-secret-no-expiration.json
+keyvault-key-no-expiration.json
+aad-no-mfa-for-privileged-users.json
+aad-guest-users-present.json
+rbac-custom-role-with-subscription-owner-permissions.json
+monitor-no-activity-log-alert-for-policy-changes.json
+monitor-no-activity-log-alert-for-nsg-changes.json

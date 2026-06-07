@@ -1,0 +1,38 @@
+# Finding-rule inventory for the pinned ScoutSuite (see requirements.lock).
+#
+# One finding-rule filename per line; '#' starts a comment. This is the offline
+# source of truth the curated gcp-cis.json baseline is validated against in CI,
+# so the wrapper can be checked without installing GPL ScoutSuite.
+#
+# Regenerate against the actually-pinned ScoutSuite (run inside an env with the
+# '[scoutsuite]' extra installed):
+#
+#     python - <<'PY'
+#     from presidio_scoutsuite import ruleset
+#     print("\n".join(sorted(ruleset.installed_rules("gcp"))))
+#     PY
+#
+# 'presidio-scout-validate --source installed' flags any drift between this
+# inventory and the installed ScoutSuite.
+
+cloudstorage-bucket-world-readable.json
+cloudstorage-bucket-uniform-access-disabled.json
+cloudstorage-bucket-no-versioning.json
+cloudsql-instance-public-ip.json
+cloudsql-instance-not-requiring-ssl.json
+cloudsql-instance-no-automated-backup.json
+gce-instance-with-public-ip.json
+gce-default-service-account-full-access.json
+gce-instance-without-os-login.json
+gce-instance-with-serial-port-enabled.json
+gce-instance-with-ip-forwarding-enabled.json
+firewall-rule-allowing-ssh-from-all.json
+firewall-rule-allowing-rdp-from-all.json
+firewall-default-rule-in-use.json
+kms-cryptokey-anonymously-or-publicly-accessible.json
+kms-cryptokey-no-rotation.json
+iam-primitive-role-in-use.json
+iam-service-account-with-admin-privileges.json
+iam-service-account-with-user-managed-key.json
+logging-no-export-sink.json
+logging-bucket-no-retention-policy.json

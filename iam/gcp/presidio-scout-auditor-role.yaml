@@ -1,0 +1,36 @@
+title: Presidio Scout Auditor
+description: >-
+  Least-privilege read-only role for ScoutSuite audits. Lists and reads resource
+  configuration and IAM policy only; no get on secret payloads, no mutate.
+stage: GA
+includedPermissions:
+  - resourcemanager.projects.get
+  - resourcemanager.projects.getIamPolicy
+  - resourcemanager.folders.get
+  - resourcemanager.folders.getIamPolicy
+  - resourcemanager.organizations.get
+  - resourcemanager.organizations.getIamPolicy
+  - iam.roles.list
+  - iam.roles.get
+  - iam.serviceAccounts.list
+  - iam.serviceAccounts.get
+  - iam.serviceAccountKeys.list
+  - compute.instances.list
+  - compute.instances.get
+  - compute.firewalls.list
+  - compute.firewalls.get
+  - compute.networks.list
+  - compute.subnetworks.list
+  - compute.disks.list
+  - storage.buckets.list
+  - storage.buckets.get
+  - storage.buckets.getIamPolicy
+  - cloudsql.instances.list
+  - cloudsql.instances.get
+  - cloudkms.keyRings.list
+  - cloudkms.cryptoKeys.list
+  - cloudkms.cryptoKeys.getIamPolicy
+  - logging.sinks.list
+  - logging.logMetrics.list
+  - monitoring.alertPolicies.list
+  - serviceusage.services.list

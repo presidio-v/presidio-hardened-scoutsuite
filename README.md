@@ -83,8 +83,12 @@ presidio-scout aws -- --profile auditor     # pass-through flags after '--' (all
 presidio-scout aws --fail-on-secret         # non-zero exit if a secret survives redaction
 presidio-scout aws --no-baseline            # use ScoutSuite's default ruleset instead
 presidio-scout aws --dry-run                # print the hardened command, run nothing
-presidio-scout azure                        # other providers (no curated baseline yet → warns)
+presidio-scout azure                        # Azure audit with the hardened Azure baseline
+presidio-scout gcp                          # GCP audit with the hardened GCP baseline
 ```
+
+AWS, Azure, and GCP each ship a curated baseline; other providers fall back to
+ScoutSuite's default ruleset (with a warning) until their baselines land.
 
 Anything after `--` is forwarded to ScoutSuite **only if it's on the
 pass-through allowlist** (`--profile`, `--region(s)`, `--services`, `--skip`,
@@ -113,24 +117,47 @@ print(len(guard.manifest), "files;", len(guard.html_hardened), "HTML hardened")
 
 ---
 
-## Least-privilege AWS role
+## Least-privilege audit identities
 
-ScoutSuite needs broad **read-only** access. The bundled role under
-[`iam/aws/`](./iam/aws/) grants exactly that and **nothing else**: the two AWS
-managed read-only policies, a supplemental read policy with an explicit `Deny`
-on any non-read action, and a trust policy requiring MFA + a random `ExternalId`.
-See [`iam/aws/README.md`](./iam/aws/README.md).
+ScoutSuite needs broad **read-only** access. Bundled, ready-to-apply identities
+grant exactly that and nothing else, per cloud:
+
+- **AWS** ([`iam/aws/`](./iam/aws/)) — the two managed read-only policies, a
+  supplemental read policy with an explicit `Deny` on any non-read action, and a
+  trust policy requiring MFA + a random `ExternalId`.
+- **Azure** ([`iam/azure/`](./iam/azure/)) — `Reader` + `Security Reader` (or a
+  custom `*/read` role with **no `dataActions`**, so secret/key values stay
+  unreadable), plus minimal directory read for the Azure AD findings.
+- **GCP** ([`iam/gcp/`](./iam/gcp/)) — `roles/viewer` +
+  `roles/iam.securityReviewer` (or a custom role listing only `*.list`/`*.get`
+  permissions), assumed via service-account **impersonation** over a downloaded
+  key.
 
 ---
 
-## Curated ruleset
+## Curated rulesets
 
-The default AWS baseline lives at
-[`src/presidio_scoutsuite/policy/aws-cis.json`](./src/presidio_scoutsuite/policy/aws-cis.json).
-It enables a CIS-aligned subset of ScoutSuite's AWS findings and elevates the
-high-impact ones to `danger`. Rule filenames track the **pinned** upstream
-ScoutSuite version in `requirements.lock`. Override with `--ruleset PATH` or opt
-out with `--no-baseline`.
+Curated baselines ship for **AWS, Azure, and GCP** under
+[`src/presidio_scoutsuite/policy/`](./src/presidio_scoutsuite/policy/)
+(`aws-cis.json`, `azure-cis.json`, `gcp-cis.json`). Each enables a CIS-aligned
+subset of ScoutSuite's findings and elevates the high-impact ones to `danger`.
+Override with `--ruleset PATH` or opt out with `--no-baseline`.
+
+A ruleset's keys are the **filenames** of finding rules that live inside
+ScoutSuite. If a baseline names a rule the pinned ScoutSuite doesn't ship (a typo
+or an upstream rename), ScoutSuite silently drops that control. To catch that,
+each provider ships a rule-name inventory (`policy/<provider>.rules.txt`) tracking
+the pinned upstream version, and a validator checks the baselines against it:
+
+```bash
+presidio-scout-validate                  # offline: baselines ⊆ checked-in manifests (runs in CI)
+presidio-scout-validate --source installed   # release: baselines ⊆ the installed ScoutSuite
+```
+
+CI runs the offline check on every push; the release pipeline runs the
+`installed` check against the pinned ScoutSuite so the manifest can't drift from
+upstream unnoticed. Regenerate a manifest with
+`ruleset.installed_rules("<provider>")` (see the header of each `.rules.txt`).
 
 ---
 
@@ -139,7 +166,7 @@ out with `--no-baseline`.
 | Version | Highlights |
 |---|---|
 | **0.1.0** | Out-of-process hardened launcher, report redaction + guard, AWS-first curated ruleset + least-privilege IAM, hardened container, full supply-chain posture |
-| **0.2.0** _(planned)_ | Azure + GCP curated rulesets & IAM; ruleset rule-name validation against the pinned ScoutSuite in CI |
+| **0.2.0** | Azure + GCP curated baselines & least-privilege IAM; ruleset rule-name validation against the pinned ScoutSuite (offline manifest in CI, installed-source drift check at release) |
 | **0.3.0** _(planned)_ | Deeper report guard (subresource integrity, offline viewer), signed report manifests |
 | **0.4.0** _(planned)_ | SLSA provenance verification on pull; reproducible-build attestation |
 
@@ -165,10 +192,11 @@ presidio-hardened-scoutsuite/
 │   ├── launcher.py        # build/run the hardened scout subprocess
 │   ├── redact.py          # secret detection + in-place redaction
 │   ├── report_guard.py    # CSP injection + integrity manifest
+│   ├── ruleset.py         # baseline rule-name validation (presidio-scout-validate)
 │   ├── cli.py             # presidio-scout entrypoint
 │   ├── errors.py          # exception hierarchy
-│   └── policy/aws-cis.json   # curated AWS baseline ruleset
-├── iam/aws/               # least-privilege audit role + trust policy
+│   └── policy/            # curated baselines (aws/azure/gcp-cis.json) + rule manifests
+├── iam/{aws,azure,gcp}/   # least-privilege audit identities per cloud
 ├── tests/
 ├── Dockerfile             # distroless, non-root
 ├── requirements.lock      # hash-pinned runtime tree (incl. ScoutSuite)
