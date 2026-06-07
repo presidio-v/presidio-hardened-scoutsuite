@@ -20,11 +20,13 @@ jobs:
         run: |
           python -m venv /tmp/sbomenv
           . /tmp/sbomenv/bin/activate
-          pip install --upgrade pip cyclonedx-bom
+          # Pin the generator so a future cyclonedx-py CLI change can't silently
+          # break the SBOM step (the --outfile -> --output-file rename did exactly that).
+          pip install --upgrade pip "cyclonedx-bom==7.3.0"
           # Resolve the pinned runtime tree (includes ScoutSuite) into the env.
           pip install --require-hashes -r requirements.lock || \
             pip install -r requirements.lock
-          cyclonedx-py environment --output-format JSON --outfile sbom.cdx.json
+          cyclonedx-py environment --output-format JSON --output-file sbom.cdx.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: sbom

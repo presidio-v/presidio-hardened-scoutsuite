@@ -1,0 +1,31 @@
+name: Publish to PyPI
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  id-token: write  # required for OIDC trusted publishing
+  contents: read   # required for actions/checkout
+
+jobs:
+  publish:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    # Bind to a protected environment so a manual workflow_dispatch (or release)
+    # publish to PyPI requires the reviewers/rules configured on the `pypi`
+    # environment in repo settings before the OIDC token is issued.
+    environment: pypi
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@caf0cab7a618c569241d31dcd442f54681755d39 # v3
+
+      - name: Build
+        run: uv build
+
+      - name: Publish
+        run: uv publish
