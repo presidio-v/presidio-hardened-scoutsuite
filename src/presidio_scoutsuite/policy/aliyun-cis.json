@@ -1,0 +1,23 @@
+{
+  "about": "Presidio-hardened Alibaba Cloud (aliyun) baseline for ScoutSuite. Fail-closed: high-impact RAM/logging/storage controls are forced to 'danger'. Rule filenames are verified against the pinned upstream ScoutSuite version declared in requirements.lock; CI validates every referenced rule against policy/aliyun.rules.txt before release.",
+  "rules": {
+    "actiontrail-not-configured.json": [{ "enabled": true, "level": "danger" }],
+    "actiontrail-not-enabled.json": [{ "enabled": true, "level": "danger" }],
+    "ecs-instance-with-deletion-protection-disabled.json": [{ "enabled": true, "level": "warning" }],
+    "ecs-instance-with-public-ip.json": [{ "enabled": true, "level": "warning" }],
+    "kms-no-key-rotation.json": [{ "enabled": true, "level": "warning" }],
+    "ram-password-policy-minimum-length.json": [{ "enabled": true, "level": "danger" }],
+    "ram-password-policy-no-expiration.json": [{ "enabled": true, "level": "warning" }],
+    "ram-password-policy-expiration-threshold.json": [{ "enabled": true, "level": "warning" }],
+    "ram-password-policy-no-lowercase-required.json": [{ "enabled": true, "level": "warning" }],
+    "ram-password-policy-no-number-required.json": [{ "enabled": true, "level": "warning" }],
+    "ram-password-policy-no-symbol-required.json": [{ "enabled": true, "level": "warning" }],
+    "ram-password-policy-no-uppercase-required.json": [{ "enabled": true, "level": "warning" }],
+    "ram-password-policy-reuse-enabled.json": [{ "enabled": true, "level": "warning" }],
+    "ram-user-lacking-mfa.json": [{ "enabled": true, "level": "danger" }],
+    "ram-user-unused-api-key.json": [{ "enabled": true, "level": "warning" }],
+    "ram-user-unused-console-password.json": [{ "enabled": true, "level": "warning" }],
+    "ram-user-with-multiple-api-keys.json": [{ "enabled": true, "level": "warning" }],
+    "ram-user-with-old-api-key.json": [{ "enabled": true, "level": "warning" }]
+  }
+}

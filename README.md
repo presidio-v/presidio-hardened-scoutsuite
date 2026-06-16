@@ -24,7 +24,7 @@ NCC Group's multi-cloud security auditing tool.
 |---|---|
 | **Runtime credential & data safety** | Env scrubbed to cloud creds only; 0700 report dir + `umask 0077`; secrets redacted out of the report and ScoutSuite's logs; `--fail-on-secret` gate |
 | **Report integrity & isolation** | Strict CSP + **Subresource Integrity** on local report assets; remote-reference detection (`--fail-on-remote-ref`); a signed-able **SHA-256 integrity manifest** verified offline with `presidio-scout-verify` |
-| **Secure-by-default policy** | Curated, CIS-aligned **AWS baseline ruleset** applied by default (high-impact IAM/logging/network controls forced to `danger`) |
+| **Secure-by-default policy** | Curated, CIS-aligned baselines for **AWS, Azure, GCP, Alibaba Cloud, and Oracle Cloud** applied by default (high-impact IAM/logging/network/storage controls forced to `danger`) |
 | **Supply-chain & build integrity** | Hash-pinned `requirements.lock`, pinned build backend, CycloneDX SBOM, CodeQL, Dependabot, **cosign-signed** images + SLSA build provenance, **reproducible** wheel/sdist, a `presidio-scout-verify-provenance` policy gate for what you pull, a **fail-closed preflight that the `scout` you run is the pinned, vetted ScoutSuite version**, and a release **vulnerability-scan gate** (`pip-audit` + Trivy + `presidio-scout-vuln-gate`) with **signed SBOM/provenance attestations** |
 | **Hardened deployment** | Distroless, non-root, `--read-only` container; bundled **least-privilege AWS audit role** (read-only + explicit `Deny`, MFA + `ExternalId` trust); hardened Kubernetes `Job`/`CronJob` + Helm chart (workload identity, read-only rootfs, dropped caps, seccomp, default-deny `NetworkPolicy`) |
 
@@ -102,10 +102,13 @@ presidio-scout aws --allow-unverified-scout # run even if scout isn't the pinned
 presidio-scout aws --dry-run                # print the hardened command, run nothing
 presidio-scout azure                        # Azure audit with the hardened Azure baseline
 presidio-scout gcp                          # GCP audit with the hardened GCP baseline
+presidio-scout aliyun                       # Alibaba Cloud audit with the hardened aliyun baseline
+presidio-scout oci                          # Oracle Cloud audit with the hardened oci baseline
 ```
 
-AWS, Azure, and GCP each ship a curated baseline; other providers fall back to
-ScoutSuite's default ruleset (with a warning) until their baselines land.
+AWS, Azure, GCP, Alibaba Cloud (`aliyun`), and Oracle Cloud (`oci`) each ship a
+curated, manifest-verified baseline applied by default; the launcher falls back to
+ScoutSuite's default ruleset (with a warning) for any provider without one.
 
 Anything after `--` is forwarded to ScoutSuite **only if it's on the
 pass-through allowlist** (`--profile`, `--region(s)`, `--services`, `--skip`,
@@ -668,12 +671,12 @@ planned (see the tables at the end).
 | **0.22.0** | Posture history & trend — `presidio-scout-trend` records each run to an append-only history and gates on **regression** (a new finding vs the previous run); persists across runs without keeping old reports |
 | **0.23.0** | Remediation guidance — curated per-rule fix steps + doc references (AWS/Azure/GCP, validated against the manifest); `presidio-scout-remediate` emits them and they fill the AWS Security Hub ASFF `Remediation` field |
 | **0.24.0** | Policy-as-code assertions — `presidio-scout-assert` evaluates a declarative `[[assert]]` policy (named rules over service / rule-glob / severity with a `max` count) richer than a single threshold; fail-closed, exit 4 on any violation |
+| **0.25.0** | Alibaba Cloud (`aliyun`) & Oracle Cloud (`oci`) baselines — curated, **manifest-verified** baselines + compliance maps for ScoutSuite's remaining providers (rule names reconciled against the real 5.14.0 source); all five providers now ship a hardened default |
 
 ### Planned — third arc: continuous assurance & remediation (0.22.0+)
 
 | Version | Planned |
 |---|---|
-| **0.25.0** | Aliyun & OCI baselines — curated, manifest-verified baselines + least-privilege IAM for the remaining providers |
 | **0.26.0** | Executive & multi-format reporting — Markdown/HTML exec summary, CSV export, fleet rollups |
 | **0.27.0** (stretch) | Stable extension API — MIT-safe plugin point for custom exporters / sinks / redactors |
 

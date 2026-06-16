@@ -36,6 +36,8 @@ _BUNDLED_RULESETS = {
     "aws": "aws-cis.json",
     "azure": "azure-cis.json",
     "gcp": "gcp-cis.json",
+    "aliyun": "aliyun-cis.json",
+    "oci": "oci-cis.json",
 }
 
 

@@ -1047,6 +1047,37 @@ Express richer pass/fail policy than a single severity threshold.
 
 ---
 
+## v0.25.0 — Alibaba Cloud & Oracle Cloud baselines (2026-06-16)
+
+Extend the curated, hardened defaults to ScoutSuite's two remaining providers so
+every provider the wrapper accepts ships a vetted baseline.
+
+**Design decisions:**
+
+- **Verified against the real 5.14.0 source (the 0.18 method).** The aliyun (18)
+  and oci (10) finding-rule names were taken from the upstream ScoutSuite 5.14.0
+  tree, not guessed — so the release `verify-rulesets --source installed` gate
+  (and the offline manifest gate) pass against an actual install.
+- **First-class, not bolted on.** Added both to `ruleset.VALIDATED_PROVIDERS`
+  (baseline + manifest, validated in CI), `compliance.MAPPED_PROVIDERS` (control
+  maps; NIST 800-53 + SOC 2 populated, CIS left empty pending verified benchmark
+  numbers rather than fabricated), and `cli._BUNDLED_RULESETS` (applied by
+  default). The existing parametrized tests now cover all five providers.
+- **Coherent set per provider** (manifest == baseline keys == compliance keys),
+  matching the AWS/Azure/GCP structure. Remediation guidance for aliyun/oci is a
+  later add — `presidio-scout-remediate` reports their findings as unmapped rather
+  than erroring.
+
+**Delivered:**
+- `policy/{aliyun,oci}.rules.txt`, `*-cis.json`, `*.controls.json`
+- `ruleset`/`compliance`/`cli` extended to five providers; version 0.25.0
+- Updated the cli fallback test (all five providers ship a baseline; the warning
+  branch is tested via monkeypatch); coverage 95% (≥90% gate); ruff clean
+- README *What hardened means* + CLI + roadmap rows; SECURITY.md baseline bullet +
+  supported-version bump; this log
+
+---
+
 ## Roadmap
 
 Delivered (0.1.0–0.15.0) — the planned arc is complete. The arc: **0.5** hardens
@@ -1124,7 +1155,7 @@ offline-testable).
 | **0.22.0** | **Posture history & trend** — `presidio-scout-trend record|show`: append each run to an append-only JSONL history; report new/resolved findings vs the previous run; fail-closed `--fail-on-regression` gate (block when a new finding appears). ✓ | operational / continuous · 0.10, 0.17, 0.19 |
 | **0.23.0** | **Remediation guidance** — curated per-rule remediation steps + doc links (bundled like the control maps, validated against the manifest; AWS 34 / Azure 26 / GCP 27); `presidio-scout-remediate` emits fix guidance per finding and fills the ASFF `Remediation` field. ✓ | policy / integration · 0.17, 0.20 |
 | **0.24.0** | **Policy-as-code assertions** — `presidio-scout-assert`: a declarative `[[assert]]` policy of named rules (service / rule-glob / `min_level` selectors + a `max` count) richer than a single severity threshold; fail-closed, exit 4 on any violation. ✓ | policy · 0.6, 0.8, 0.15 |
-| **0.25.0** | **Aliyun & OCI baselines** — curated, manifest-verified baselines + least-privilege IAM for ScoutSuite's remaining providers, reconciled against the real upstream source (the 0.18 method). | secure-by-default policy · 0.2, 0.18 |
+| **0.25.0** | **Alibaba Cloud & Oracle Cloud baselines** — curated, manifest-verified baselines + compliance maps for ScoutSuite's remaining providers, rule names reconciled against the real 5.14.0 source (the 0.18 method); all five providers now ship a hardened default. ✓ | secure-by-default policy · 0.2, 0.18 |
 | **0.26.0** | **Executive & multi-format reporting** — a self-contained Markdown/HTML executive summary + CSV export, and fleet rollups aggregating many targets into one view. | reporting · 0.17, 0.19 |
 | **0.27.0** (stretch) | **Stable extension API** — a documented, MIT-safe plugin entry point for custom exporters / sinks / redactors so orgs extend without forking. | extensibility · 0.20, 0.21 |
 

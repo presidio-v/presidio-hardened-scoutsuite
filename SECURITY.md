@@ -4,8 +4,8 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 0.24.x  | ✅ Yes (current) |
-| <0.24   | Best-effort security fixes only |
+| 0.25.x  | ✅ Yes (current) |
+| <0.25   | Best-effort security fixes only |
 
 ## Reporting a Vulnerability
 
@@ -51,8 +51,8 @@ redaction, supply-chain controls, and a least-privilege deployment model.
   rendered report — self-digested, optionally HMAC-signed
   (`PRESIDIO_MANIFEST_HMAC_KEY`) — and verified offline with
   **`presidio-scout-verify`**, which flags any modified/missing/added file.
-- **Secure-by-default rulesets** — curated, CIS-aligned **AWS, Azure, and GCP**
-  baselines are applied by default (`--ruleset`), forcing high-impact
+- **Secure-by-default rulesets** — curated, CIS-aligned **AWS, Azure, GCP,
+  Alibaba Cloud, and Oracle Cloud** baselines are applied by default (`--ruleset`), forcing high-impact
   identity/logging/network/storage controls to `danger`. Opt out with
   `--no-baseline`.
 - **Ruleset rule-name validation (`ruleset`)** — a baseline references finding
