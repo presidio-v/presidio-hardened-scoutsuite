@@ -24,8 +24,17 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@caf0cab7a618c569241d31dcd442f54681755d39 # v3
 
-      - name: Build
-        run: uv build
+      - name: Build (reproducible)
+        # Pin the build clock to the tagged commit's timestamp so the published
+        # wheel/sdist are a deterministic function of the source — anyone can
+        # rebuild from the same commit and confirm identical SHA-256 digests
+        # (see the reproducible-build CI job and the README).
+        run: |
+          SOURCE_DATE_EPOCH="$(git log -1 --pretty=%ct)"
+          export SOURCE_DATE_EPOCH
+          echo "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH"
+          uv build
+          sha256sum dist/*
 
       - name: Publish
         run: uv publish

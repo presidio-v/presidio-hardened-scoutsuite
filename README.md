@@ -25,7 +25,7 @@ NCC Group's multi-cloud security auditing tool.
 | **Runtime credential & data safety** | Env scrubbed to cloud creds only; 0700 report dir + `umask 0077`; secrets redacted out of the report and ScoutSuite's logs; `--fail-on-secret` gate |
 | **Report integrity & isolation** | Strict CSP + **Subresource Integrity** on local report assets; remote-reference detection (`--fail-on-remote-ref`); a signed-able **SHA-256 integrity manifest** verified offline with `presidio-scout-verify` |
 | **Secure-by-default policy** | Curated, CIS-aligned **AWS baseline ruleset** applied by default (high-impact IAM/logging/network controls forced to `danger`) |
-| **Supply-chain & build integrity** | Hash-pinned `requirements.lock`, CycloneDX SBOM, CodeQL, Dependabot, **cosign-signed** images + build provenance; release blocked if the lock isn't pinned |
+| **Supply-chain & build integrity** | Hash-pinned `requirements.lock`, CycloneDX SBOM, CodeQL, Dependabot, **cosign-signed** images + SLSA build provenance, **reproducible** wheel/sdist, and a `presidio-scout-verify-provenance` policy gate for what you pull; release blocked if the lock isn't pinned |
 | **Hardened deployment** | Distroless, non-root, `--read-only` container; bundled **least-privilege AWS audit role** (read-only + explicit `Deny`, MFA + `ExternalId` trust) |
 
 ---
@@ -155,6 +155,51 @@ a tampered local asset), and detection of any network-reaching reference
 
 ---
 
+## Verifying what you pull
+
+Release artifacts carry **SLSA build provenance** (the container image is
+`cosign`-signed with `provenance: mode=max`; the PyPI wheel ships attestations),
+and the wheel/sdist are a **reproducible** function of the source.
+
+A signature only proves an attestation is *authentic* — you still have to check
+it *says the right thing*. `presidio-scout-verify-provenance` is that policy
+gate, run **after** `cosign` has cryptographically verified the attestation:
+
+```bash
+# 1. cosign verifies the signature + transparency-log entry (crypto + network)
+cosign verify-attestation --type slsaprovenance \
+  --certificate-identity-regexp '^https://github.com/presidio-v/.*' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  ghcr.io/presidio-v/presidio-hardened-scoutsuite@sha256:DIGEST \
+  --output text > prov.jsonl
+
+# 2. presidio enforces the policy: built by this repo's CI, from this source,
+#    for this exact digest (exit 0 verified · 3 policy mismatch · 2 unparseable)
+presidio-scout-verify-provenance prov.jsonl --digest sha256:DIGEST
+```
+
+It understands both SLSA provenance `v0.2` (buildx) and `v1` (slsa-github-generator)
+predicates, and checks the **builder identity**, **source repository**,
+**predicate type**, and that the **artifact digest** is actually attested.
+Override the expected source/builder with `--source-uri` / `--builder-id-prefix`.
+
+**Reproducible build.** Builds are pinned to the tagged commit's timestamp
+(`SOURCE_DATE_EPOCH`), so anyone can rebuild from the same commit and confirm
+the **wheel** is byte-identical to what was published — and CI fails the
+`reproducible-build` job if two builds diverge:
+
+```bash
+SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct) python -m build
+sha256sum dist/*.whl          # compare against the published wheel's digest
+```
+
+(The `.tar.gz` sdist is reproducible at the *content* level; its gzip container
+carries an mtime that isn't part of the archived files, so compare it with
+`gzip -dc dist/*.tar.gz | sha256sum` rather than the raw bytes — which is exactly
+what the CI gate does.)
+
+---
+
 ## Least-privilege audit identities
 
 ScoutSuite needs broad **read-only** access. Bundled, ready-to-apply identities
@@ -206,7 +251,7 @@ upstream unnoticed. Regenerate a manifest with
 | **0.1.0** | Out-of-process hardened launcher, report redaction + guard, AWS-first curated ruleset + least-privilege IAM, hardened container, full supply-chain posture |
 | **0.2.0** | Azure + GCP curated baselines & least-privilege IAM; ruleset rule-name validation against the pinned ScoutSuite (offline manifest in CI, installed-source drift check at release) |
 | **0.3.0** | Deeper report guard — Subresource Integrity on local assets, offline-viewer (remote-reference) enforcement, and a signed-able, offline-verifiable report manifest (`presidio-scout-verify`) |
-| **0.4.0** _(planned)_ | SLSA provenance verification on pull; reproducible-build attestation |
+| **0.4.0** | SLSA build-provenance policy verification (`presidio-scout-verify-provenance`, v0.2 + v1) and a reproducible wheel/sdist with a `reproducible-build` CI gate |
 
 ---
 
@@ -232,10 +277,11 @@ presidio-hardened-scoutsuite/
 │   ├── report_guard.py    # CSP + SRI injection, remote-ref detection, manifest write
 │   ├── manifest.py        # integrity-manifest shape, self-digest, HMAC signing
 │   ├── verify.py          # offline report verification (presidio-scout-verify)
+│   ├── provenance.py      # SLSA provenance policy gate (presidio-scout-verify-provenance)
 │   ├── ruleset.py         # baseline rule-name validation (presidio-scout-validate)
 │   ├── cli.py             # presidio-scout entrypoint
 │   ├── errors.py          # exception hierarchy
-│   └── policy/            # curated baselines (aws/azure/gcp-cis.json) + rule manifests
+│   └── policy/            # curated baselines + rule manifests + provenance-policy.json
 ├── iam/{aws,azure,gcp}/   # least-privilege audit identities per cloud
 ├── tests/
 ├── Dockerfile             # distroless, non-root

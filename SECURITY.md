@@ -70,9 +70,18 @@ redaction, supply-chain controls, and a least-privilege deployment model.
   role, via service-account **impersonation** over downloaded keys).
 - **Supply-chain integrity** — hash-pinned `requirements.lock`
   (`--require-hashes`), CycloneDX **SBOM**, CodeQL, Dependabot, and
-  **cosign-signed** release images with build **provenance** attestation. The
-  release pipeline **refuses to publish** an image whose lockfile isn't
-  hash-pinned.
+  **cosign-signed** release images with **SLSA build-provenance** attestation.
+  The release pipeline **refuses to publish** an image whose lockfile isn't
+  hash-pinned. The wheel/sdist build is **reproducible** (pinned
+  `SOURCE_DATE_EPOCH`), enforced by a `reproducible-build` CI gate that builds
+  twice and requires byte-identical digests.
+- **Provenance policy verification** — `presidio-scout-verify-provenance` checks
+  a *cryptographically verified* SLSA provenance statement (from `cosign
+  verify-attestation`) against this distribution's policy: the expected builder
+  identity, source repository, predicate type, and the specific artifact digest.
+  It is a fail-closed **policy gate**, not signature verification — so an
+  authentic-but-wrong attestation (right signer, wrong source/builder/digest) is
+  still rejected.
 - **Hardened container** — distroless, **non-root**, designed to run with
   `--read-only --tmpfs /tmp`; ships no shell or package manager.
 

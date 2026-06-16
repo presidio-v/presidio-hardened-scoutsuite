@@ -1,0 +1,12 @@
+{
+  "_comment": "Expected SLSA build-provenance policy for presidio-hardened-scoutsuite release artifacts. Enforced by presidio_scoutsuite.provenance AFTER the attestation's signature has been cryptographically verified (e.g. cosign verify-attestation). Override any field with the CLI flags on presidio-scout-verify-provenance.",
+  "expected_source_uri": "https://github.com/presidio-v/presidio-hardened-scoutsuite",
+  "builder_id_prefixes": [
+    "https://github.com/presidio-v/presidio-hardened-scoutsuite/",
+    "https://github.com/slsa-framework/slsa-github-generator/"
+  ],
+  "allowed_predicate_types": [
+    "https://slsa.dev/provenance/v0.2",
+    "https://slsa.dev/provenance/v1"
+  ]
+}
