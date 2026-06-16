@@ -405,9 +405,46 @@ from the installed package (`ruleset.installed_rules`) and the release-time
 
 ---
 
+## v0.9.0 — Signed run attestation (2026-06-16)
+
+**Design decisions:**
+
+- **One statement about the *run*, chaining the existing layers.** 0.3 records
+  what the report contains (manifest) and verifies it; 0.4 verifies how
+  *artifacts* were built; 0.5 checks *which* ScoutSuite ran. `attestation.py`
+  ties these together: an in-toto v1 statement whose **subject is the report's
+  integrity manifest** (by SHA-256) and whose predicate records provider, the
+  curated ruleset's digest, the verified ScoutSuite version, the wrapper
+  version, the manifest's own content digest, and optional finding counts. The
+  chain — report files → manifest (verified by `presidio-scout-verify`) →
+  attestation subject → cosign signature — is what makes it meaningful.
+- **Build/verify here; sign with cosign.** Same split as 0.4's provenance gate:
+  the heavy crypto (sign-blob, Fulcio/Rekor) stays in cosign; this module
+  produces the statement and `verify_attestation` does the *binding* check
+  (predicate type, subject digest == on-disk manifest, recorded content digest
+  == manifest's). No runtime crypto deps.
+- **Written even when the findings gate trips.** In a run, `--attest` is emitted
+  alongside `--sarif` *before* the `--fail-on-finding` exit, so a gated pipeline
+  still produces the signed record of what it audited. The integrity preflight's
+  detected ScoutSuite version is captured and recorded.
+- **Standalone generate/verify too.** `presidio-scout-attest generate|verify`
+  works against any guarded report offline (`--scout-version` defaults to the
+  pinned version; `--ruleset` recorded by digest).
+
+**Delivered:**
+- `attestation.py` (`build_attestation`, `attest_report`, `verify_attestation`,
+  `AttestationResult`) + `AttestationError`; `presidio-scout-attest` console
+  script; `--attest PATH` on the main CLI (captures scout version + ruleset)
+- Public API exports (`build_attestation`, `attest_report`, `verify_attestation`)
+- `test_attestation.py` + CLI tests (emitted during run, emitted even when gate
+  trips, tamper detection); coverage 96% (≥90% gate); ruff clean
+- README *Signed run attestation* section, SECURITY.md, this log
+
+---
+
 ## Roadmap
 
-Delivered (0.1.0–0.8.0) and planned (0.9.0–0.15.0). The arc: **0.5** hardens
+Delivered (0.1.0–0.9.0) and planned (0.10.0–0.15.0). The arc: **0.5** hardens
 *what runs*; **0.6–0.8** turn findings into an enforceable, waiver-aware policy
 gate; **0.9–0.10** make every run attested and comparable over time; **0.11–0.14**
 harden how it's built and deployed; **0.15** makes it configurable for an org.
@@ -424,7 +461,7 @@ ScoutSuite, MIT wrapper, stdlib runtime, fail-closed, offline-testable.
 | **0.6.0** | **Findings model + severity gate** — parse the `scoutsuite-results` data off disk into a deterministic findings summary; `--fail-on-finding danger\|warning` + standalone `presidio-scout-findings` (fail-closed, exit 4). ✓ | secure-by-default policy |
 | **0.7.0** | **SARIF export + code-scanning** — `presidio-scout-export` + `presidio-scout --sarif PATH` emit SARIF 2.1.0 (severity-mapped, per-resource, stable fingerprints); documented `upload-sarif` Action. ✓ | policy / integration · 0.6 |
 | **0.8.0** | **Waivers / exceptions framework** — checked-in JSON waivers (rule + resource + justification + owner + **expiry**); applied to the gate/SARIF via `--waivers`; **expired/malformed waivers fail closed**. ✓ | policy · 0.6 |
-| **0.9.0** | **Signed run attestation** — an in-toto statement binding inputs (provider, ruleset digest, verified ScoutSuite version) → outputs (report-manifest digest), verifiable with the existing tooling. | supply-chain integrity · 0.3, 0.4, 0.5 |
+| **0.9.0** | **Signed run attestation** — an in-toto statement binding inputs (provider, ruleset digest, verified ScoutSuite version) → output (report-manifest digest); `presidio-scout --attest` + `presidio-scout-attest generate/verify`, cosign-signable. ✓ | supply-chain integrity · 0.3, 0.4, 0.5 |
 | **0.10.0** | **Drift detection / run diff** — `presidio-scout-diff` over two report manifests / finding sets; surfaces newly-introduced vs resolved findings; `--fail-on-new-finding`. | policy / operational · 0.6, 0.9 |
 | **0.11.0** | **Reproducible, multi-arch container + image provenance E2E** — reproducible + arm64 image; release gate running `cosign verify-attestation` + `presidio-scout-verify-provenance` on the freshly pushed image before promotion; documented pre-`docker run` verification. | supply-chain + deployment · 0.4 |
 | **0.12.0** | **Credential brokering / keyless auth** — auto-assume the bundled least-privilege audit role (AWS STS + ExternalId/MFA; GCP SA impersonation; Azure Reader) via the cloud CLI as a subprocess, and OIDC in CI, so operators never pass long-lived keys. | runtime credential safety · iam/ |

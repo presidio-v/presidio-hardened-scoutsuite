@@ -92,6 +92,7 @@ presidio-scout aws --fail-on-remote-ref     # non-zero exit if the report refere
 presidio-scout aws --fail-on-finding danger # exit 4 if any flagged finding is danger (gate a pipeline)
 presidio-scout aws --sarif results.sarif    # also emit SARIF for GitHub code scanning
 presidio-scout aws --waivers waivers.json --fail-on-finding danger  # suppress accepted findings
+presidio-scout aws --attest run.intoto.json # emit a signed-able run attestation
 presidio-scout aws --no-baseline            # use ScoutSuite's default ruleset instead
 presidio-scout aws --allow-unverified-scout # run even if scout isn't the pinned version (warns)
 presidio-scout aws --dry-run                # print the hardened command, run nothing
@@ -160,6 +161,26 @@ offline**: a strict CSP (`default-src 'none'`, no remote/inline script),
 Subresource Integrity on every local `<script>`/stylesheet (the browser refuses
 a tampered local asset), and detection of any network-reaching reference
 (`--fail-on-remote-ref` turns one into a non-zero exit).
+
+### Signed run attestation
+
+`presidio-scout aws --attest run.intoto.json` (or `presidio-scout-attest
+generate`) emits an **in-toto statement about the run itself**: its subject is
+the report's integrity manifest (by SHA-256), and its predicate records the
+inputs — provider, the curated ruleset's digest, the verified ScoutSuite
+version, this wrapper's version, the manifest's content digest, and finding
+counts. Sign it as a blob for a complete, portable record:
+
+```bash
+cosign sign-blob run.intoto.json --output-signature run.intoto.json.sig
+presidio-scout-attest verify ./scoutsuite-report run.intoto.json  # binding check
+```
+
+This chains the layers: report files → manifest (`presidio-scout-verify`) →
+attestation subject (this) → signature. `presidio-scout-attest verify` confirms
+the statement still describes the report on disk (subject + manifest digest
+match); cosign confirms the signature. Together they prove *this exact report
+was produced by this provider, with this ruleset, by this vetted ScoutSuite.*
 
 ---
 
@@ -327,7 +348,7 @@ upstream unnoticed. Regenerate a manifest with
 | **0.6.0** | Findings model + severity gate — `presidio-scout --fail-on-finding danger\|warning` and the standalone `presidio-scout-findings`, parsed from the report data (fail-closed; exit 4) |
 | **0.7.0** | SARIF export + GitHub code-scanning — `presidio-scout-export` and `presidio-scout --sarif PATH` emit SARIF 2.1.0 (severity-mapped, per-resource, stable fingerprints) |
 | **0.8.0** | Waivers / exceptions framework — checked-in JSON waivers (justification + owner + expiry; resource-level globs), applied to the gate/SARIF via `--waivers`; expired/malformed waivers fail closed |
-| **0.9.0** _(planned)_ | Signed run attestation — in-toto statement binding run inputs to the report-manifest digest |
+| **0.9.0** | Signed run attestation — in-toto statement binding run inputs (provider, ruleset digest, ScoutSuite version) to the report-manifest digest; `presidio-scout --attest` + `presidio-scout-attest generate/verify` |
 | **0.10.0** _(planned)_ | Drift detection / run diff (`presidio-scout-diff`, `--fail-on-new-finding`) |
 | **0.11.0** _(planned)_ | Reproducible, multi-arch container + end-to-end image provenance verification at release |
 | **0.12.0** _(planned)_ | Credential brokering / keyless auth — auto-assume the bundled least-privilege audit role; OIDC in CI |
@@ -367,6 +388,7 @@ presidio-hardened-scoutsuite/
 │   ├── findings.py        # findings model + severity gate (presidio-scout-findings)
 │   ├── sarif.py           # SARIF 2.1.0 export for code scanning (presidio-scout-export)
 │   ├── waivers.py         # expiring findings waivers / exceptions (--waivers)
+│   ├── attestation.py     # in-toto run attestation (presidio-scout-attest)
 │   ├── ruleset.py         # baseline rule-name validation (presidio-scout-validate)
 │   ├── cli.py             # presidio-scout entrypoint
 │   ├── errors.py          # exception hierarchy

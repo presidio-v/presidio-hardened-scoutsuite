@@ -391,6 +391,65 @@ def test_bad_waiver_file_fails_closed(tmp_path, monkeypatch, capsys):
     assert "cannot read findings" in capsys.readouterr().err
 
 
+def test_attest_written_during_run(tmp_path, monkeypatch, capsys):
+    import json
+
+    from presidio_scoutsuite import attestation
+
+    report_dir = tmp_path / "out"
+    attest_path = tmp_path / "run.intoto.json"
+    _verify_ok(monkeypatch)
+
+    def fake_run(plan, timeout=None):
+        (plan.report_dir / "report.html").write_text("<html><head></head><body>ok</body></html>")
+        return subprocess.CompletedProcess(plan.argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(launcher, "run", fake_run)
+    rc = cli.main(["aws", "--report-dir", str(report_dir), "--attest", str(attest_path)])
+    assert rc == 0
+    assert "run attestation" in capsys.readouterr().out
+    statement = json.loads(attest_path.read_text())
+    assert statement["predicateType"] == attestation.PREDICATE_TYPE
+    assert statement["predicate"]["provider"] == "aws"
+    # The freshly written attestation verifies against the report it describes.
+    assert attestation.verify_attestation(report_dir, statement).ok
+
+
+def test_attest_written_even_when_gate_trips(tmp_path, monkeypatch, capsys):
+    report_dir = tmp_path / "out"
+    attest_path = tmp_path / "run.intoto.json"
+    _verify_ok(monkeypatch)
+
+    def fake_run(plan, timeout=None):
+        (plan.report_dir / "report.html").write_text("<html><head></head><body>ok</body></html>")
+        _write_results(
+            plan.report_dir,
+            {
+                "provider_code": "aws",
+                "services": {
+                    "s3": {"findings": {"w.json": {"level": "danger", "flagged_items": 1}}}
+                },
+            },
+        )
+        return subprocess.CompletedProcess(plan.argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(launcher, "run", fake_run)
+    rc = cli.main(
+        [
+            "aws",
+            "--report-dir",
+            str(report_dir),
+            "--fail-on-finding",
+            "danger",
+            "--attest",
+            str(attest_path),
+        ]
+    )
+    # Gate trips (exit 4) but the attestation is still written.
+    assert rc == 4
+    assert attest_path.exists()
+
+
 def test_dry_run_skips_integrity_gate(tmp_path, monkeypatch, capsys):
     # --dry-run runs nothing, so it must not require a verified scout.
     def boom(*a, **k):
