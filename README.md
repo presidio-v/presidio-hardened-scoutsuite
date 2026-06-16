@@ -638,8 +638,9 @@ does this automatically on a version bump).
 **v0.21.0**) across two complete arcs — the single-run hardened auditor (0.1–0.15)
 and fleet tooling & integrations (0.16–0.21). The release pipeline has shipped
 **v0.18.0** (PyPI + cosign-signed, attested image); 0.19–0.21 are on `main` awaiting
-a release tag. A third arc — *continuous assurance & remediation* (0.22.0+) — is
-planned (see the table at the end).
+a release tag. A third arc — *continuous assurance & remediation* (0.22.0+) — and
+a fourth arc — *consortium interop & the evidence substrate* (0.28.0+) — are
+planned (see the tables at the end).
 
 | Version | Highlights |
 |---|---|
@@ -675,6 +676,27 @@ planned (see the table at the end).
 | **0.25.0** | Aliyun & OCI baselines — curated, manifest-verified baselines + least-privilege IAM for the remaining providers |
 | **0.26.0** | Executive & multi-format reporting — Markdown/HTML exec summary, CSV export, fleet rollups |
 | **0.27.0** (stretch) | Stable extension API — MIT-safe plugin point for custom exporters / sinks / redactors |
+
+### Planned — fourth arc: consortium interop & the evidence substrate (0.28.0+)
+
+This arc makes a ScoutSuite audit a **first-class evidence producer** in the
+`presidio-hardened-*` family. A *clean* curated control (no `danger`/`warning`
+finding for its mapped rules) becomes a signed `EvidenceRef`
+(`presidio-hardened/evidence-ref@1`) that a peer **consumer** —
+`presidio-hardened-ikigov-assess` — verifies fail-closed and uses to affirm its
+governance checklist items, upgrading them from *self-attested* to
+*affirmed-by-evidence*. ScoutSuite becomes the second producer in the consortium
+(after `presidio-hardened-ai`); ikigov-assess consumes both. The wire format
+(canonical JSON + SHA-256 + detached Ed25519/HMAC) is the one shared in the
+`presidio-evidence` library — vendored inline and cross-validated against its
+golden vectors until that library ships its implementation, exactly as
+ikigov-assess does today.
+
+| Version | Planned |
+|---|---|
+| **0.28.0** | Signed finding evidence (presidio-evidence **producer**) — `evidence.py` + `presidio-scout-evidence` (`emit`/`verify`) + `presidio-scout --evidence-out PATH`: emit a signed `EvidenceRef` envelope per clean curated control (content hash over the canonical control subject, `ledger_ref` bound to the report-manifest digest), Ed25519 (optional `[crypto]`) + HMAC (stdlib), fail-closed; a curated rule→checklist-item map validated against the rule manifest; golden-vector conformance against `presidio-evidence/vectors/` |
+| **0.29.0** | Trust store, rotation & interop hardening — `verify --trust` against `presidio-hardened/trust-store@1` (key rotation, signer-bound signatures, tamper cases fail closed) and a cross-repo interop golden proving ikigov-assess verifies a ScoutSuite-emitted envelope |
+| **0.30.0** (stretch) | Library extraction & evidence consumption — migrate the vendored contract to `presidio-evidence>=0.2.0` imports, and optionally ingest peer evidence to annotate findings with provenance (mirror of ikigov-assess's consumer side) |
 
 See [`PRESIDIO-REQ.md`](./PRESIDIO-REQ.md) for the per-version rationale,
 dependencies, delivery status, and open design questions.
