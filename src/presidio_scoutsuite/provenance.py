@@ -168,38 +168,78 @@ class Provenance:
         return ""
 
 
+def _extract_statement(obj: object) -> dict | None:
+    """Recursively locate an in-toto statement inside a decoded JSON value.
+
+    Handles a bare statement (a dict with ``predicateType``), a DSSE envelope
+    (decoding its base64 ``payload``), and arbitrarily nested forms such as the
+    array ``gh attestation verify --format json`` emits (each element wrapping a
+    sigstore bundle around the statement).
+    """
+
+    if isinstance(obj, dict):
+        if "predicateType" in obj:
+            return obj
+        payload = obj.get("payload")
+        if isinstance(payload, str):
+            try:
+                decoded = json.loads(base64.b64decode(payload))
+            except (ValueError, TypeError):
+                decoded = None
+            if isinstance(decoded, dict) and "predicateType" in decoded:
+                return decoded
+        for value in obj.values():
+            found = _extract_statement(value)
+            if found is not None:
+                return found
+    elif isinstance(obj, list):
+        for item in obj:
+            found = _extract_statement(item)
+            if found is not None:
+                return found
+    return None
+
+
 def load_statement(data: str | bytes) -> Provenance:
     """Parse a provenance statement from raw text.
 
     Accepts a bare in-toto Statement, a DSSE envelope (``{"payload": "<base64>",
-    "payloadType": …}``) whose payload is base64-decoded, or a single line of
-    cosign's JSON-Lines attestation output (each line being one such envelope).
+    "payloadType": …}``), a line of cosign's JSON-Lines ``verify-attestation``
+    output, or the JSON array ``gh attestation verify --format json`` emits — the
+    in-toto statement is located in any of these.
     """
 
     text = data.decode("utf-8") if isinstance(data, bytes) else data
     text = text.strip()
     if not text:
         raise ProvenanceVerificationError("empty provenance input")
-    # cosign emits JSON-Lines; verify the first non-empty line.
-    first = next((ln for ln in text.splitlines() if ln.strip()), "")
-    try:
-        obj = json.loads(first)
-    except ValueError as exc:
-        raise ProvenanceVerificationError(f"provenance is not valid JSON: {exc}") from exc
 
-    if isinstance(obj, dict) and "payload" in obj and "predicateType" not in obj:
+    # Whole-document JSON (bare statement, DSSE envelope, or a gh/cosign JSON
+    # array); fall back to the first non-empty line for cosign's JSON-Lines text.
+    try:
+        obj: object = json.loads(text)
+    except ValueError:
+        first = next((ln for ln in text.splitlines() if ln.strip()), "")
         try:
-            obj = json.loads(base64.b64decode(obj["payload"]))
+            obj = json.loads(first)
+        except ValueError as exc:
+            raise ProvenanceVerificationError(f"provenance is not valid JSON: {exc}") from exc
+
+    # A lone DSSE envelope with an undecodable payload is a clear, common error.
+    if isinstance(obj, dict) and "predicateType" not in obj and isinstance(obj.get("payload"), str):
+        try:
+            json.loads(base64.b64decode(obj["payload"]))
         except (ValueError, TypeError) as exc:
             raise ProvenanceVerificationError(f"cannot decode DSSE payload: {exc}") from exc
 
-    if not isinstance(obj, dict) or "predicateType" not in obj:
+    statement = _extract_statement(obj)
+    if statement is None:
         raise ProvenanceVerificationError(
             "input is not an in-toto provenance statement (no predicateType)"
         )
-    if obj.get("_type") and obj["_type"] not in _STATEMENT_TYPES:
-        raise ProvenanceVerificationError(f"unsupported statement type {obj['_type']!r}")
-    return Provenance(statement=obj)
+    if statement.get("_type") and statement["_type"] not in _STATEMENT_TYPES:
+        raise ProvenanceVerificationError(f"unsupported statement type {statement['_type']!r}")
+    return Provenance(statement=statement)
 
 
 @dataclass

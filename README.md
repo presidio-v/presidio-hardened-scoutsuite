@@ -289,9 +289,26 @@ presidio-scout-verify-provenance prov.jsonl --digest sha256:DIGEST
 ```
 
 It understands both SLSA provenance `v0.2` (buildx) and `v1` (slsa-github-generator)
-predicates, and checks the **builder identity**, **source repository**,
-**predicate type**, and that the **artifact digest** is actually attested.
-Override the expected source/builder with `--source-uri` / `--builder-id-prefix`.
+predicates — and reads a bare statement, a DSSE envelope, cosign's JSON-Lines, or
+the output of `gh attestation verify --format json` — and checks the **builder
+identity**, **source repository**, **predicate type**, and that the **artifact
+digest** is actually attested. Override the expected source/builder with
+`--source-uri` / `--builder-id-prefix`.
+
+**Container image.** The released image is **multi-arch** (`linux/amd64` +
+`linux/arm64`) with timestamps pinned to the tagged commit (reproducible
+digests), `cosign`-signed, and carries GitHub-signed SLSA build provenance. The
+release pipeline re-verifies the freshly published image end-to-end before the
+run is marked good; you can do the same:
+
+```bash
+cosign verify ghcr.io/presidio-v/presidio-hardened-scoutsuite@sha256:DIGEST \
+  --certificate-identity-regexp '^https://github.com/presidio-v/.*release\.yml@refs/tags/v' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+gh attestation verify oci://ghcr.io/presidio-v/presidio-hardened-scoutsuite@sha256:DIGEST \
+  --repo presidio-v/presidio-hardened-scoutsuite --format json \
+  | presidio-scout-verify-provenance - --digest sha256:DIGEST
+```
 
 **Reproducible build.** Builds are pinned to the tagged commit's timestamp
 (`SOURCE_DATE_EPOCH`), so anyone can rebuild from the same commit and confirm
@@ -368,7 +385,7 @@ upstream unnoticed. Regenerate a manifest with
 | **0.8.0** | Waivers / exceptions framework — checked-in JSON waivers (justification + owner + expiry; resource-level globs), applied to the gate/SARIF via `--waivers`; expired/malformed waivers fail closed |
 | **0.9.0** | Signed run attestation — in-toto statement binding run inputs (provider, ruleset digest, ScoutSuite version) to the report-manifest digest; `presidio-scout --attest` + `presidio-scout-attest generate/verify` |
 | **0.10.0** | Drift detection / run diff — `presidio-scout-diff` compares two reports at resource granularity (new vs resolved findings), with `--fail-on-new-finding {any,warning,danger}` |
-| **0.11.0** _(planned)_ | Reproducible, multi-arch container + end-to-end image provenance verification at release |
+| **0.11.0** | Reproducible, multi-arch (`amd64`+`arm64`) container; GitHub-signed image provenance; a release `verify-image` gate that re-checks the signature + provenance (cosign + `presidio-scout-verify-provenance`) end-to-end |
 | **0.12.0** _(planned)_ | Credential brokering / keyless auth — auto-assume the bundled least-privilege audit role; OIDC in CI |
 | **0.13.0** _(planned)_ | Kubernetes deployment — least-privilege Job/CronJob + Helm (IRSA / Workload Identity), seccomp, egress policy |
 | **0.14.0** _(planned)_ | Vulnerability-scan gate + signed SBOM/vuln attestations verified alongside provenance |
