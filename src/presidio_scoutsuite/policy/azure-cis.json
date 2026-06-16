@@ -1,47 +1,31 @@
 {
-  "about": "Presidio-hardened Azure baseline for ScoutSuite. CIS-aligned, fail-closed: high-impact storage/SQL/network/identity controls are forced to 'danger'. Rule filenames track the pinned upstream ScoutSuite version declared in requirements.lock; CI validates every referenced rule against the policy/azure.rules.txt inventory before release.",
+  "about": "Presidio-hardened Azure baseline for ScoutSuite. CIS-aligned, fail-closed: high-impact storage/SQL/network/identity controls are forced to 'danger'. Rule filenames are verified against the pinned upstream ScoutSuite version declared in requirements.lock; CI validates every referenced rule against the policy/azure.rules.txt inventory before release.",
   "rules": {
-    "storageaccount-not-requiring-secure-transfer.json": [
-      { "enabled": true, "level": "danger" }
-    ],
-    "storageaccount-public-blob-access.json": [
-      { "enabled": true, "level": "danger" }
-    ],
-    "storageaccount-no-network-restriction.json": [
-      { "enabled": true, "level": "warning" }
-    ],
-    "sqldatabase-no-transparent-data-encryption.json": [
-      { "enabled": true, "level": "danger" }
-    ],
-    "sqlserver-no-auditing.json": [
-      { "enabled": true, "level": "danger" }
-    ],
-    "sqlserver-public-network-access-enabled.json": [
-      { "enabled": true, "level": "danger" }
-    ],
-    "network-security-group-allowing-ssh-from-all.json": [
-      { "enabled": true, "level": "danger" }
-    ],
-    "network-security-group-allowing-rdp-from-all.json": [
-      { "enabled": true, "level": "danger" }
-    ],
-    "vm-no-disk-encryption.json": [
-      { "enabled": true, "level": "danger" }
-    ],
-    "keyvault-no-purge-protection.json": [
-      { "enabled": true, "level": "warning" }
-    ],
-    "keyvault-secret-no-expiration.json": [
-      { "enabled": true, "level": "warning" }
-    ],
-    "aad-no-mfa-for-privileged-users.json": [
-      { "enabled": true, "level": "danger" }
-    ],
-    "rbac-custom-role-with-subscription-owner-permissions.json": [
-      { "enabled": true, "level": "warning" }
-    ],
-    "monitor-no-activity-log-alert-for-policy-changes.json": [
-      { "enabled": true, "level": "warning" }
-    ]
+    "storageaccount-account-allowing-clear-text.json": [{ "enabled": true, "level": "danger" }],
+    "storageaccount-public-blob-container.json": [{ "enabled": true, "level": "danger" }],
+    "storageaccount-public-traffic-allowed.json": [{ "enabled": true, "level": "warning" }],
+    "storageaccount-encrypted-not-customer-managed.json": [{ "enabled": true, "level": "warning" }],
+    "storageaccount-access-keys-not-rotated.json": [{ "enabled": true, "level": "warning" }],
+    "sqldatabase-servers-no-auditing.json": [{ "enabled": true, "level": "danger" }],
+    "sqldatabase-databases-no-transparent-data-encryption.json": [{ "enabled": true, "level": "danger" }],
+    "sqldatabase-allow-any-ip.json": [{ "enabled": true, "level": "danger" }],
+    "sqldatabase-servers-no-ad-admin-configured.json": [{ "enabled": true, "level": "warning" }],
+    "sqldatabase-servers-no-threat-detection.json": [{ "enabled": true, "level": "warning" }],
+    "network-security-groups-rule-inbound-internet-all.json": [{ "enabled": true, "level": "danger" }],
+    "network-security-groups-rule-inbound-service-mssql.json": [{ "enabled": true, "level": "warning" }],
+    "network-watcher-not-enabled.json": [{ "enabled": true, "level": "warning" }],
+    "virtual-machines-disk-encryption.json": [{ "enabled": true, "level": "danger" }],
+    "virtual-machines-managed-disks.json": [{ "enabled": true, "level": "warning" }],
+    "virtual-machines-os-data-encrypted-cmk.json": [{ "enabled": true, "level": "warning" }],
+    "keyvault-not-recoverable.json": [{ "enabled": true, "level": "warning" }],
+    "keyvault-public-traffic-allowed.json": [{ "enabled": true, "level": "warning" }],
+    "aad-guest-users.json": [{ "enabled": true, "level": "warning" }],
+    "aad-users-create-security-groups-disabled.json": [{ "enabled": true, "level": "warning" }],
+    "rbac-custom-subscription-owner-role-not-allowed.json": [{ "enabled": true, "level": "warning" }],
+    "securitycenter-standard-tier-not-enabled.json": [{ "enabled": true, "level": "warning" }],
+    "securitycenter-auto-provisioning-off.json": [{ "enabled": true, "level": "warning" }],
+    "logging-monitoring-log-alert-not-exist-nsg.json": [{ "enabled": true, "level": "warning" }],
+    "postgresql-database-servers-ssl-enforcement-disabled.json": [{ "enabled": true, "level": "danger" }],
+    "mysql-database-servers-ssl-enforcement-disabled.json": [{ "enabled": true, "level": "danger" }]
   }
 }

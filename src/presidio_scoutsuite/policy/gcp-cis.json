@@ -1,50 +1,32 @@
 {
-  "about": "Presidio-hardened GCP baseline for ScoutSuite. CIS-aligned, fail-closed: high-impact storage/SQL/firewall/KMS/IAM controls are forced to 'danger'. Rule filenames track the pinned upstream ScoutSuite version declared in requirements.lock; CI validates every referenced rule against the policy/gcp.rules.txt inventory before release.",
+  "about": "Presidio-hardened GCP baseline for ScoutSuite. CIS-aligned, fail-closed: high-impact storage/SQL/firewall/KMS/IAM controls are forced to 'danger'. Rule filenames are verified against the pinned upstream ScoutSuite version declared in requirements.lock; CI validates every referenced rule against the policy/gcp.rules.txt inventory before release.",
   "rules": {
-    "cloudstorage-bucket-world-readable.json": [
-      { "enabled": true, "level": "danger" }
-    ],
-    "cloudstorage-bucket-uniform-access-disabled.json": [
-      { "enabled": true, "level": "warning" }
-    ],
-    "cloudsql-instance-public-ip.json": [
-      { "enabled": true, "level": "danger" }
-    ],
-    "cloudsql-instance-not-requiring-ssl.json": [
-      { "enabled": true, "level": "danger" }
-    ],
-    "gce-instance-with-public-ip.json": [
-      { "enabled": true, "level": "warning" }
-    ],
-    "gce-default-service-account-full-access.json": [
-      { "enabled": true, "level": "danger" }
-    ],
-    "gce-instance-without-os-login.json": [
-      { "enabled": true, "level": "warning" }
-    ],
-    "gce-instance-with-serial-port-enabled.json": [
-      { "enabled": true, "level": "warning" }
-    ],
-    "firewall-rule-allowing-ssh-from-all.json": [
-      { "enabled": true, "level": "danger" }
-    ],
-    "firewall-rule-allowing-rdp-from-all.json": [
-      { "enabled": true, "level": "danger" }
-    ],
-    "kms-cryptokey-anonymously-or-publicly-accessible.json": [
-      { "enabled": true, "level": "danger" }
-    ],
-    "kms-cryptokey-no-rotation.json": [
-      { "enabled": true, "level": "warning" }
-    ],
-    "iam-primitive-role-in-use.json": [
-      { "enabled": true, "level": "warning" }
-    ],
-    "iam-service-account-with-admin-privileges.json": [
-      { "enabled": true, "level": "danger" }
-    ],
-    "logging-no-export-sink.json": [
-      { "enabled": true, "level": "warning" }
-    ]
+    "cloudstorage-bucket-no-public-access-prevention.json": [{ "enabled": true, "level": "danger" }],
+    "cloudstorage-uniform-bucket-level-access-disabled.json": [{ "enabled": true, "level": "warning" }],
+    "cloudstorage-bucket-no-versioning.json": [{ "enabled": true, "level": "warning" }],
+    "cloudstorage-bucket-no-logging.json": [{ "enabled": true, "level": "warning" }],
+    "cloudsql-instances-public-ips.json": [{ "enabled": true, "level": "danger" }],
+    "cloudsql-instance-ssl-not-required.json": [{ "enabled": true, "level": "danger" }],
+    "cloudsql-instance-backups-disabled.json": [{ "enabled": true, "level": "warning" }],
+    "cloudsql-instance-is-open-to-the-world.json": [{ "enabled": true, "level": "danger" }],
+    "computeengine-instance-public-ip-adresses.json": [{ "enabled": true, "level": "warning" }],
+    "computeengine-instance-default-service-account.json": [{ "enabled": true, "level": "danger" }],
+    "computeengine-instance-full-api-access.json": [{ "enabled": true, "level": "danger" }],
+    "computeengine-instance-os-login-disabled.json": [{ "enabled": true, "level": "warning" }],
+    "computeengine-instance-connecting-serial-ports-enabled.json": [{ "enabled": true, "level": "warning" }],
+    "computeengine-instance-ip-forwarding-enabled.json": [{ "enabled": true, "level": "warning" }],
+    "computeengine-instance-shielded-vm-disabled.json": [{ "enabled": true, "level": "warning" }],
+    "computeengine-firewall-rule-opens-sensitive-port-to-all.json": [{ "enabled": true, "level": "danger" }],
+    "computeengine-firewall-rule-opens-all-ports-to-all.json": [{ "enabled": true, "level": "danger" }],
+    "computeengine-firewall-default-rule-in-use.json": [{ "enabled": true, "level": "warning" }],
+    "computeengine-vpc-flow-logs-disabled.json": [{ "enabled": true, "level": "warning" }],
+    "kms-cryptokeys-anonymously-publicly-accessible.json": [{ "enabled": true, "level": "danger" }],
+    "kms-encryption-keys-not-rotated.json": [{ "enabled": true, "level": "warning" }],
+    "iam-primitive-role-in-use.json": [{ "enabled": true, "level": "warning" }],
+    "iam-sa-has-admin-privileges.json": [{ "enabled": true, "level": "danger" }],
+    "iam-service-account-with-user-managed-keys.json": [{ "enabled": true, "level": "warning" }],
+    "iam-lack-of-service-account-key-rotation.json": [{ "enabled": true, "level": "warning" }],
+    "kubernetesengine-cluster-logging-disabled.json": [{ "enabled": true, "level": "warning" }],
+    "kubernetesengine-legacy-abac-enabled.json": [{ "enabled": true, "level": "danger" }]
   }
 }

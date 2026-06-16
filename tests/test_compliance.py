@@ -16,7 +16,7 @@ def _report():
         findings=[
             Finding("s3", "s3-bucket-world-acl.json", "danger", 2, "world-readable"),
             Finding("iam", "iam-root-account-no-mfa.json", "danger", 1, "root no mfa"),
-            Finding("ec2", "ec2-security-group-opens-ssh-port-to-all.json", "warning", 3),
+            Finding("ec2", "ec2-security-group-opens-known-port-to-all.json", "warning", 3),
             Finding("madeup", "not-a-real-rule.json", "warning", 1),
         ],
         providers=["aws"],
@@ -101,8 +101,8 @@ def test_build_report_maps_controls():
     assert report.failing["cis"]["2.1.5"] == ["s3/s3-bucket-world-acl"]
     # NIST AC-3 should appear (from s3 world-acl)
     assert "AC-3" in report.failing["nist-800-53"]
-    # SOC2 CC6.6 from the SSH security-group finding
-    assert "ec2/ec2-security-group-opens-ssh-port-to-all" in report.failing["soc2"]["CC6.6"]
+    # SOC2 CC6.6 from the security-group finding
+    assert "ec2/ec2-security-group-opens-known-port-to-all" in report.failing["soc2"]["CC6.6"]
 
 
 def test_build_report_collects_unmapped():

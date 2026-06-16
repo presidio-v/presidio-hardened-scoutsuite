@@ -7,32 +7,34 @@
 # Regenerate against the actually-pinned ScoutSuite (run inside an env with the
 # '[scoutsuite]' extra installed):
 #
-#     python - <<'PY'
-#     from presidio_scoutsuite import ruleset
-#     print("\n".join(sorted(ruleset.installed_rules("azure"))))
-#     PY
+#     presidio-scout-validate --regenerate --source installed
 #
 # 'presidio-scout-validate --source installed' flags any drift between this
 # inventory and the installed ScoutSuite.
 
-storageaccount-not-requiring-secure-transfer.json
-storageaccount-public-blob-access.json
-storageaccount-no-network-restriction.json
-storageaccount-no-soft-delete.json
-sqldatabase-no-transparent-data-encryption.json
-sqlserver-no-auditing.json
-sqlserver-public-network-access-enabled.json
-sqlserver-no-active-directory-admin.json
-network-security-group-allowing-ssh-from-all.json
-network-security-group-allowing-rdp-from-all.json
-network-watcher-disabled.json
-vm-no-disk-encryption.json
-vm-no-managed-disks.json
-keyvault-no-purge-protection.json
-keyvault-secret-no-expiration.json
-keyvault-key-no-expiration.json
-aad-no-mfa-for-privileged-users.json
-aad-guest-users-present.json
-rbac-custom-role-with-subscription-owner-permissions.json
-monitor-no-activity-log-alert-for-policy-changes.json
-monitor-no-activity-log-alert-for-nsg-changes.json
+storageaccount-account-allowing-clear-text.json
+storageaccount-public-blob-container.json
+storageaccount-public-traffic-allowed.json
+storageaccount-encrypted-not-customer-managed.json
+storageaccount-access-keys-not-rotated.json
+sqldatabase-servers-no-auditing.json
+sqldatabase-databases-no-transparent-data-encryption.json
+sqldatabase-allow-any-ip.json
+sqldatabase-servers-no-ad-admin-configured.json
+sqldatabase-servers-no-threat-detection.json
+network-security-groups-rule-inbound-internet-all.json
+network-security-groups-rule-inbound-service-mssql.json
+network-watcher-not-enabled.json
+virtual-machines-disk-encryption.json
+virtual-machines-managed-disks.json
+virtual-machines-os-data-encrypted-cmk.json
+keyvault-not-recoverable.json
+keyvault-public-traffic-allowed.json
+aad-guest-users.json
+aad-users-create-security-groups-disabled.json
+rbac-custom-subscription-owner-role-not-allowed.json
+securitycenter-standard-tier-not-enabled.json
+securitycenter-auto-provisioning-off.json
+logging-monitoring-log-alert-not-exist-nsg.json
+postgresql-database-servers-ssl-enforcement-disabled.json
+mysql-database-servers-ssl-enforcement-disabled.json

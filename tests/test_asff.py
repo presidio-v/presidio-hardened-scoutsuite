@@ -20,7 +20,11 @@ def _report():
                 "s3", "s3-bucket-world-acl.json", "danger", 2, "world-readable", items=("b1", "b2")
             ),
             Finding(
-                "ec2", "ec2-security-group-opens-ssh-port-to-all.json", "warning", 1, "ssh open"
+                "ec2",
+                "ec2-security-group-opens-known-port-to-all.json",
+                "warning",
+                1,
+                "open port",
             ),
         ],
         providers=["aws"],
@@ -62,7 +66,7 @@ def test_related_requirements_from_mapping():
 
 
 def test_warning_maps_to_medium():
-    ec2 = [f for f in _build() if f["GeneratorId"].endswith("opens-ssh-port-to-all")][0]
+    ec2 = [f for f in _build() if f["GeneratorId"].endswith("opens-known-port-to-all")][0]
     assert ec2["Severity"] == {"Label": "MEDIUM", "Normalized": 40}
 
 
