@@ -12,7 +12,7 @@ def _report():
         findings=[
             Finding(
                 service="s3",
-                key="s3-bucket-world-acl.json",
+                rule="s3-bucket-world-acl.json",
                 level="danger",
                 flagged_items=2,
                 description="World-readable bucket",
@@ -20,7 +20,7 @@ def _report():
             ),
             Finding(
                 service="iam",
-                key="iam-no-mfa.json",
+                rule="iam-no-mfa.json",
                 level="warning",
                 flagged_items=1,
                 description="No MFA",
@@ -104,7 +104,7 @@ def test_empty_report():
 def test_unknown_level_maps_to_note():
     report = FindingsReport(
         providers=["gcp"],
-        findings=[Finding(service="x", key="k", level="info", flagged_items=1)],
+        findings=[Finding(service="x", rule="k", level="info", flagged_items=1)],
     )
     doc = sarif.to_sarif(report)
     assert doc["runs"][0]["results"][0]["level"] == "note"

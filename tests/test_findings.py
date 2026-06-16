@@ -62,13 +62,13 @@ def test_parse_bad_json_raises():
 
 def test_extract_only_flagged():
     findings = F.extract_findings(_RESULTS)
-    keys = {f.key for f in findings}
+    keys = {f.rule for f in findings}
     assert keys == {"s3-world-acl.json", "s3-mfa-delete.json", "iam-no-mfa.json"}
     assert "s3-clean.json" not in keys  # 0 flagged excluded
 
 
 def test_extract_fields():
-    findings = {f.key: f for f in F.extract_findings(_RESULTS)}
+    findings = {f.rule: f for f in F.extract_findings(_RESULTS)}
     world = findings["s3-world-acl.json"]
     assert world.service == "s3"
     assert world.level == "danger"
@@ -89,7 +89,7 @@ def test_extract_captures_items():
             }
         }
     }
-    by_key = {f.key: f for f in F.extract_findings(results)}
+    by_key = {f.rule: f for f in F.extract_findings(results)}
     assert by_key["k.json"].items == ("a", "b")
     assert by_key["bad.json"].items == ()  # non-list ignored
 
@@ -106,7 +106,7 @@ def test_extract_tolerates_malformed_shapes():
         }
     }
     findings = F.extract_findings(messy)
-    assert [f.key for f in findings] == ["k.json"]
+    assert [f.rule for f in findings] == ["k.json"]
 
 
 def test_extract_no_services():

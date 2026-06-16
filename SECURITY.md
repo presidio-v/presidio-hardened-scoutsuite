@@ -4,8 +4,8 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 0.19.x  | ✅ Yes (current) |
-| <0.19   | Best-effort security fixes only |
+| 0.20.x  | ✅ Yes (current) |
+| <0.20   | Best-effort security fixes only |
 
 ## Reporting a Vulnerability
 
@@ -117,6 +117,12 @@ redaction, supply-chain controls, and a least-privilege deployment model.
   signature *and* the provenance (cryptographically, then against this
   distribution's `presidio-scout-verify-provenance` policy) — before the release
   run is allowed to succeed.
+- **Redaction-aware notification sinks** — `presidio-scout-notify` pushes an
+  audit summary to a file, a generic JSON webhook, or Slack. Before anything
+  leaves the process the payload is run through the **same secret scanner the
+  report redaction uses**; if a secret survives into the message it is **not
+  transmitted** (fail-closed). Webhooks use stdlib `urllib` only (non-HTTP(S)
+  schemes are refused), so the sink adds no dependency and no new trusted code.
 - **Org-wide fleet orchestration** — `presidio-scout-orchestrate` fans the audit
   across a declared `.presidio-scout-targets.toml` matrix, running each account as
   a **separate out-of-process `presidio-scout`** invocation with its own scrubbed

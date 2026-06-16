@@ -27,6 +27,7 @@ from .errors import (
     CredentialError,
     FindingsError,
     LauncherError,
+    NotificationError,
     OrchestrationError,
     PresidioScoutError,
     ProvenanceVerificationError,
@@ -42,6 +43,7 @@ from .errors import (
 from .findings import Finding, FindingsReport, load_report
 from .launcher import LaunchPlan, build_plan, run, scrub_env, validate_passthrough
 from .manifest import build_manifest
+from .notify import build_summary, deliver, render_text, resolve_sink
 from .orchestrate import (
     OrchestrationReport,
     Target,
@@ -97,7 +99,12 @@ __all__ = [
     "ComplianceError",
     "AsffError",
     "OrchestrationError",
+    "NotificationError",
     "UpgradeError",
+    "build_summary",
+    "render_text",
+    "resolve_sink",
+    "deliver",
     "Target",
     "TargetResult",
     "OrchestrationReport",

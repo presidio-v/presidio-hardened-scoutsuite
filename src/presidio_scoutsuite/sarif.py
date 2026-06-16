@@ -64,7 +64,7 @@ def to_sarif(report: FindingsReport, *, tool_version: str = __version__) -> dict
     results: list[dict] = []
 
     for finding in report.findings:
-        rule_id = _rule_id(finding.service, finding.key)
+        rule_id = _rule_id(finding.service, finding.rule)
         level = _sarif_level(finding.level)
         if rule_id not in rules:
             rules[rule_id] = {

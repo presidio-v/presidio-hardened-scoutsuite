@@ -122,14 +122,14 @@ def test_resource_glob():
 
 def test_finding_level_suppression():
     out = W.apply_waivers(_report(), [_waiver("iam/iam-no-mfa")], today=TODAY)
-    keys = {f.key for f in out.kept.findings}
+    keys = {f.rule for f in out.kept.findings}
     assert "iam-no-mfa.json" not in keys
     assert len(out.suppressed) == 1
 
 
 def test_resource_level_reduces_count():
     out = W.apply_waivers(_report(), [_waiver("s3/s3-world-acl", resource="s3.b.a")], today=TODAY)
-    s3 = next(f for f in out.kept.findings if f.key == "s3-world-acl.json")
+    s3 = next(f for f in out.kept.findings if f.rule == "s3-world-acl.json")
     assert s3.flagged_items == 1
     assert s3.items == ("s3.b.b",)
     assert out.suppressed == []
@@ -137,13 +137,13 @@ def test_resource_level_reduces_count():
 
 def test_resource_level_all_items_waived_suppresses():
     out = W.apply_waivers(_report(), [_waiver("s3/s3-world-acl", resource="s3.b.*")], today=TODAY)
-    assert all(f.key != "s3-world-acl.json" for f in out.kept.findings)
-    assert any(f.key == "s3-world-acl.json" for f, _ in out.suppressed)
+    assert all(f.rule != "s3-world-acl.json" for f in out.kept.findings)
+    assert any(f.rule == "s3-world-acl.json" for f, _ in out.suppressed)
 
 
 def test_expired_waiver_does_not_suppress():
     out = W.apply_waivers(_report(), [_waiver("iam/iam-no-mfa", expires=PAST)], today=TODAY)
-    assert any(f.key == "iam-no-mfa.json" for f in out.kept.findings)
+    assert any(f.rule == "iam-no-mfa.json" for f in out.kept.findings)
     assert len(out.expired) == 1
     assert out.suppressed == []
 
@@ -164,7 +164,7 @@ def test_expired_not_in_unused():
 def test_count_only_finding_not_touched_by_resource_waiver():
     # iam finding has no items; a resource-scoped waiver must not suppress it.
     out = W.apply_waivers(_report(), [_waiver("iam/iam-no-mfa", resource="anything")], today=TODAY)
-    assert any(f.key == "iam-no-mfa.json" for f in out.kept.findings)
+    assert any(f.rule == "iam-no-mfa.json" for f in out.kept.findings)
 
 
 def test_gate_after_waivers():

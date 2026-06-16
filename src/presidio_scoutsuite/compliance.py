@@ -168,8 +168,8 @@ def build_report(
     unmapped: set[str] = set()
 
     for finding in findings_report.findings:
-        fid = _finding_id(finding.service, finding.key)
-        entry = lookup.get(finding.key)
+        fid = _finding_id(finding.service, finding.rule)
+        entry = lookup.get(finding.rule)
         if entry is None:
             unmapped.add(fid)
             continue

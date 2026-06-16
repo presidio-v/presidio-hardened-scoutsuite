@@ -136,6 +136,16 @@ class AsffError(PresidioScoutError):
     """
 
 
+class NotificationError(PresidioScoutError):
+    """A finding-notification could not be delivered to a sink.
+
+    Raised when a sink is misconfigured (unknown type, missing url/path), when a
+    webhook delivery fails or returns a non-success status, or — fail-closed —
+    when the rendered payload still contains a secret-like string and so must not
+    be transmitted to an external sink.
+    """
+
+
 class OrchestrationError(PresidioScoutError):
     """A multi-target orchestration run is misconfigured or a target failed.
 
