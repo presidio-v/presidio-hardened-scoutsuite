@@ -75,6 +75,22 @@ redaction, supply-chain controls, and a least-privilege deployment model.
   hash-pinned. The wheel/sdist build is **reproducible** (pinned
   `SOURCE_DATE_EPOCH`), enforced by a `reproducible-build` CI gate that builds
   twice and requires byte-identical digests.
+- **Findings severity gate** — `presidio-scout --fail-on-finding danger|warning`
+  (and the standalone `presidio-scout-findings`) reads ScoutSuite's results data
+  off disk and exits non-zero (4) when any *flagged* finding is at or above the
+  chosen severity, so an audit can block a CI pipeline. Fail-closed: missing or
+  unparseable results error out rather than passing a report never evaluated.
+- **SARIF export for code scanning** — `presidio-scout --sarif PATH` (and
+  `presidio-scout-export`) emits SARIF 2.1.0 so findings become GitHub
+  code-scanning alerts; severity-mapped (`danger`→error/8.0, `warning`→warning/4.0)
+  with per-resource results and stable fingerprints for cross-run alert tracking.
+- **ScoutSuite install-integrity gate** — before any cloud credentials are
+  handed to ScoutSuite, a fail-closed preflight (`scout_integrity`) confirms the
+  `scout` on PATH is the **pinned, vetted version** this distribution ships;
+  an unexpected, newer, or modified ScoutSuite (which could carry different
+  rules or behaviour) is refused (exit 2) unless `--allow-unverified-scout` is
+  given. Complements the install-time artifact-hash guarantee from
+  `pip install --require-hashes -r requirements.lock`.
 - **Provenance policy verification** — `presidio-scout-verify-provenance` checks
   a *cryptographically verified* SLSA provenance statement (from `cosign
   verify-attestation`) against this distribution's policy: the expected builder

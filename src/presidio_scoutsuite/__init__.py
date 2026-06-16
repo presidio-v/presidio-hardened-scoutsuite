@@ -8,6 +8,7 @@ process (see :mod:`presidio_scoutsuite.launcher`) and is never imported here.
 from __future__ import annotations
 
 from .errors import (
+    FindingsError,
     LauncherError,
     PresidioScoutError,
     ProvenanceVerificationError,
@@ -15,7 +16,9 @@ from .errors import (
     ReportGuardError,
     ReportVerificationError,
     RulesetValidationError,
+    ScoutIntegrityError,
 )
+from .findings import Finding, FindingsReport, load_report
 from .launcher import LaunchPlan, build_plan, run, scrub_env, validate_passthrough
 from .manifest import build_manifest
 from .provenance import Provenance, ProvenancePolicy, load_statement
@@ -28,6 +31,8 @@ from .ruleset import (
     validate_all,
     validate_provider,
 )
+from .sarif import to_sarif
+from .scout_integrity import ScoutIntegrityResult, pinned_version, verify_scout
 from .verify import VerifyResult, verify_report
 from .version import __version__
 
@@ -39,6 +44,8 @@ __all__ = [
     "ReportGuardError",
     "ReportVerificationError",
     "ProvenanceVerificationError",
+    "ScoutIntegrityError",
+    "FindingsError",
     "RulesetValidationError",
     "LaunchPlan",
     "build_plan",
@@ -57,6 +64,13 @@ __all__ = [
     "Provenance",
     "ProvenancePolicy",
     "load_statement",
+    "ScoutIntegrityResult",
+    "verify_scout",
+    "pinned_version",
+    "Finding",
+    "FindingsReport",
+    "load_report",
+    "to_sarif",
     "referenced_rules",
     "available_rules",
     "missing_rules",

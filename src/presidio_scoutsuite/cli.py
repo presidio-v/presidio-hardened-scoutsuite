@@ -7,11 +7,13 @@ and applies the report guard before anything is surfaced.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from importlib import resources
 from pathlib import Path
 
-from . import launcher, redact, report_guard
+from . import findings as findings_mod
+from . import launcher, redact, report_guard, sarif, scout_integrity
 from .errors import PresidioScoutError
 from .version import __version__
 
@@ -79,9 +81,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="exit non-zero if the report references a remote (network) resource",
     )
     parser.add_argument(
+        "--fail-on-finding",
+        choices=findings_mod.LEVELS,
+        help="exit non-zero (4) if any flagged finding is at or above this severity "
+        "(warning|danger) — use to gate a pipeline on the audit result",
+    )
+    parser.add_argument(
+        "--sarif",
+        metavar="PATH",
+        help="also write the findings as SARIF 2.1.0 to PATH (for GitHub code scanning)",
+    )
+    parser.add_argument(
         "--scout-bin",
         default="scout",
         help="path to the upstream ScoutSuite executable (default: 'scout' on PATH)",
+    )
+    parser.add_argument(
+        "--allow-unverified-scout",
+        action="store_true",
+        help="run even if the scout version doesn't match the pinned, vetted one "
+        "(downgrades the integrity gate to a warning; NOT recommended)",
     )
     parser.add_argument(
         "--timeout",
@@ -150,6 +169,23 @@ def main(argv: list[str] | None = None) -> int:
         print(plan.redacted_command())
         return 0
 
+    # Integrity preflight: confirm the scout we're about to run is the pinned,
+    # vetted ScoutSuite before handing it cloud credentials.
+    if args.allow_unverified_scout:
+        check = scout_integrity.verify_scout(args.scout_bin, require=False)
+        if not check.ok:
+            print(f"warning: running unverified ScoutSuite: {check.reason}", file=sys.stderr)
+    else:
+        try:
+            scout_integrity.verify_scout(args.scout_bin)
+        except PresidioScoutError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            print(
+                "       pass --allow-unverified-scout to run anyway (not recommended)",
+                file=sys.stderr,
+            )
+            return 2
+
     try:
         completed = launcher.run(plan, timeout=args.timeout)
     except FileNotFoundError:
@@ -197,6 +233,34 @@ def main(argv: list[str] | None = None) -> int:
             "the CSP blocks them but the report is not fully self-contained",
             file=sys.stderr,
         )
+
+    if args.fail_on_finding or args.sarif:
+        try:
+            findings_report = findings_mod.load_report(plan.report_dir)
+        except PresidioScoutError as exc:
+            # Fail-closed: if we can't read the results we can't gate or export.
+            print(f"error: cannot read findings: {exc}", file=sys.stderr)
+            return 2
+
+        if args.sarif:
+            document = sarif.to_sarif(findings_report)
+            Path(args.sarif).write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
+            print(f"SARIF written: {args.sarif} ({len(findings_report.findings)} finding(s))")
+
+        if args.fail_on_finding:
+            counts = findings_report.counts
+            print(
+                f"findings: {len(findings_report.findings)} flagged "
+                f"(danger={counts['danger']}, warning={counts['warning']})"
+            )
+            offending = findings_report.at_or_above(args.fail_on_finding)
+            if offending:
+                print(
+                    f"error: {len(offending)} finding(s) at or above "
+                    f"{args.fail_on_finding!r} severity",
+                    file=sys.stderr,
+                )
+                return 4
 
     return completed.returncode
 
