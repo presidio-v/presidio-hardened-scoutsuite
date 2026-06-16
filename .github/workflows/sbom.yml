@@ -24,8 +24,8 @@ jobs:
           # break the SBOM step (the --outfile -> --output-file rename did exactly that).
           pip install --upgrade pip "cyclonedx-bom==7.3.0"
           # Resolve the pinned runtime tree (includes ScoutSuite) into the env.
-          pip install --require-hashes -r requirements.lock || \
-            pip install -r requirements.lock
+          # Fail closed: the SBOM must describe the exact hash-verified tree.
+          pip install --require-hashes -r requirements.lock
           cyclonedx-py environment --output-format JSON --output-file sbom.cdx.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

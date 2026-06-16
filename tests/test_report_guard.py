@@ -24,6 +24,21 @@ def test_inject_csp_idempotent():
     assert twice == once
 
 
+def test_inject_csp_replaces_weak_existing_policy():
+    html = (
+        '<html><head><meta http-equiv="Content-Security-Policy" '
+        'content="default-src *; script-src *">'
+        '<meta http-equiv="Content-Security-Policy" content="script-src unsafe-inline">'
+        "</head><body>x</body></html>"
+    )
+    out, changed = report_guard.inject_csp(html)
+    assert changed
+    assert out.count("Content-Security-Policy") == 1
+    assert report_guard.CSP_VALUE in out
+    assert "default-src *" not in out
+    assert "unsafe-inline" not in out.replace(report_guard.CSP_VALUE, "")
+
+
 def test_inject_csp_noop_without_head():
     html = "<html><body>no head</body></html>"
     out, changed = report_guard.inject_csp(html)
@@ -183,6 +198,29 @@ def test_guard_report_fail_on_remote_ref(tmp_path):
     (tmp_path / "report.html").write_text(
         '<html><head></head><body><script src="https://cdn.example/x.js"></script></body></html>'
     )
+    with pytest.raises(ReportGuardError, match="remote resources"):
+        report_guard.guard_report(tmp_path, fail_on_remote_ref=True)
+
+
+def test_guard_report_fail_on_remote_ref_covers_html_and_css_urls(tmp_path):
+    (tmp_path / "inc").mkdir()
+    (tmp_path / "inc" / "style.css").write_text("body{background:url(https://cdn.example/bg.png)}")
+    (tmp_path / "report.html").write_text(
+        "<html><head></head><body>"
+        '<img src="https://cdn.example/pixel.png">'
+        '<img srcset="local.png 1x, //cdn.example/retina.png 2x">'
+        '<form action="https://submit.example/post"></form>'
+        '<div style="background-image:url(https://cdn.example/inline.png)"></div>'
+        "</body></html>"
+    )
+    result = report_guard.guard_report(tmp_path)
+    assert sorted(result.remote_refs) == [
+        "//cdn.example/retina.png",
+        "https://cdn.example/bg.png",
+        "https://cdn.example/inline.png",
+        "https://cdn.example/pixel.png",
+        "https://submit.example/post",
+    ]
     with pytest.raises(ReportGuardError, match="remote resources"):
         report_guard.guard_report(tmp_path, fail_on_remote_ref=True)
 

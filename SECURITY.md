@@ -4,8 +4,8 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 0.2.x   | ✅ Yes (current) |
-| 0.1.x   | ✅ Yes |
+| 0.8.x   | ✅ Yes (current) |
+| <0.8    | Best-effort security fixes only |
 
 ## Reporting a Vulnerability
 
@@ -133,6 +133,9 @@ separately (or bundled into the container image). See
 
 - Dependabot keeps Python, GitHub Actions, and Docker base images current.
 - CodeQL (`security-extended`) runs on every push and pull request.
+- The container/runtime lockfile is audited with `pip-audit` before image
+  release; new images are not published while known vulnerabilities remain in
+  the bundled ScoutSuite dependency tree.
 - All changes require passing CI (pytest + ruff) before merge.
 
 ## Responsible Disclosure

@@ -47,15 +47,21 @@ CSP_VALUE = (
 
 _CSP_META = f'<meta http-equiv="Content-Security-Policy" content="{CSP_VALUE}">'
 _HEAD_RE = re.compile(r"<head[^>]*>", re.IGNORECASE)
-_HAS_CSP_RE = re.compile(r"http-equiv=[\"']Content-Security-Policy", re.IGNORECASE)
+_META_TAG_RE = re.compile(r"<meta\b[^>]*>", re.IGNORECASE)
 
 _SCRIPT_TAG_RE = re.compile(r"<script\b[^>]*>", re.IGNORECASE)
 _LINK_TAG_RE = re.compile(r"<link\b[^>]*>", re.IGNORECASE)
+_TAG_RE = re.compile(r"<[a-zA-Z][^>]*>", re.IGNORECASE)
 _ATTR_RE = re.compile(r"""([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')""")
 #: A URL that fetches over the network: an explicit http(s) scheme or a
 #: protocol-relative ``//host/…`` reference. ``data:``/relative paths are local.
 _REMOTE_URL_RE = re.compile(r"^(?:https?:)?//", re.IGNORECASE)
 _SCHEME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.\-]*:")
+_URL_ATTRS = frozenset({"src", "href", "action", "poster", "data"})
+_CSS_URL_RE = re.compile(
+    r"""url\(\s*(?:"([^"]*)"|'([^']*)'|([^)'"\s][^)]*?))\s*\)""",
+    re.IGNORECASE,
+)
 
 
 @dataclass
@@ -81,14 +87,30 @@ class GuardResult:
 
 
 def inject_csp(html: str) -> tuple[str, bool]:
-    """Insert the CSP ``<meta>`` right after ``<head>``.
+    """Enforce the strict CSP ``<meta>`` in the document.
 
-    Returns ``(html, changed)``. No-op (``changed=False``) if a CSP meta is
-    already present or there is no ``<head>`` to anchor to.
+    Returns ``(html, changed)``. Existing CSP meta tags are replaced with the
+    strict policy (duplicates are removed) instead of trusted as-is; otherwise
+    the strict policy is inserted right after ``<head>``. No-op only when there
+    is no ``<head>`` and no CSP meta to replace.
     """
 
-    if _HAS_CSP_RE.search(html):
-        return html, False
+    csp_seen = False
+
+    def _replace_csp(match: re.Match[str]) -> str:
+        nonlocal csp_seen
+        attrs = _parse_attrs(match.group(0))
+        if attrs.get("http-equiv", "").lower() != "content-security-policy":
+            return match.group(0)
+        if csp_seen:
+            return ""
+        csp_seen = True
+        return _CSP_META
+
+    hardened = _META_TAG_RE.sub(_replace_csp, html)
+    if csp_seen:
+        return hardened, hardened != html
+
     match = _HEAD_RE.search(html)
     if not match:
         return html, False
@@ -116,6 +138,41 @@ def _is_local_asset(url: str) -> bool:
     # Any other explicit scheme (data:, javascript:, mailto:, file:…) is not a
     # local file we can hash and pin.
     return not _SCHEME_RE.match(url)
+
+
+def _remote_urls_from_srcset(srcset: str) -> list[str]:
+    remote: list[str] = []
+    for candidate in srcset.split(","):
+        url = candidate.strip().split(maxsplit=1)[0] if candidate.strip() else ""
+        if _is_remote(url):
+            remote.append(url)
+    return remote
+
+
+def _remote_urls_from_css(text: str) -> list[str]:
+    remote: list[str] = []
+    for match in _CSS_URL_RE.finditer(text):
+        url = (match.group(1) or match.group(2) or match.group(3) or "").strip()
+        if _is_remote(url):
+            remote.append(url)
+    return remote
+
+
+def find_remote_refs(html: str) -> list[str]:
+    """Return all network-reaching references visible in an HTML document."""
+
+    remote: list[str] = []
+    for tag in _TAG_RE.finditer(html):
+        attrs = _parse_attrs(tag.group(0))
+        for name in _URL_ATTRS:
+            url = attrs.get(name, "")
+            if _is_remote(url):
+                remote.append(url)
+        if attrs.get("srcset"):
+            remote.extend(_remote_urls_from_srcset(attrs["srcset"]))
+        if attrs.get("style"):
+            remote.extend(_remote_urls_from_css(attrs["style"]))
+    return remote
 
 
 def _sri_hash(path: Path) -> str:
@@ -228,7 +285,8 @@ def guard_report(
     for html_file in sorted([*root.rglob("*.html"), *root.rglob("*.htm")]):
         text = html_file.read_text(encoding="utf-8", errors="replace")
         hardened, csp_changed = inject_csp(text)
-        hardened, pinned, remote = inject_sri(hardened, base_dir=html_file.parent, root=root)
+        hardened, pinned, asset_remote = inject_sri(hardened, base_dir=html_file.parent, root=root)
+        remote = [*asset_remote, *find_remote_refs(hardened)]
         rel = str(html_file.relative_to(root))
         if csp_changed:
             result.html_hardened.append(rel)
@@ -240,6 +298,13 @@ def guard_report(
                 result.remote_refs.append(url)
         if hardened != text:
             html_file.write_text(hardened, encoding="utf-8")
+
+    for css_file in sorted(root.rglob("*.css")):
+        text = css_file.read_text(encoding="utf-8", errors="replace")
+        for url in _remote_urls_from_css(text):
+            if url not in seen_remote:
+                seen_remote.add(url)
+                result.remote_refs.append(url)
 
     if sign_key is None:
         sign_key = manifest.hmac_key_from_env()
