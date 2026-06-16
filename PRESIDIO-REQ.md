@@ -255,12 +255,37 @@ from the installed package (`ruleset.installed_rules`) and the release-time
 
 ## Roadmap
 
-| Version | Planned |
-|---|---|
-| **0.1.0** | Out-of-process hardened launcher + redaction/guard + AWS ruleset/IAM + container + supply-chain posture |
-| **0.2.0** | Azure & GCP curated baselines + least-privilege roles; **rule-name validation** against the pinned ScoutSuite (offline manifest in CI, installed-source drift gate at release) ✓ |
-| **0.3.0** | Deeper report guard (SRI, offline viewer), signed report manifests ✓ |
-| **0.4.0** | SLSA provenance verification on install; reproducible-build attestation ✓ |
+Delivered (0.1.0–0.4.0) and planned (0.5.0–0.15.0). The arc: **0.5** hardens
+*what runs*; **0.6–0.8** turn findings into an enforceable, waiver-aware policy
+gate; **0.9–0.10** make every run attested and comparable over time; **0.11–0.14**
+harden how it's built and deployed; **0.15** makes it configurable for an org.
+Every item keeps the project's invariants — out-of-process, never import GPL
+ScoutSuite, MIT wrapper, stdlib runtime, fail-closed, offline-testable.
+
+| Version | Planned | Axis · depends on |
+|---|---|---|
+| **0.1.0** | Out-of-process hardened launcher + redaction/guard + AWS ruleset/IAM + container + supply-chain posture | all ✓ |
+| **0.2.0** | Azure & GCP curated baselines + least-privilege roles; **rule-name validation** against the pinned ScoutSuite (offline manifest in CI, installed-source drift gate at release) | policy ✓ |
+| **0.3.0** | Deeper report guard (SRI, offline viewer), signed report manifests | report integrity ✓ |
+| **0.4.0** | SLSA provenance verification on pull; reproducible-build attestation | supply-chain ✓ |
+| **0.5.0** | **ScoutSuite install-integrity gate** — verify the `scout` on PATH matches the pinned version + hash before running; refuse a modified/unexpected ScoutSuite (`--allow-unverified-scout`). Replace the placeholder `requirements.lock` with real `--generate-hashes` pins; pin the `hatchling` build backend. | supply-chain + runtime trust · lockfile |
+| **0.6.0** | **Findings model + severity gate** — parse the `scoutsuite-results` data off disk into a deterministic findings summary; `--fail-on-finding danger\|warning` to gate a pipeline. | secure-by-default policy |
+| **0.7.0** | **SARIF export + code-scanning** — `presidio-scout-export --format sarif`; documented GitHub Action to upload to code scanning; findings mapped to rule IDs/severities. | policy / integration · 0.6 |
+| **0.8.0** | **Waivers / exceptions framework** — checked-in waivers (rule + resource + justification + owner + **expiry**); waived findings suppressed in the gate but recorded; **expired waivers fail closed**. | policy · 0.6 |
+| **0.9.0** | **Signed run attestation** — an in-toto statement binding inputs (provider, ruleset digest, verified ScoutSuite version) → outputs (report-manifest digest), verifiable with the existing tooling. | supply-chain integrity · 0.3, 0.4, 0.5 |
+| **0.10.0** | **Drift detection / run diff** — `presidio-scout-diff` over two report manifests / finding sets; surfaces newly-introduced vs resolved findings; `--fail-on-new-finding`. | policy / operational · 0.6, 0.9 |
+| **0.11.0** | **Reproducible, multi-arch container + image provenance E2E** — reproducible + arm64 image; release gate running `cosign verify-attestation` + `presidio-scout-verify-provenance` on the freshly pushed image before promotion; documented pre-`docker run` verification. | supply-chain + deployment · 0.4 |
+| **0.12.0** | **Credential brokering / keyless auth** — auto-assume the bundled least-privilege audit role (AWS STS + ExternalId/MFA; GCP SA impersonation; Azure Reader) via the cloud CLI as a subprocess, and OIDC in CI, so operators never pass long-lived keys. | runtime credential safety · iam/ |
+| **0.13.0** | **Kubernetes deployment** — least-privilege `Job`/`CronJob` manifests + optional Helm chart using IRSA / Workload Identity; read-only rootfs, seccomp, dropped caps, egress `NetworkPolicy`. | hardened deployment · 0.11, 0.12 |
+| **0.14.0** | **Vulnerability-scan gate + SBOM/vuln attestations** — Grype/Trivy gate on fixable criticals; SBOM and vuln report attached as **signed attestations** and verified alongside provenance. | supply-chain · 0.11 |
+| **0.15.0** | **Org policy profiles / config** — `.presidio-scout.toml` for org defaults (provider, ruleset, gates, waiver/redaction paths, named profiles) + `presidio-scout-policy` to validate it. | usability / policy · most prior |
+
+**Open design questions (revisit when the version lands):**
+
+- **0.12.0** leans on cloud CLIs via subprocess to stay dependency-free; if owning
+  auth flows is undesirable it can narrow to docs + thin helpers only.
+- **0.15.0** needs `tomllib` (stdlib ≥3.11) or a small `tomli` backport for 3.9/3.10
+  — the one place a runtime dependency would creep in.
 
 ---
 

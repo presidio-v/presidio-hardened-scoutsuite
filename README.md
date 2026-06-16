@@ -252,6 +252,20 @@ upstream unnoticed. Regenerate a manifest with
 | **0.2.0** | Azure + GCP curated baselines & least-privilege IAM; ruleset rule-name validation against the pinned ScoutSuite (offline manifest in CI, installed-source drift check at release) |
 | **0.3.0** | Deeper report guard — Subresource Integrity on local assets, offline-viewer (remote-reference) enforcement, and a signed-able, offline-verifiable report manifest (`presidio-scout-verify`) |
 | **0.4.0** | SLSA build-provenance policy verification (`presidio-scout-verify-provenance`, v0.2 + v1) and a reproducible wheel/sdist with a `reproducible-build` CI gate |
+| **0.5.0** _(planned)_ | ScoutSuite install-integrity gate — verify the `scout` you run matches the pinned version + hash; real hash-pinned lockfile; pinned build backend |
+| **0.6.0** _(planned)_ | Findings model + severity gate (`--fail-on-finding danger\|warning`) parsed from the report data |
+| **0.7.0** _(planned)_ | SARIF export + GitHub code-scanning integration (`presidio-scout-export`) |
+| **0.8.0** _(planned)_ | Waivers / exceptions framework with justification + owner + expiry (expired waivers fail closed) |
+| **0.9.0** _(planned)_ | Signed run attestation — in-toto statement binding run inputs to the report-manifest digest |
+| **0.10.0** _(planned)_ | Drift detection / run diff (`presidio-scout-diff`, `--fail-on-new-finding`) |
+| **0.11.0** _(planned)_ | Reproducible, multi-arch container + end-to-end image provenance verification at release |
+| **0.12.0** _(planned)_ | Credential brokering / keyless auth — auto-assume the bundled least-privilege audit role; OIDC in CI |
+| **0.13.0** _(planned)_ | Kubernetes deployment — least-privilege Job/CronJob + Helm (IRSA / Workload Identity), seccomp, egress policy |
+| **0.14.0** _(planned)_ | Vulnerability-scan gate + signed SBOM/vuln attestations verified alongside provenance |
+| **0.15.0** _(planned)_ | Org policy profiles / config (`.presidio-scout.toml`, `presidio-scout-policy`) |
+
+See [`PRESIDIO-REQ.md`](./PRESIDIO-REQ.md) for the per-version rationale,
+dependencies, and open design questions.
 
 ---
 
