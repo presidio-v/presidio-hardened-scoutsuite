@@ -133,6 +133,14 @@ redaction, supply-chain controls, and a least-privilege deployment model.
   still rejected.
 - **Hardened container** — distroless, **non-root**, designed to run with
   `--read-only --tmpfs /tmp`; ships no shell or package manager.
+- **Hardened Kubernetes deployment** ([`deploy/`](./deploy/)) — `Job`/`CronJob`
+  manifests and a Helm chart that run the signed image as a least-privilege
+  **workload-identity** ServiceAccount (no long-lived keys), with
+  `readOnlyRootFilesystem`, `allowPrivilegeEscalation: false`,
+  `capabilities.drop: [ALL]`, `seccompProfile: RuntimeDefault`,
+  `automountServiceAccountToken: false`, and a default-deny `NetworkPolicy`
+  (egress limited to DNS + 443). A guardrail test fails closed if any of these
+  controls is dropped from the manifests.
 
 ## Data Handling & Trust Boundaries
 

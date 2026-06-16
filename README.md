@@ -26,7 +26,7 @@ NCC Group's multi-cloud security auditing tool.
 | **Report integrity & isolation** | Strict CSP + **Subresource Integrity** on local report assets; remote-reference detection (`--fail-on-remote-ref`); a signed-able **SHA-256 integrity manifest** verified offline with `presidio-scout-verify` |
 | **Secure-by-default policy** | Curated, CIS-aligned **AWS baseline ruleset** applied by default (high-impact IAM/logging/network controls forced to `danger`) |
 | **Supply-chain & build integrity** | Hash-pinned `requirements.lock`, pinned build backend, CycloneDX SBOM, CodeQL, Dependabot, **cosign-signed** images + SLSA build provenance, **reproducible** wheel/sdist, a `presidio-scout-verify-provenance` policy gate for what you pull, and a **fail-closed preflight that the `scout` you run is the pinned, vetted ScoutSuite version** |
-| **Hardened deployment** | Distroless, non-root, `--read-only` container; bundled **least-privilege AWS audit role** (read-only + explicit `Deny`, MFA + `ExternalId` trust) |
+| **Hardened deployment** | Distroless, non-root, `--read-only` container; bundled **least-privilege AWS audit role** (read-only + explicit `Deny`, MFA + `ExternalId` trust); hardened Kubernetes `Job`/`CronJob` + Helm chart (workload identity, read-only rootfs, dropped caps, seccomp, default-deny `NetworkPolicy`) |
 
 ---
 
@@ -383,6 +383,30 @@ steps:
 
 ---
 
+## Run in Kubernetes
+
+Hardened in-cluster manifests and a Helm chart live under
+[`deploy/`](./deploy/): a one-shot `Job` or scheduled `CronJob` that runs the
+signed image as a least-privilege **workload-identity** ServiceAccount (no
+long-lived keys), with `readOnlyRootFilesystem`, all capabilities dropped,
+`seccompProfile: RuntimeDefault`, `automountServiceAccountToken: false`, a
+default-deny `NetworkPolicy` (egress only DNS + 443), and `--fail-on-finding
+danger` so a finding fails the Job.
+
+```bash
+kubectl apply -f deploy/kubernetes/          # annotate serviceaccount.yaml for your cloud first
+# or, with Helm:
+helm install nightly deploy/helm/presidio-scout \
+  --set provider=aws --set schedule="0 6 * * *" \
+  --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=arn:aws:iam::<acct>:role/presidio-scoutsuite-auditor
+```
+
+See [`deploy/kubernetes/README.md`](./deploy/kubernetes/README.md) for per-cloud
+workload-identity annotations (IRSA / GKE WI / Azure WI) and NetworkPolicy
+tightening.
+
+---
+
 ## Curated rulesets
 
 Curated baselines ship for **AWS, Azure, and GCP** under
@@ -425,7 +449,7 @@ upstream unnoticed. Regenerate a manifest with
 | **0.10.0** | Drift detection / run diff — `presidio-scout-diff` compares two reports at resource granularity (new vs resolved findings), with `--fail-on-new-finding {any,warning,danger}` |
 | **0.11.0** | Reproducible, multi-arch (`amd64`+`arm64`) container; GitHub-signed image provenance; a release `verify-image` gate that re-checks the signature + provenance (cosign + `presidio-scout-verify-provenance`) end-to-end |
 | **0.12.0** | Keyless / short-lived credentials — a fail-closed `--require-short-lived-creds` preflight that rejects long-lived static secrets, keyless/managed-identity env passthrough, and OIDC/assume-role/impersonation setup docs (chose configuration + preflight over in-wrapper brokering) |
-| **0.13.0** _(planned)_ | Kubernetes deployment — least-privilege Job/CronJob + Helm (IRSA / Workload Identity), seccomp, egress policy |
+| **0.13.0** | Kubernetes deployment — hardened `Job`/`CronJob` + Helm chart (workload identity, read-only rootfs, dropped caps, seccomp, default-deny `NetworkPolicy`) under `deploy/` |
 | **0.14.0** _(planned)_ | Vulnerability-scan gate + signed SBOM/vuln attestations verified alongside provenance |
 | **0.15.0** _(planned)_ | Org policy profiles / config (`.presidio-scout.toml`, `presidio-scout-policy`) |
 
@@ -469,6 +493,7 @@ presidio-hardened-scoutsuite/
 │   ├── errors.py          # exception hierarchy
 │   └── policy/            # curated baselines + rule manifests + provenance-policy.json
 ├── iam/{aws,azure,gcp}/   # least-privilege audit identities per cloud
+├── deploy/                # hardened Kubernetes manifests + Helm chart
 ├── tests/
 ├── Dockerfile             # distroless, non-root
 ├── requirements.lock      # hash-pinned runtime tree (incl. ScoutSuite)
