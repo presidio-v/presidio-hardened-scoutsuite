@@ -442,9 +442,41 @@ from the installed package (`ruleset.installed_rules`) and the release-time
 
 ---
 
+## v0.10.0 — Drift detection / run diff (2026-06-16)
+
+**Design decisions:**
+
+- **Gate on *change*, not the absolute set.** A mature account has a triaged
+  backlog; failing on every finding is noise. `diff.py` compares a baseline
+  `FindingsReport` to a current one and reports only the delta, so a pipeline can
+  block *regressions* while ignoring pre-existing findings.
+- **Resource-granular occurrences.** Diffing on `(service, key, resource)`
+  occurrences (count-only findings use a single `None` occurrence) cleanly
+  distinguishes a brand-new finding (`whole_finding`) from an existing finding
+  that began flagging an additional resource — both are "new", but reported
+  separately — and likewise for resolved findings vs resolved resources.
+- **Severity-scoped fail gate.** `--fail-on-new-finding {any,warning,danger}`
+  trips (exit 4, consistent with the findings gate) only when a *newly added*
+  occurrence is at or above the threshold, so new warnings needn't block a
+  danger-only gate.
+- **Standalone, reusing the findings model.** `presidio-scout-diff OLD NEW`
+  loads both reports with `findings.load_report` (fail-closed on a missing
+  report) and diffs them; no new parsing, no ScoutSuite import. JSON output
+  carries the full structured delta for downstream tooling.
+
+**Delivered:**
+- `diff.py` (`FindingChange`, `DiffResult`, `diff_reports`, `load_and_diff`,
+  `summarize`); `presidio-scout-diff` console script
+- Public API exports (`DiffResult`, `diff_reports`, `load_and_diff`)
+- `test_diff.py` (new/resolved findings + resources, severity thresholds, count-only
+  findings, provider union, CLI text/json/gate); coverage 96% (≥90% gate); ruff clean
+- README *Tracking drift between runs* section, SECURITY.md, this log
+
+---
+
 ## Roadmap
 
-Delivered (0.1.0–0.9.0) and planned (0.10.0–0.15.0). The arc: **0.5** hardens
+Delivered (0.1.0–0.10.0) and planned (0.11.0–0.15.0). The arc: **0.5** hardens
 *what runs*; **0.6–0.8** turn findings into an enforceable, waiver-aware policy
 gate; **0.9–0.10** make every run attested and comparable over time; **0.11–0.14**
 harden how it's built and deployed; **0.15** makes it configurable for an org.
@@ -462,7 +494,7 @@ ScoutSuite, MIT wrapper, stdlib runtime, fail-closed, offline-testable.
 | **0.7.0** | **SARIF export + code-scanning** — `presidio-scout-export` + `presidio-scout --sarif PATH` emit SARIF 2.1.0 (severity-mapped, per-resource, stable fingerprints); documented `upload-sarif` Action. ✓ | policy / integration · 0.6 |
 | **0.8.0** | **Waivers / exceptions framework** — checked-in JSON waivers (rule + resource + justification + owner + **expiry**); applied to the gate/SARIF via `--waivers`; **expired/malformed waivers fail closed**. ✓ | policy · 0.6 |
 | **0.9.0** | **Signed run attestation** — an in-toto statement binding inputs (provider, ruleset digest, verified ScoutSuite version) → output (report-manifest digest); `presidio-scout --attest` + `presidio-scout-attest generate/verify`, cosign-signable. ✓ | supply-chain integrity · 0.3, 0.4, 0.5 |
-| **0.10.0** | **Drift detection / run diff** — `presidio-scout-diff` over two report manifests / finding sets; surfaces newly-introduced vs resolved findings; `--fail-on-new-finding`. | policy / operational · 0.6, 0.9 |
+| **0.10.0** | **Drift detection / run diff** — `presidio-scout-diff` over two reports at resource granularity (new vs resolved findings/resources); `--fail-on-new-finding {any,warning,danger}`. ✓ | policy / operational · 0.6, 0.9 |
 | **0.11.0** | **Reproducible, multi-arch container + image provenance E2E** — reproducible + arm64 image; release gate running `cosign verify-attestation` + `presidio-scout-verify-provenance` on the freshly pushed image before promotion; documented pre-`docker run` verification. | supply-chain + deployment · 0.4 |
 | **0.12.0** | **Credential brokering / keyless auth** — auto-assume the bundled least-privilege audit role (AWS STS + ExternalId/MFA; GCP SA impersonation; Azure Reader) via the cloud CLI as a subprocess, and OIDC in CI, so operators never pass long-lived keys. | runtime credential safety · iam/ |
 | **0.13.0** | **Kubernetes deployment** — least-privilege `Job`/`CronJob` manifests + optional Helm chart using IRSA / Workload Identity; read-only rootfs, seccomp, dropped caps, egress `NetworkPolicy`. | hardened deployment · 0.11, 0.12 |
