@@ -1044,6 +1044,77 @@ the natural next capability now that single runs are fully featured.
 
 ---
 
+## Fourth arc — 0.28.0+ (sketch)
+
+The first three arcs built a hardened single-run auditor (0.1–0.15), a fleet tool
+with integrations (0.16–0.21), and a continuous assurance program (0.22–0.27).
+The fourth arc makes ScoutSuite a **first-class participant in the
+`presidio-hardened-*` evidence substrate**: an audit no longer just reports
+findings — it can *emit cryptographically verifiable evidence* that a clean
+control held at audit time, which a peer tool consumes to back its own
+attestations. This is the same `presidio-evidence` contract that
+`presidio-hardened-ikigov-assess` already implements as a *consumer*; ScoutSuite
+is the complementary *producer*. Every invariant holds (out-of-process, no GPL
+import, MIT, stdlib-only runtime with Ed25519 behind an optional `[crypto]`
+extra, fail-closed, offline-testable).
+
+**Role & relationship.** ikigov-assess is a verifier: it ingests signed
+`EvidenceRef` envelopes and uses verified refs to affirm checklist items, tagging
+each item's provenance (`self` / `evidence` / `evidence-verified`). The natural
+mirror for an audit tool is to *produce* that evidence. A curated control that is
+**clean** in a run (no `danger`/`warning` finding for its mapped ScoutSuite rules)
+becomes an `EvidenceRef` whose `content_hash` covers the canonical control subject
+and whose `ledger_ref` is bound to the attested report-manifest digest (reusing
+the 0.3/0.9 manifest + in-toto infrastructure). ikigov-assess then verifies it
+fail-closed and affirms the corresponding governance item. This closes the
+consortium loop: `presidio-hardened-ai` was producer #1, ScoutSuite is producer
+#2, ikigov-assess consumes both.
+
+**Contract & migration posture.** The wire format is the shared
+`presidio-evidence` contract — canonical JSON (sorted keys, compact separators,
+UTF-8, no floats) + SHA-256 content hash + detached signature over
+`canonical({"content_hash","signer"})` (signer-bound, blocking cross-signer
+replay), schema id `presidio-hardened/evidence-ref@1`, trust store
+`presidio-hardened/trust-store@1`. Because `presidio-evidence` is at v0.1.0
+(constants + golden vectors only), ScoutSuite **vendors the contract inline** in
+`evidence.py` and cross-validates against `presidio-evidence/vectors/`, then
+migrates to `from presidio_evidence import ...` when the library ships its
+implementation (v0.2.0) — the exact posture ikigov-assess holds today, so the two
+consumers stay byte-for-byte interoperable across the extraction.
+
+| Version | Planned | Axis · depends on |
+|---|---|---|
+| **0.28.0** | **Signed finding evidence (presidio-evidence producer)** — a new `evidence.py` (`EvidenceRef` dataclass, canonical JSON, SHA-256, HMAC-SHA256 via stdlib + Ed25519 via optional `[crypto]`, fail-closed verify), a `presidio-scout-evidence` console script (`emit` / `verify`), and `presidio-scout --evidence-out PATH [--evidence-signer ID --evidence-key … --evidence-alg ed25519\|hmac-sha256 --evidence-map PATH]` wired into `cli.main()` at the finalization point (after report-guard + findings load, alongside attest/SARIF/ASFF). Emits one `EvidenceRef` per clean curated control; a curated `policy/evidence-map.json` (rule → peer checklist item-id) validated fail-closed against the rule manifest and item-id set; golden HMAC/Ed25519/canonical-JSON conformance against `presidio-evidence/vectors/`; redaction-aware (hashes only, never raw secret values); security events log counts only. | integration · 0.3, 0.9, 0.17 |
+| **0.29.0** | **Trust store, rotation & interop hardening** — `presidio-scout-evidence verify --trust` parses `presidio-hardened/trust-store@1` (bare-string HMAC back-compat, `{alg, public_key\|key}` objects, key lists for rotation), verifies every ref fail-closed (unknown signer / tampered hash / tampered signer / wrong key → exit nonzero), and a cross-repo interop golden vector proves ikigov-assess's `verify_ref` accepts a ScoutSuite-emitted envelope (the `test_consortium_round` analog). | integration / security · 0.28 |
+| **0.30.0** (stretch) | **Library extraction & evidence consumption** — migrate the vendored contract to `presidio-evidence>=0.2.0` imports (drop the inline crypto), and optionally let ScoutSuite *consume* peer evidence to annotate findings with provenance / inform waivers — the mirror of ikigov-assess's consumer side, making the loop bidirectional. | integration · 0.28, 0.29 |
+
+**Recommendation:** start with **0.28.0** — a producer-side `evidence.py` +
+`presidio-scout-evidence emit` is the smallest change that makes ScoutSuite
+interoperable with the rest of the family, reuses the 0.9 attestation / 0.17
+compliance-map infrastructure, and (like ikigov-assess) ships fully offline-
+testable against the shared golden vectors before the library is even a hard
+dependency.
+
+**Open design questions.**
+
+- **Subject of the content hash.** Hash the per-control finding subset, or the
+  whole report manifest digest plus the control id? Leaning per-control (so a
+  consumer can affirm one item without trusting the entire report), with
+  `ledger_ref` pointing at the manifest for the full chain.
+- **Rule → item-id map ownership.** The map encodes a cross-repo coupling
+  (ScoutSuite rule names ↔ ikigov checklist ids). Curate it here (validated
+  against both the rule manifest and a checked-in copy of the item-id set), or
+  source the item-id set from ikigov to avoid drift? Leaning curate-here +
+  validate, matching how the 0.17 compliance maps are owned.
+- **Default algorithm & key handling.** Reuse the manifest/attestation key
+  conventions (key from file or env, never logged); default to Ed25519 with HMAC
+  as the stdlib-only fallback, mirroring ikigov-assess.
+- **Whether to add the consume side at all (0.30.0).** A producer alone fully
+  satisfies the consortium use case; consumption is only worth it if ScoutSuite
+  should act on peer evidence (e.g. provenance-aware waivers).
+
+---
+
 ## Delivery status
 
 Everything planned to date is **delivered and merged to `main`**; the project is
@@ -1053,6 +1124,7 @@ squash-merged PR:
 - **Arc 1 — single-run hardened auditor (0.1.0–0.15.0):** ✓ delivered
 - **Arc 2 — fleet tooling & integrations (0.16.0–0.21.0):** ✓ delivered
 - **Arc 3 — continuous assurance & remediation (0.22.0+):** planned (sketch above)
+- **Arc 4 — consortium interop & the evidence substrate (0.28.0+):** planned (sketch above)
 
 **Release status.** The release pipeline has been exercised once end-to-end at
 **v0.18.0** — `verify-rulesets` validated the corrected baselines against a real
