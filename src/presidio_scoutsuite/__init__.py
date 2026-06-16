@@ -72,6 +72,8 @@ from .ruleset import (
 )
 from .sarif import to_sarif
 from .scout_integrity import ScoutIntegrityResult, pinned_version, verify_scout
+from .summary import build as build_summary_report
+from .summary import build_fleet, render_html, render_markdown
 from .trend import Comparison, Snapshot, compare, load_history, record, snapshot
 from .upgrade import (
     CoherenceReport,
@@ -126,6 +128,10 @@ __all__ = [
     "compare",
     "record",
     "load_history",
+    "build_summary_report",
+    "build_fleet",
+    "render_markdown",
+    "render_html",
     "build_summary",
     "render_text",
     "resolve_sink",

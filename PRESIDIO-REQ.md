@@ -1078,6 +1078,36 @@ every provider the wrapper accepts ships a vetted baseline.
 
 ---
 
+## v0.26.0 — Executive & multi-format reporting (2026-06-16)
+
+Give a security lead / auditor a one-page rollup, and summarize a whole fleet.
+
+**Design decisions:**
+
+- **One summary, four renderers.** `summary.build` produces a compact dict
+  (providers, per-level counts, top findings, failing-control counts per
+  framework via the compliance map); `presidio-scout-summary --format md|html|csv|json`
+  renders it. CSV is per-finding (spreadsheets); JSON for piping.
+- **Self-contained, escaped HTML.** The page uses inline styles and **no
+  scripts**, and **HTML-escapes every dynamic value** — finding strings can echo
+  attacker-influenced resource names/tags, so a shared summary must not carry
+  injected markup. Same untrusted-output stance as the report guard.
+- **Fleet rollup reuses the orchestrate layout.** `--fleet <base>` discovers
+  per-target report sub-dirs (the `presidio-scout-orchestrate` directory shape)
+  and aggregates them into one table + totals; fail-closed per target.
+
+**Delivered:**
+- `summary.py` (`build`, `discover_fleet`/`build_fleet`, `render_markdown`/
+  `render_html`/`render_csv`/`render_fleet_markdown`) + `presidio-scout-summary`
+- Public API exports (`build_summary_report`, `build_fleet`, `render_markdown`,
+  `render_html`); version 0.26.0 (both files)
+- `test_summary.py` (incl. the HTML-escaping assertion); coverage 95% (≥90% gate);
+  ruff clean
+- README roadmap row + structure entry; SECURITY.md feature bullet +
+  supported-version bump; this log
+
+---
+
 ## Roadmap
 
 Delivered (0.1.0–0.15.0) — the planned arc is complete. The arc: **0.5** hardens
@@ -1156,7 +1186,7 @@ offline-testable).
 | **0.23.0** | **Remediation guidance** — curated per-rule remediation steps + doc links (bundled like the control maps, validated against the manifest; AWS 34 / Azure 26 / GCP 27); `presidio-scout-remediate` emits fix guidance per finding and fills the ASFF `Remediation` field. ✓ | policy / integration · 0.17, 0.20 |
 | **0.24.0** | **Policy-as-code assertions** — `presidio-scout-assert`: a declarative `[[assert]]` policy of named rules (service / rule-glob / `min_level` selectors + a `max` count) richer than a single severity threshold; fail-closed, exit 4 on any violation. ✓ | policy · 0.6, 0.8, 0.15 |
 | **0.25.0** | **Alibaba Cloud & Oracle Cloud baselines** — curated, manifest-verified baselines + compliance maps for ScoutSuite's remaining providers, rule names reconciled against the real 5.14.0 source (the 0.18 method); all five providers now ship a hardened default. ✓ | secure-by-default policy · 0.2, 0.18 |
-| **0.26.0** | **Executive & multi-format reporting** — a self-contained Markdown/HTML executive summary + CSV export, and fleet rollups aggregating many targets into one view. | reporting · 0.17, 0.19 |
+| **0.26.0** | **Executive & multi-format reporting** — `presidio-scout-summary` renders a report (or a `--fleet` rollup) as Markdown / self-contained escaped HTML / CSV / JSON, with failing-control counts from the compliance map. ✓ | reporting · 0.17, 0.19 |
 | **0.27.0** (stretch) | **Stable extension API** — a documented, MIT-safe plugin entry point for custom exporters / sinks / redactors so orgs extend without forking. | extensibility · 0.20, 0.21 |
 
 **Recommendation:** start with **0.22.0** — a trend store + regression gate turns

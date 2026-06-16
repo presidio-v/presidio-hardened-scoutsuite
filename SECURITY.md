@@ -4,8 +4,8 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 0.25.x  | ✅ Yes (current) |
-| <0.25   | Best-effort security fixes only |
+| 0.26.x  | ✅ Yes (current) |
+| <0.26   | Best-effort security fixes only |
 
 ## Reporting a Vulnerability
 
@@ -117,6 +117,12 @@ redaction, supply-chain controls, and a least-privilege deployment model.
   signature *and* the provenance (cryptographically, then against this
   distribution's `presidio-scout-verify-provenance` policy) — before the release
   run is allowed to succeed.
+- **Self-contained, escaped executive reporting** — `presidio-scout-summary`
+  renders a report (or a `--fleet` rollup) as Markdown, CSV, JSON, or a
+  **self-contained HTML** page with inline styles and **no scripts**; every
+  dynamic value (resource names/tags, which can echo attacker-influenced input)
+  is HTML-escaped — the same untrusted-output stance as the report guard, so a
+  shared summary can't carry injected markup.
 - **Policy-as-code assertions** — `presidio-scout-assert` evaluates a declarative
   `[[assert]]` policy (named rules selecting findings by service / rule-glob /
   severity, each capped by a `max` count) — far more specific than a single

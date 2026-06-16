@@ -672,12 +672,12 @@ planned (see the tables at the end).
 | **0.23.0** | Remediation guidance — curated per-rule fix steps + doc references (AWS/Azure/GCP, validated against the manifest); `presidio-scout-remediate` emits them and they fill the AWS Security Hub ASFF `Remediation` field |
 | **0.24.0** | Policy-as-code assertions — `presidio-scout-assert` evaluates a declarative `[[assert]]` policy (named rules over service / rule-glob / severity with a `max` count) richer than a single threshold; fail-closed, exit 4 on any violation |
 | **0.25.0** | Alibaba Cloud (`aliyun`) & Oracle Cloud (`oci`) baselines — curated, **manifest-verified** baselines + compliance maps for ScoutSuite's remaining providers (rule names reconciled against the real 5.14.0 source); all five providers now ship a hardened default |
+| **0.26.0** | Executive & multi-format reporting — `presidio-scout-summary` renders a report (or a `--fleet` rollup) as Markdown, **self-contained HTML** (escaped, no scripts), CSV, or JSON |
 
 ### Planned — third arc: continuous assurance & remediation (0.22.0+)
 
 | Version | Planned |
 |---|---|
-| **0.26.0** | Executive & multi-format reporting — Markdown/HTML exec summary, CSV export, fleet rollups |
 | **0.27.0** (stretch) | Stable extension API — MIT-safe plugin point for custom exporters / sinks / redactors |
 
 ### Planned — fourth arc: consortium interop & the evidence substrate (0.28.0+)
@@ -742,6 +742,7 @@ presidio-hardened-scoutsuite/
 │   ├── config.py          # .presidio-scout.toml org config (presidio-scout-policy)
 │   ├── ruleset.py         # baseline rule-name validation (presidio-scout-validate)
 │   ├── compose.py         # config-driven redaction patterns + baseline composition
+│   ├── summary.py         # executive / multi-format reporting (presidio-scout-summary)
 │   ├── upgrade.py         # ScoutSuite pin-coherence gate + bump tooling (presidio-scout-upgrade)
 │   ├── orchestrate.py     # multi-account fleet fan-out + aggregated gate (presidio-scout-orchestrate)
 │   ├── notify.py          # redaction-aware notification sinks (presidio-scout-notify)
