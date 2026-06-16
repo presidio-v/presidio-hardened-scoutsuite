@@ -245,7 +245,71 @@ def test_fail_on_finding_no_results_fails_closed(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(launcher, "run", fake_run)
     rc = cli.main(["aws", "--report-dir", str(report_dir), "--fail-on-finding", "warning"])
     assert rc == 2
-    assert "cannot evaluate findings gate" in capsys.readouterr().err
+    assert "cannot read findings" in capsys.readouterr().err
+
+
+def test_sarif_written_during_run(tmp_path, monkeypatch, capsys):
+    import json
+
+    report_dir = tmp_path / "out"
+    sarif_path = tmp_path / "results.sarif"
+    _verify_ok(monkeypatch)
+
+    def fake_run(plan, timeout=None):
+        (plan.report_dir / "report.html").write_text("<html><head></head><body>ok</body></html>")
+        _write_results(
+            plan.report_dir,
+            {
+                "provider_code": "aws",
+                "services": {
+                    "s3": {"findings": {"w.json": {"level": "warning", "flagged_items": 1}}}
+                },
+            },
+        )
+        return subprocess.CompletedProcess(plan.argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(launcher, "run", fake_run)
+    rc = cli.main(["aws", "--report-dir", str(report_dir), "--sarif", str(sarif_path)])
+    assert rc == 0
+    assert "SARIF written" in capsys.readouterr().out
+    doc = json.loads(sarif_path.read_text())
+    assert doc["version"] == "2.1.0"
+    assert len(doc["runs"][0]["results"]) == 1
+
+
+def test_sarif_and_fail_on_finding_together(tmp_path, monkeypatch, capsys):
+    report_dir = tmp_path / "out"
+    sarif_path = tmp_path / "r.sarif"
+    _verify_ok(monkeypatch)
+
+    def fake_run(plan, timeout=None):
+        (plan.report_dir / "report.html").write_text("<html><head></head><body>ok</body></html>")
+        _write_results(
+            plan.report_dir,
+            {
+                "provider_code": "aws",
+                "services": {
+                    "s3": {"findings": {"w.json": {"level": "danger", "flagged_items": 3}}}
+                },
+            },
+        )
+        return subprocess.CompletedProcess(plan.argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(launcher, "run", fake_run)
+    rc = cli.main(
+        [
+            "aws",
+            "--report-dir",
+            str(report_dir),
+            "--sarif",
+            str(sarif_path),
+            "--fail-on-finding",
+            "danger",
+        ]
+    )
+    # SARIF is still written even though the gate trips (exit 4).
+    assert rc == 4
+    assert sarif_path.exists()
 
 
 def test_dry_run_skips_integrity_gate(tmp_path, monkeypatch, capsys):

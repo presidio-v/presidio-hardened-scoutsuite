@@ -335,9 +335,42 @@ from the installed package (`ruleset.installed_rules`) and the release-time
 
 ---
 
+## v0.7.0 — SARIF export + GitHub code scanning (2026-06-16)
+
+**Design decisions:**
+
+- **Reuse the 0.6.0 findings model; add SARIF as a pure projection.** `sarif.py`
+  builds a SARIF 2.1.0 document straight from the in-memory `FindingsReport` — no
+  re-parsing, no ScoutSuite import. `Finding` gained an `items` tuple (the flagged
+  resource paths ScoutSuite lists) so results can be **per-resource**.
+- **Documented, auditable mapping.** rule id = `<service>/<key without .json>`;
+  ScoutSuite `danger`→SARIF `error` + `security-severity` 8.0 (high), `warning`→
+  `warning` + 4.0 (medium); unknown levels → `note`/0.0. Rules carry the
+  `security` tag so GitHub classifies them as security alerts.
+- **Cloud findings have no source file — be honest about it.** Each result gets a
+  *synthetic* physical location (`<provider>/<service>`, line 1) so GitHub
+  accepts it, plus a `logicalLocations` entry naming the actual resource, and a
+  deterministic `partialFingerprints` (sha256 of rule+resource) so the same alert
+  is tracked across runs rather than churning.
+- **Two entry points + CI-friendly inline emit.** `presidio-scout-export`
+  converts an existing report (stdout or `-o`); `presidio-scout --sarif PATH`
+  emits during a run. SARIF is written **even when `--fail-on-finding` trips**, so
+  a gated pipeline still uploads the alerts.
+
+**Delivered:**
+- `sarif.py` (`to_sarif`) + `presidio-scout-export` console script; `--sarif PATH`
+  on the main CLI; `Finding.items`
+- Public API export (`to_sarif`)
+- `test_sarif.py` + findings/CLI tests (per-resource results, severity mapping,
+  fingerprints, inline emit + gate); coverage 96% (≥90% gate); ruff clean
+- README *GitHub code scanning (SARIF)* section with an upload-sarif Action
+  snippet, SECURITY.md, this log
+
+---
+
 ## Roadmap
 
-Delivered (0.1.0–0.6.0) and planned (0.7.0–0.15.0). The arc: **0.5** hardens
+Delivered (0.1.0–0.7.0) and planned (0.8.0–0.15.0). The arc: **0.5** hardens
 *what runs*; **0.6–0.8** turn findings into an enforceable, waiver-aware policy
 gate; **0.9–0.10** make every run attested and comparable over time; **0.11–0.14**
 harden how it's built and deployed; **0.15** makes it configurable for an org.
@@ -352,7 +385,7 @@ ScoutSuite, MIT wrapper, stdlib runtime, fail-closed, offline-testable.
 | **0.4.0** | SLSA provenance verification on pull; reproducible-build attestation | supply-chain ✓ |
 | **0.5.0** | **ScoutSuite install-integrity gate** — fail-closed preflight that the `scout` on PATH is the pinned, vetted version before running (`--allow-unverified-scout` to override); real hash-pinned `requirements.lock`; pinned `hatchling` build backend. ✓ | supply-chain + runtime trust · lockfile |
 | **0.6.0** | **Findings model + severity gate** — parse the `scoutsuite-results` data off disk into a deterministic findings summary; `--fail-on-finding danger\|warning` + standalone `presidio-scout-findings` (fail-closed, exit 4). ✓ | secure-by-default policy |
-| **0.7.0** | **SARIF export + code-scanning** — `presidio-scout-export --format sarif`; documented GitHub Action to upload to code scanning; findings mapped to rule IDs/severities. | policy / integration · 0.6 |
+| **0.7.0** | **SARIF export + code-scanning** — `presidio-scout-export` + `presidio-scout --sarif PATH` emit SARIF 2.1.0 (severity-mapped, per-resource, stable fingerprints); documented `upload-sarif` Action. ✓ | policy / integration · 0.6 |
 | **0.8.0** | **Waivers / exceptions framework** — checked-in waivers (rule + resource + justification + owner + **expiry**); waived findings suppressed in the gate but recorded; **expired waivers fail closed**. | policy · 0.6 |
 | **0.9.0** | **Signed run attestation** — an in-toto statement binding inputs (provider, ruleset digest, verified ScoutSuite version) → outputs (report-manifest digest), verifiable with the existing tooling. | supply-chain integrity · 0.3, 0.4, 0.5 |
 | **0.10.0** | **Drift detection / run diff** — `presidio-scout-diff` over two report manifests / finding sets; surfaces newly-introduced vs resolved findings; `--fail-on-new-finding`. | policy / operational · 0.6, 0.9 |

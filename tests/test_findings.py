@@ -75,6 +75,23 @@ def test_extract_fields():
     assert world.flagged_items == 2
     assert world.checked_items == 10
     assert "world" in world.description
+    assert world.items == ()  # absent in fixture -> empty
+
+
+def test_extract_captures_items():
+    results = {
+        "services": {
+            "s3": {
+                "findings": {
+                    "k.json": {"level": "danger", "flagged_items": 2, "items": ["a", "b"]},
+                    "bad.json": {"level": "warning", "flagged_items": 1, "items": "not-a-list"},
+                }
+            }
+        }
+    }
+    by_key = {f.key: f for f in F.extract_findings(results)}
+    assert by_key["k.json"].items == ("a", "b")
+    assert by_key["bad.json"].items == ()  # non-list ignored
 
 
 def test_extract_tolerates_malformed_shapes():

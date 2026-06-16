@@ -90,6 +90,7 @@ presidio-scout aws -- --profile auditor     # pass-through flags after '--' (all
 presidio-scout aws --fail-on-secret         # non-zero exit if a secret survives redaction
 presidio-scout aws --fail-on-remote-ref     # non-zero exit if the report references a remote resource
 presidio-scout aws --fail-on-finding danger # exit 4 if any flagged finding is danger (gate a pipeline)
+presidio-scout aws --sarif results.sarif    # also emit SARIF for GitHub code scanning
 presidio-scout aws --no-baseline            # use ScoutSuite's default ruleset instead
 presidio-scout aws --allow-unverified-scout # run even if scout isn't the pinned version (warns)
 presidio-scout aws --dry-run                # print the hardened command, run nothing
@@ -178,6 +179,24 @@ presidio-scout-findings ./scoutsuite-report --fail-on warning --format json
 Levels rank `danger > warning`; `--fail-on <level>` trips on anything **at or
 above** it. The gate is **fail-closed**: if the results data is missing or
 unparseable it errors (exit 2) rather than passing a report it never evaluated.
+
+### GitHub code scanning (SARIF)
+
+Export the flagged findings as **SARIF 2.1.0** so they surface as code-scanning
+**alerts** (tracked and triageable in the Security tab) — inline during a run
+(`--sarif PATH`) or from an existing report (`presidio-scout-export`):
+
+```yaml
+# .github/workflows/cloud-audit.yml (excerpt)
+- run: presidio-scout aws --report-dir ./report --sarif results.sarif
+- uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: results.sarif
+```
+
+`danger` maps to SARIF `error` (`security-severity` 8.0 / high), `warning` to
+`warning` (4.0 / medium); each flagged resource becomes a result with a stable
+fingerprint so GitHub tracks the same alert across runs.
 
 ---
 
@@ -280,7 +299,7 @@ upstream unnoticed. Regenerate a manifest with
 | **0.4.0** | SLSA build-provenance policy verification (`presidio-scout-verify-provenance`, v0.2 + v1) and a reproducible wheel/sdist with a `reproducible-build` CI gate |
 | **0.5.0** | ScoutSuite install-integrity gate — fail-closed preflight that the `scout` you run is the pinned, vetted version (`--allow-unverified-scout` to override); real hash-pinned `requirements.lock`; pinned build backend |
 | **0.6.0** | Findings model + severity gate — `presidio-scout --fail-on-finding danger\|warning` and the standalone `presidio-scout-findings`, parsed from the report data (fail-closed; exit 4) |
-| **0.7.0** _(planned)_ | SARIF export + GitHub code-scanning integration (`presidio-scout-export`) |
+| **0.7.0** | SARIF export + GitHub code-scanning — `presidio-scout-export` and `presidio-scout --sarif PATH` emit SARIF 2.1.0 (severity-mapped, per-resource, stable fingerprints) |
 | **0.8.0** _(planned)_ | Waivers / exceptions framework with justification + owner + expiry (expired waivers fail closed) |
 | **0.9.0** _(planned)_ | Signed run attestation — in-toto statement binding run inputs to the report-manifest digest |
 | **0.10.0** _(planned)_ | Drift detection / run diff (`presidio-scout-diff`, `--fail-on-new-finding`) |
@@ -320,6 +339,7 @@ presidio-hardened-scoutsuite/
 │   ├── provenance.py      # SLSA provenance policy gate (presidio-scout-verify-provenance)
 │   ├── scout_integrity.py # pinned-ScoutSuite preflight gate
 │   ├── findings.py        # findings model + severity gate (presidio-scout-findings)
+│   ├── sarif.py           # SARIF 2.1.0 export for code scanning (presidio-scout-export)
 │   ├── ruleset.py         # baseline rule-name validation (presidio-scout-validate)
 │   ├── cli.py             # presidio-scout entrypoint
 │   ├── errors.py          # exception hierarchy
