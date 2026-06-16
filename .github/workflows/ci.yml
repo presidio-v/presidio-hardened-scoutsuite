@@ -63,8 +63,12 @@ jobs:
           python -m pip install --upgrade pip build
           # Pin the build clock so file mtimes embedded in the archives are stable.
           export SOURCE_DATE_EPOCH=1700000000
-          python -m build --outdir dist1 .
-          python -m build --outdir dist2 .
+          # Build into dirs OUTSIDE the checkout: hatchling's sdist sweeps in
+          # untracked files, so an in-tree outdir would make the 2nd build ingest
+          # the 1st build's artifacts and spuriously "differ".
+          dist1="$(mktemp -d)"; dist2="$(mktemp -d)"
+          python -m build --outdir "$dist1" .
+          python -m build --outdir "$dist2" .
           # Wheels are zip archives normalized under SOURCE_DATE_EPOCH — compare
           # bytes directly. Sdists are gzip-wrapped, and the gzip *container*
           # carries an mtime that is not part of the archived content; per
@@ -76,7 +80,7 @@ jobs:
               gzip -dc "$s" | sha256sum | awk '{print "sdist " $1}'
             done
           }
-          a=$(digest dist1); b=$(digest dist2)
+          a=$(digest "$dist1"); b=$(digest "$dist2")
           printf 'build 1:\n%s\nbuild 2:\n%s\n' "$a" "$b"
           if [ "$a" != "$b" ]; then
             echo "::error::build is not reproducible — artifact content differs"
