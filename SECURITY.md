@@ -101,6 +101,13 @@ redaction, supply-chain controls, and a least-privilege deployment model.
   one at resource granularity; `--fail-on-new-finding {any,warning,danger}`
   blocks a pipeline on *newly introduced* findings/resources while ignoring the
   pre-existing, already-triaged backlog — so regressions can't slip in unnoticed.
+- **Image build/release integrity** — the release image is multi-arch with
+  timestamps pinned to the tagged commit (reproducible digests), `cosign`-signed,
+  and carries **GitHub-signed SLSA build provenance**. A `verify-image` release
+  gate independently re-verifies the freshly published image end-to-end — the
+  signature *and* the provenance (cryptographically, then against this
+  distribution's `presidio-scout-verify-provenance` policy) — before the release
+  run is allowed to succeed.
 - **ScoutSuite install-integrity gate** — before any cloud credentials are
   handed to ScoutSuite, a fail-closed preflight (`scout_integrity`) confirms the
   `scout` on PATH is the **pinned, vetted version** this distribution ships;

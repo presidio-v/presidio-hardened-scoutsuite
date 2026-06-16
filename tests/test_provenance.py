@@ -104,6 +104,34 @@ def test_load_unsupported_statement_type_raises():
         P.load_statement(json.dumps(stmt))
 
 
+def test_load_from_gh_attestation_verify_array():
+    # `gh attestation verify --format json` emits an array of bundles, each
+    # wrapping the in-toto statement in a DSSE envelope's base64 payload.
+    stmt = _v02()
+    envelope_payload = base64.b64encode(json.dumps(stmt).encode()).decode()
+    gh_output = [
+        {
+            "attestation": {
+                "bundle": {
+                    "dsseEnvelope": {
+                        "payload": envelope_payload,
+                        "payloadType": "application/vnd.in-toto+json",
+                    }
+                }
+            }
+        }
+    ]
+    prov = P.load_statement(json.dumps(gh_output))
+    assert prov.predicate_type == "https://slsa.dev/provenance/v0.2"
+    assert DIGEST in prov.subject_digests
+
+
+def test_load_from_gh_array_with_direct_statement():
+    # Tolerate a verifier that nests the decoded statement directly.
+    gh_output = [{"verificationResult": {"statement": _v02()}}]
+    assert P.load_statement(json.dumps(gh_output)).predicate_type.endswith("v0.2")
+
+
 # --- field extraction --------------------------------------------------------
 
 
@@ -178,6 +206,32 @@ def test_verify_rejects_disallowed_predicate_type():
     stmt = _v02(predicateType="https://slsa.dev/provenance/v0.1")
     result = P.verify(P.load_statement(json.dumps(stmt)))
     assert any("predicate type" in e for e in result.errors)
+
+
+def test_verify_container_image_provenance():
+    # Shape of provenance for the released multi-arch image (subject = image
+    # digest; builder = this repo's release workflow), verified end-to-end.
+    image_digest = "sha256:" + "e" * 64
+    stmt = {
+        "_type": "https://in-toto.io/Statement/v1",
+        "predicateType": "https://slsa.dev/provenance/v1",
+        "subject": [
+            {
+                "name": "ghcr.io/presidio-v/presidio-hardened-scoutsuite",
+                "digest": {"sha256": "e" * 64},
+            }
+        ],
+        "predicate": {
+            "buildDefinition": {
+                "externalParameters": {"workflow": {"repository": REPO, "ref": "refs/tags/v0.11.0"}}
+            },
+            "runDetails": {
+                "builder": {"id": REPO + "/.github/workflows/release.yml@refs/tags/v0.11.0"}
+            },
+        },
+    }
+    result = P.verify(P.load_statement(json.dumps(stmt)), artifact_digest=image_digest)
+    assert result.ok, result.errors
 
 
 def test_normalize_uri_equivalences():

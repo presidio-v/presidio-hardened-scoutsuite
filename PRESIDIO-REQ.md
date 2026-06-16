@@ -474,9 +474,50 @@ from the installed package (`ruleset.installed_rules`) and the release-time
 
 ---
 
+## v0.11.0 — Reproducible multi-arch image + E2E image provenance (2026-06-16)
+
+**Design decisions:**
+
+- **Consume 0.4 against the *real* published artifact.** The release pipeline now
+  has a `verify-image` job (gated after build) that re-verifies the freshly
+  pushed image end to end: `cosign verify` for the signature (keyless, this
+  repo's `release.yml` identity), then `gh attestation verify` for the
+  GitHub-signed SLSA provenance, piped into `presidio-scout-verify-provenance`
+  for the policy check (builder / source / this exact digest). The release run
+  only goes green once the published image verifies — closing the loop from
+  "we sign" to "what we shipped verifies."
+- **Signed, gh-verifiable provenance.** Added `actions/attest-build-provenance`
+  (push-to-registry) so the image carries a sigstore-signed SLSA provenance
+  attestation, verifiable with the standard `gh attestation verify` rather than
+  bespoke extraction of unsigned buildx metadata.
+- **`load_statement` made robust to real verifier output (the testable core).**
+  Refactored to locate the in-toto statement in a bare statement, a DSSE
+  envelope, cosign JSON-Lines, *or* the nested array `gh attestation verify
+  --format json` emits — so the gate is a clean `gh … | presidio-scout-verify-
+  provenance -`. Preserved the existing error semantics (empty / invalid JSON /
+  undecodable DSSE payload / no predicateType).
+- **Multi-arch + reproducible image.** Build `linux/amd64,linux/arm64` (QEMU),
+  with `SOURCE_DATE_EPOCH` pinned to the tagged commit so buildkit rewrites
+  timestamps to a deterministic digest. Both base images (`python:3.11-slim`,
+  distroless `python3-debian12`) are multi-arch.
+
+**Delivered:**
+- `release.yml`: QEMU + `platforms: linux/amd64,linux/arm64`; `SOURCE_DATE_EPOCH`;
+  `actions/attest-build-provenance`; new `verify-image` end-to-end gate (new
+  actions SHA-pinned)
+- `provenance.load_statement` + `_extract_statement` handle gh/cosign/DSSE/bare
+  forms; README image-verification commands, SECURITY.md, this log
+- `test_provenance.py`: gh-array + container-image-provenance fixtures; coverage
+  96% (≥90% gate); ruff clean
+- Note: release-workflow changes are tag-triggered and validated by YAML + review
+  (not executed by the PR's CI), following standard GitHub Artifact Attestations
+  + cosign patterns.
+
+---
+
 ## Roadmap
 
-Delivered (0.1.0–0.10.0) and planned (0.11.0–0.15.0). The arc: **0.5** hardens
+Delivered (0.1.0–0.11.0) and planned (0.12.0–0.15.0). The arc: **0.5** hardens
 *what runs*; **0.6–0.8** turn findings into an enforceable, waiver-aware policy
 gate; **0.9–0.10** make every run attested and comparable over time; **0.11–0.14**
 harden how it's built and deployed; **0.15** makes it configurable for an org.
@@ -495,7 +536,7 @@ ScoutSuite, MIT wrapper, stdlib runtime, fail-closed, offline-testable.
 | **0.8.0** | **Waivers / exceptions framework** — checked-in JSON waivers (rule + resource + justification + owner + **expiry**); applied to the gate/SARIF via `--waivers`; **expired/malformed waivers fail closed**. ✓ | policy · 0.6 |
 | **0.9.0** | **Signed run attestation** — an in-toto statement binding inputs (provider, ruleset digest, verified ScoutSuite version) → output (report-manifest digest); `presidio-scout --attest` + `presidio-scout-attest generate/verify`, cosign-signable. ✓ | supply-chain integrity · 0.3, 0.4, 0.5 |
 | **0.10.0** | **Drift detection / run diff** — `presidio-scout-diff` over two reports at resource granularity (new vs resolved findings/resources); `--fail-on-new-finding {any,warning,danger}`. ✓ | policy / operational · 0.6, 0.9 |
-| **0.11.0** | **Reproducible, multi-arch container + image provenance E2E** — reproducible + arm64 image; release gate running `cosign verify-attestation` + `presidio-scout-verify-provenance` on the freshly pushed image before promotion; documented pre-`docker run` verification. | supply-chain + deployment · 0.4 |
+| **0.11.0** | **Reproducible, multi-arch container + image provenance E2E** — `amd64`+`arm64`, reproducible digests, GitHub-signed provenance; release `verify-image` gate re-verifies the published image (cosign + `gh attestation verify` + `presidio-scout-verify-provenance`). ✓ | supply-chain + deployment · 0.4 |
 | **0.12.0** | **Credential brokering / keyless auth** — auto-assume the bundled least-privilege audit role (AWS STS + ExternalId/MFA; GCP SA impersonation; Azure Reader) via the cloud CLI as a subprocess, and OIDC in CI, so operators never pass long-lived keys. | runtime credential safety · iam/ |
 | **0.13.0** | **Kubernetes deployment** — least-privilege `Job`/`CronJob` manifests + optional Helm chart using IRSA / Workload Identity; read-only rootfs, seccomp, dropped caps, egress `NetworkPolicy`. | hardened deployment · 0.11, 0.12 |
 | **0.14.0** | **Vulnerability-scan gate + SBOM/vuln attestations** — Grype/Trivy gate on fixable criticals; SBOM and vuln report attached as **signed attestations** and verified alongside provenance. | supply-chain · 0.11 |
