@@ -245,6 +245,24 @@ Export the flagged findings as **SARIF 2.1.0** so they surface as code-scanning
 `warning` (4.0 / medium); each flagged resource becomes a result with a stable
 fingerprint so GitHub tracks the same alert across runs.
 
+### Tracking drift between runs
+
+Gating on the absolute set of findings is noisy when there's a known,
+already-triaged backlog. `presidio-scout-diff` compares a **baseline** report to
+a **current** one and reports only what *changed* — so a pipeline can block
+*regressions* while ignoring pre-existing findings:
+
+```bash
+presidio-scout-diff ./baseline-report ./scoutsuite-report --fail-on-new-finding danger
+# drift: +1 new finding(s), +2 new resource(s); -3 resolved finding(s), -0 resolved resource(s)
+```
+
+It diffs at **resource granularity**, distinguishing a brand-new finding from an
+existing finding that started flagging an additional resource, and from
+resolved findings/resources. `--fail-on-new-finding {any,warning,danger}` exits
+`4` when a *newly* flagged occurrence is at or above the chosen severity
+(`--format json` for the full structured delta).
+
 ---
 
 ## Verifying what you pull
@@ -349,7 +367,7 @@ upstream unnoticed. Regenerate a manifest with
 | **0.7.0** | SARIF export + GitHub code-scanning — `presidio-scout-export` and `presidio-scout --sarif PATH` emit SARIF 2.1.0 (severity-mapped, per-resource, stable fingerprints) |
 | **0.8.0** | Waivers / exceptions framework — checked-in JSON waivers (justification + owner + expiry; resource-level globs), applied to the gate/SARIF via `--waivers`; expired/malformed waivers fail closed |
 | **0.9.0** | Signed run attestation — in-toto statement binding run inputs (provider, ruleset digest, ScoutSuite version) to the report-manifest digest; `presidio-scout --attest` + `presidio-scout-attest generate/verify` |
-| **0.10.0** _(planned)_ | Drift detection / run diff (`presidio-scout-diff`, `--fail-on-new-finding`) |
+| **0.10.0** | Drift detection / run diff — `presidio-scout-diff` compares two reports at resource granularity (new vs resolved findings), with `--fail-on-new-finding {any,warning,danger}` |
 | **0.11.0** _(planned)_ | Reproducible, multi-arch container + end-to-end image provenance verification at release |
 | **0.12.0** _(planned)_ | Credential brokering / keyless auth — auto-assume the bundled least-privilege audit role; OIDC in CI |
 | **0.13.0** _(planned)_ | Kubernetes deployment — least-privilege Job/CronJob + Helm (IRSA / Workload Identity), seccomp, egress policy |
@@ -389,6 +407,7 @@ presidio-hardened-scoutsuite/
 │   ├── sarif.py           # SARIF 2.1.0 export for code scanning (presidio-scout-export)
 │   ├── waivers.py         # expiring findings waivers / exceptions (--waivers)
 │   ├── attestation.py     # in-toto run attestation (presidio-scout-attest)
+│   ├── diff.py            # drift detection between two runs (presidio-scout-diff)
 │   ├── ruleset.py         # baseline rule-name validation (presidio-scout-validate)
 │   ├── cli.py             # presidio-scout entrypoint
 │   ├── errors.py          # exception hierarchy

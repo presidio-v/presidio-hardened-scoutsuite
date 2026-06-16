@@ -97,6 +97,10 @@ redaction, supply-chain controls, and a least-privilege deployment model.
   blob with cosign, it is a portable, verifiable record that *this* report was
   produced by *that* provider/ruleset/ScoutSuite; `verify` re-checks the binding
   to the on-disk report.
+- **Drift gate (`presidio-scout-diff`)** — diffs a baseline report against a new
+  one at resource granularity; `--fail-on-new-finding {any,warning,danger}`
+  blocks a pipeline on *newly introduced* findings/resources while ignoring the
+  pre-existing, already-triaged backlog — so regressions can't slip in unnoticed.
 - **ScoutSuite install-integrity gate** — before any cloud credentials are
   handed to ScoutSuite, a fail-closed preflight (`scout_integrity`) confirms the
   `scout` on PATH is the **pinned, vetted version** this distribution ships;
