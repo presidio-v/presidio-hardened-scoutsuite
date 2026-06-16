@@ -118,6 +118,17 @@ class ProvenanceVerificationError(PresidioScoutError):
     """
 
 
+class UpgradeError(PresidioScoutError):
+    """The pinned ScoutSuite version is incoherent, or an upgrade is invalid.
+
+    Raised by the upgrade-automation gate when the version declared across the
+    pin sites (the ``scoutsuite`` extra, ``requirements.lock``, the
+    install-integrity fallback constant) disagree, or when a requested bump is
+    malformed or not strictly newer than the current pin — so staying current is
+    a reviewed, fail-closed bump rather than a silent drift between pin sites.
+    """
+
+
 class RulesetValidationError(PresidioScoutError):
     """A curated ruleset references rule names the pinned ScoutSuite does not
     provide.

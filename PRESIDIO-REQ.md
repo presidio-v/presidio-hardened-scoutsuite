@@ -672,6 +672,63 @@ A-lite (opt-in CLI brokering) for the reasons above.
 
 ---
 
+## v0.16.0 — ScoutSuite upgrade automation (2026-06-16)
+
+First version of the *next arc* (fleet tooling): keep the pinned ScoutSuite
+current as a reviewed, fail-closed operation rather than manual drift.
+
+**Problem.** The pinned ScoutSuite version underpins every gate — the
+install-integrity preflight, the hash-pinned lockfile the container installs
+with `--require-hashes`, and the rule inventory the curated baselines validate
+against. But that version is hardcoded in **three** files that must agree (the
+`scoutsuite` extra in `pyproject.toml` — the authoritative source
+`scout_integrity.pinned_version()` reads — plus `requirements.lock` and the
+`PINNED_SCOUTSUITE_VERSION` fallback constant). Nothing detected drift between
+them, and a bump was a manual, error-prone, multi-file edit.
+
+**Design decisions:**
+
+- **Coherence is a fail-closed gate.** `upgrade.py` reads the version from every
+  pin site and `presidio-scout-upgrade check` errors (exit 4) on any
+  disagreement or missing pin. Wired into CI as a dedicated `pin-coherence` job
+  (offline, no GPL ScoutSuite) so the pins can never silently drift on `main`.
+- **The wrapper only does the deterministic, offline part.** `apply --to X`
+  rewrites just the two in-repo text pins (the extra + the constant) — never the
+  lockfile (needs PyPI + hashes) or the rule manifests (needs the installed GPL
+  ScoutSuite). It deliberately leaves the repo *incoherent* afterwards (the lock
+  is stale) and says so; `plan --to X` emits the exact, ordered commands for the
+  environment-dependent steps. Fail-closed: refuses an incoherent base, a
+  malformed target, or a non-strictly-newer target (no silent downgrade/no-op).
+- **Manifest regeneration lives with the rule logic.** Added
+  `presidio-scout-validate --regenerate --source installed`
+  (`ruleset.render_manifest`/`regenerate_manifest`) which rewrites each
+  `<provider>.rules.txt` to the **full** installed inventory (a strict superset
+  of today's curated subset — `--source manifest` validation still holds, and it
+  is more robust to upstream renames). Not run against 5.14.0 here (no ScoutSuite
+  in this env); the committed manifests stay the curated subset until the next
+  real bump regenerates them in the workflow.
+- **Automation, never auto-merge.** The scheduled `scout-upgrade` workflow
+  (weekly + `workflow_dispatch` with an optional target) queries PyPI for the
+  latest ScoutSuite, runs `apply`, regenerates the lockfile (`pip-compile
+  --generate-hashes`) and the manifests, runs every gate (coherence, ruleset
+  manifest + installed, full test suite), and opens a PR with first-party `gh`
+  (no unpinnable third-party action). A human reviews the diff and the green run.
+
+**Delivered:**
+- `upgrade.py` (`discover_pins`, `check_coherence`/`assert_coherent`,
+  `authoritative_version`, `parse_version`, `plan_upgrade`, `apply_text_pins`,
+  `find_root`) + `UpgradeError`; `presidio-scout-upgrade`
+  (`check`/`current`/`plan`/`apply`) console script
+- `ruleset.render_manifest`/`regenerate_manifest` + `--regenerate` flag
+- `pin-coherence` CI job; scheduled `scout-upgrade.yml` workflow
+- Public API exports; `test_upgrade.py` (incl. a guard that the *real* repo's
+  pins are coherent) + ruleset regeneration tests; coverage 96% (≥90% gate);
+  ruff clean
+- README *Keep ScoutSuite current* section + roadmap row + structure entry;
+  SECURITY.md feature bullet + supported-version bump; this log
+
+---
+
 ## Roadmap
 
 Delivered (0.1.0–0.15.0) — the planned arc is complete. The arc: **0.5** hardens
@@ -705,6 +762,30 @@ ScoutSuite, MIT wrapper, stdlib runtime, fail-closed, offline-testable.
   over in-wrapper brokering. See the v0.12.0 deliberation above.
 - **0.15.0** — resolved: stdlib `tomllib` on 3.11+, with a conditional `tomli`
   dependency on 3.9/3.10 (the one documented runtime dep). See the v0.15.0 log.
+
+---
+
+## Next arc — 0.16.0+ (sketch)
+
+The 0.1.0–0.15.0 arc built the *single-run* hardened auditor: hardened invocation,
+attested/comparable output, hardened build & deploy, org-configurable policy. The
+next arc turns it into a *fleet* tool — keep the pinned ScoutSuite current safely,
+make findings consumable by GRC/cloud-native sinks, and scale a run across many
+accounts — without breaking any invariant (out-of-process, no GPL import, MIT,
+stdlib-only runtime, fail-closed, offline-testable).
+
+| Version | Planned | Axis · depends on |
+|---|---|---|
+| **0.16.0** | **ScoutSuite upgrade automation** — `presidio-scout-upgrade` (fail-closed pin-coherence gate + reviewable bump planner/applier), `--regenerate` for the rule manifests, a `pin-coherence` CI gate, and a scheduled workflow that regenerates the hash-pinned `requirements.lock` + manifests and opens a PR (never auto-merged). ✓ | supply-chain / maintenance · 0.5, 0.14 |
+| **0.17.0** | **Compliance mapping + ASFF export** — map findings to control frameworks (CIS / NIST 800-53 / SOC 2) and export AWS Security Hub ASFF alongside SARIF, so the gate feeds GRC and cloud-native finding stores. | policy / integration · 0.6, 0.7 |
+| **0.18.0** | **Deeper / additional provider baselines** — extend curated CIS-aligned baselines (more AWS/Azure/GCP services; consider OCI/Alibaba/K8s if ScoutSuite supports), each behind the rule-name validation gate. | secure-by-default policy · 0.2 |
+| **0.19.0** | **Org-wide orchestration** — drive a fan-out across many accounts/subscriptions/projects (assume-role / impersonation matrix), one attested report + diff per target, aggregated gate — still out-of-process per account. | operational scale · 0.10, 0.12, 0.13 |
+| **0.20.0** | **Notification / finding sinks** — fail-closed push of gate results to sinks (issue tracker, Slack/webhook, S3/GCS), driven by `.presidio-scout.toml` profiles; redaction-aware, no secret leakage. | integration · 0.15, 0.17 |
+| **0.21.0** (stretch) | **Config-driven redaction & baseline composition** — let an org extend redaction patterns and compose/layer baselines from config, validated fail-closed by `presidio-scout-policy`. | usability / policy · 0.15 |
+
+**Recommendation:** start with **0.16.0** — keeping the pinned ScoutSuite current
+underpins every gate (rules, vuln scan, integrity preflight) and is the highest
+maintenance risk now that the arc is feature-complete.
 
 ---
 
