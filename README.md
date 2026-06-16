@@ -89,6 +89,7 @@ presidio-scout aws --report-dir ./out       # choose the (0700) report directory
 presidio-scout aws -- --profile auditor     # pass-through flags after '--' (allowlisted)
 presidio-scout aws --fail-on-secret         # non-zero exit if a secret survives redaction
 presidio-scout aws --fail-on-remote-ref     # non-zero exit if the report references a remote resource
+presidio-scout aws --fail-on-finding danger # exit 4 if any flagged finding is danger (gate a pipeline)
 presidio-scout aws --no-baseline            # use ScoutSuite's default ruleset instead
 presidio-scout aws --allow-unverified-scout # run even if scout isn't the pinned version (warns)
 presidio-scout aws --dry-run                # print the hardened command, run nothing
@@ -106,7 +107,8 @@ pass-through allowlist** (`--profile`, `--region(s)`, `--services`, `--skip`,
 flag can't silently weaken a run until it's vetted and added.
 
 Exit codes: `0` ok · `2` invalid invocation / `scout` not found / unverified
-ScoutSuite · `3` report guard failure (e.g. `--fail-on-secret`).
+ScoutSuite · `3` report guard failure (e.g. `--fail-on-secret`) · `4` findings
+severity threshold exceeded (`--fail-on-finding`).
 
 ---
 
@@ -156,6 +158,26 @@ offline**: a strict CSP (`default-src 'none'`, no remote/inline script),
 Subresource Integrity on every local `<script>`/stylesheet (the browser refuses
 a tampered local asset), and detection of any network-reaching reference
 (`--fail-on-remote-ref` turns one into a non-zero exit).
+
+---
+
+## Gating a pipeline on findings
+
+ScoutSuite writes machine-readable results next to the report; the wrapper reads
+that data (it's data, not ScoutSuite code) and turns the **flagged** findings
+(`flagged_items > 0`) into a severity-ranked model. Use it to fail a pipeline on
+the audit result — inline during a run, or after the fact:
+
+```bash
+presidio-scout aws --fail-on-finding danger      # exit 4 if any danger-level finding fired
+presidio-scout-findings ./scoutsuite-report      # summarize an existing report
+presidio-scout-findings ./scoutsuite-report --fail-on warning --format json
+# findings [aws]: 7 flagged (danger=2, warning=5)
+```
+
+Levels rank `danger > warning`; `--fail-on <level>` trips on anything **at or
+above** it. The gate is **fail-closed**: if the results data is missing or
+unparseable it errors (exit 2) rather than passing a report it never evaluated.
 
 ---
 
@@ -257,7 +279,7 @@ upstream unnoticed. Regenerate a manifest with
 | **0.3.0** | Deeper report guard — Subresource Integrity on local assets, offline-viewer (remote-reference) enforcement, and a signed-able, offline-verifiable report manifest (`presidio-scout-verify`) |
 | **0.4.0** | SLSA build-provenance policy verification (`presidio-scout-verify-provenance`, v0.2 + v1) and a reproducible wheel/sdist with a `reproducible-build` CI gate |
 | **0.5.0** | ScoutSuite install-integrity gate — fail-closed preflight that the `scout` you run is the pinned, vetted version (`--allow-unverified-scout` to override); real hash-pinned `requirements.lock`; pinned build backend |
-| **0.6.0** _(planned)_ | Findings model + severity gate (`--fail-on-finding danger\|warning`) parsed from the report data |
+| **0.6.0** | Findings model + severity gate — `presidio-scout --fail-on-finding danger\|warning` and the standalone `presidio-scout-findings`, parsed from the report data (fail-closed; exit 4) |
 | **0.7.0** _(planned)_ | SARIF export + GitHub code-scanning integration (`presidio-scout-export`) |
 | **0.8.0** _(planned)_ | Waivers / exceptions framework with justification + owner + expiry (expired waivers fail closed) |
 | **0.9.0** _(planned)_ | Signed run attestation — in-toto statement binding run inputs to the report-manifest digest |
@@ -296,6 +318,8 @@ presidio-hardened-scoutsuite/
 │   ├── manifest.py        # integrity-manifest shape, self-digest, HMAC signing
 │   ├── verify.py          # offline report verification (presidio-scout-verify)
 │   ├── provenance.py      # SLSA provenance policy gate (presidio-scout-verify-provenance)
+│   ├── scout_integrity.py # pinned-ScoutSuite preflight gate
+│   ├── findings.py        # findings model + severity gate (presidio-scout-findings)
 │   ├── ruleset.py         # baseline rule-name validation (presidio-scout-validate)
 │   ├── cli.py             # presidio-scout entrypoint
 │   ├── errors.py          # exception hierarchy

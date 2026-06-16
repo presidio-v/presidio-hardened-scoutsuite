@@ -38,6 +38,15 @@ class ReportVerificationError(PresidioScoutError):
     """
 
 
+class FindingsError(PresidioScoutError):
+    """The ScoutSuite results data could not be located or parsed.
+
+    Raised when no ``scoutsuite_results*.js`` data file is found under a report
+    directory, or its embedded JSON can't be decoded — so a ``--fail-on-finding``
+    gate can never silently pass on a report it couldn't actually evaluate.
+    """
+
+
 class ScoutIntegrityError(PresidioScoutError):
     """The ScoutSuite about to be run is not the pinned, vetted version.
 

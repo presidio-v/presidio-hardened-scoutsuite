@@ -179,6 +179,75 @@ def test_allow_unverified_then_missing_scout_returns_2(tmp_path, monkeypatch, ca
     assert "not found on PATH" in capsys.readouterr().err
 
 
+def _write_results(report_dir, results):
+    import json
+
+    sub = report_dir / "scoutsuite-results"
+    sub.mkdir(parents=True, exist_ok=True)
+    (sub / "scoutsuite_results_aws-1.js").write_text("scoutsuite_results =\n" + json.dumps(results))
+
+
+def test_fail_on_finding_danger_returns_4(tmp_path, monkeypatch, capsys):
+    report_dir = tmp_path / "out"
+    _verify_ok(monkeypatch)
+
+    def fake_run(plan, timeout=None):
+        (plan.report_dir / "report.html").write_text("<html><head></head><body>ok</body></html>")
+        _write_results(
+            plan.report_dir,
+            {
+                "provider_code": "aws",
+                "services": {
+                    "s3": {"findings": {"world.json": {"level": "danger", "flagged_items": 2}}}
+                },
+            },
+        )
+        return subprocess.CompletedProcess(plan.argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(launcher, "run", fake_run)
+    rc = cli.main(["aws", "--report-dir", str(report_dir), "--fail-on-finding", "danger"])
+    assert rc == 4
+    out = capsys.readouterr()
+    assert "findings: 1 flagged" in out.out
+    assert "at or above 'danger'" in out.err
+
+
+def test_fail_on_finding_under_threshold_returns_0(tmp_path, monkeypatch, capsys):
+    report_dir = tmp_path / "out"
+    _verify_ok(monkeypatch)
+
+    def fake_run(plan, timeout=None):
+        (plan.report_dir / "report.html").write_text("<html><head></head><body>ok</body></html>")
+        _write_results(
+            plan.report_dir,
+            {
+                "provider_code": "aws",
+                "services": {
+                    "s3": {"findings": {"warn.json": {"level": "warning", "flagged_items": 1}}}
+                },
+            },
+        )
+        return subprocess.CompletedProcess(plan.argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(launcher, "run", fake_run)
+    rc = cli.main(["aws", "--report-dir", str(report_dir), "--fail-on-finding", "danger"])
+    assert rc == 0
+
+
+def test_fail_on_finding_no_results_fails_closed(tmp_path, monkeypatch, capsys):
+    report_dir = tmp_path / "out"
+    _verify_ok(monkeypatch)
+
+    def fake_run(plan, timeout=None):
+        (plan.report_dir / "report.html").write_text("<html><head></head><body>ok</body></html>")
+        return subprocess.CompletedProcess(plan.argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(launcher, "run", fake_run)
+    rc = cli.main(["aws", "--report-dir", str(report_dir), "--fail-on-finding", "warning"])
+    assert rc == 2
+    assert "cannot evaluate findings gate" in capsys.readouterr().err
+
+
 def test_dry_run_skips_integrity_gate(tmp_path, monkeypatch, capsys):
     # --dry-run runs nothing, so it must not require a verified scout.
     def boom(*a, **k):

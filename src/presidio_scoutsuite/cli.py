@@ -11,6 +11,7 @@ import sys
 from importlib import resources
 from pathlib import Path
 
+from . import findings as findings_mod
 from . import launcher, redact, report_guard, scout_integrity
 from .errors import PresidioScoutError
 from .version import __version__
@@ -77,6 +78,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--fail-on-remote-ref",
         action="store_true",
         help="exit non-zero if the report references a remote (network) resource",
+    )
+    parser.add_argument(
+        "--fail-on-finding",
+        choices=findings_mod.LEVELS,
+        help="exit non-zero (4) if any flagged finding is at or above this severity "
+        "(warning|danger) — use to gate a pipeline on the audit result",
     )
     parser.add_argument(
         "--scout-bin",
@@ -220,6 +227,26 @@ def main(argv: list[str] | None = None) -> int:
             "the CSP blocks them but the report is not fully self-contained",
             file=sys.stderr,
         )
+
+    if args.fail_on_finding:
+        try:
+            findings_report = findings_mod.load_report(plan.report_dir)
+        except PresidioScoutError as exc:
+            # Fail-closed: a gate that can't read the results must not pass.
+            print(f"error: cannot evaluate findings gate: {exc}", file=sys.stderr)
+            return 2
+        counts = findings_report.counts
+        print(
+            f"findings: {len(findings_report.findings)} flagged "
+            f"(danger={counts['danger']}, warning={counts['warning']})"
+        )
+        offending = findings_report.at_or_above(args.fail_on_finding)
+        if offending:
+            print(
+                f"error: {len(offending)} finding(s) at or above {args.fail_on_finding!r} severity",
+                file=sys.stderr,
+            )
+            return 4
 
     return completed.returncode
 
