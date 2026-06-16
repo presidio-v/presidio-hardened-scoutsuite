@@ -16,6 +16,17 @@ class LauncherError(PresidioScoutError):
     hardened posture (bad provider, disallowed pass-through flag, etc.)."""
 
 
+class CredentialError(PresidioScoutError):
+    """The cloud credentials supplied to a run are long-lived/static.
+
+    Raised by the fail-closed credential preflight (``--require-short-lived-creds``)
+    when the environment carries static, long-lived secrets (an AWS access key with
+    no session token, a downloaded GCP service-account key, an Azure client secret)
+    instead of short-lived/federated credentials (assumed role, OIDC, impersonation,
+    managed identity).
+    """
+
+
 class RedactionError(PresidioScoutError):
     """A secret was detected in output that must be clean.
 

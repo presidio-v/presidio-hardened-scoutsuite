@@ -81,6 +81,13 @@ _ALLOWED_ENV_NAMES: frozenset[str] = frozenset(
         "HTTP_PROXY",
         "NO_PROXY",
         "PYTHONUTF8",
+        # Keyless / managed-identity endpoints that aren't covered by a cloud
+        # prefix above but must reach the child so federated auth works without
+        # any long-lived secret (Azure App Service / Functions managed identity).
+        "IDENTITY_ENDPOINT",
+        "IDENTITY_HEADER",
+        "MSI_ENDPOINT",
+        "MSI_SECRET",
     }
 )
 

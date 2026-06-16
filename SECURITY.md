@@ -61,6 +61,15 @@ redaction, supply-chain controls, and a least-privilege deployment model.
   referenced rule against the pinned ScoutSuite's inventory — offline against a
   checked-in manifest in CI, and against the **installed** ScoutSuite as a
   hard release gate (`verify-rulesets`) so the manifest can't drift unnoticed.
+- **Short-lived-credential preflight** — `--require-short-lived-creds` inspects
+  the scrubbed environment's credential *shape* and **fails closed** on a
+  long-lived static secret (AWS access key without a session token, downloaded
+  GCP service-account key, Azure client secret), steering operators onto
+  assumed-role / OIDC / impersonation / managed identity. The wrapper does not
+  broker credentials itself (it would expand the trusted surface and bloat the
+  distroless image) — it relies on ScoutSuite's SDKs for resolution and only
+  gates the inputs; the keyless/managed-identity env vars are passed through to
+  the child so federated auth works with no stored secret.
 - **Least-privilege deployment** — bundled read-only audit identities per cloud:
   AWS (`iam/aws/`: managed read-only policies + supplemental policy with an
   explicit **`Deny` on any non-read action** + **MFA/`ExternalId`** trust),

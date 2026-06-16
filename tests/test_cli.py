@@ -450,6 +450,51 @@ def test_attest_written_even_when_gate_trips(tmp_path, monkeypatch, capsys):
     assert attest_path.exists()
 
 
+def test_require_short_lived_creds_blocks_static_key(tmp_path, monkeypatch, capsys):
+    _verify_ok(monkeypatch)
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "AKIAEXAMPLE")
+    monkeypatch.delenv("AWS_SESSION_TOKEN", raising=False)
+
+    def fake_run(plan, timeout=None):  # should never be reached
+        raise AssertionError("must not run with static credentials under the strict gate")
+
+    monkeypatch.setattr(launcher, "run", fake_run)
+    rc = cli.main(["aws", "--report-dir", str(tmp_path / "out"), "--require-short-lived-creds"])
+    assert rc == 2
+    assert "long-lived access key" in capsys.readouterr().err
+
+
+def test_static_key_warns_by_default(tmp_path, monkeypatch, capsys):
+    _verify_ok(monkeypatch)
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "AKIAEXAMPLE")
+    monkeypatch.delenv("AWS_SESSION_TOKEN", raising=False)
+
+    def fake_run(plan, timeout=None):
+        (plan.report_dir / "report.html").write_text("<html><head></head><body>ok</body></html>")
+        return subprocess.CompletedProcess(plan.argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(launcher, "run", fake_run)
+    rc = cli.main(["aws", "--report-dir", str(tmp_path / "out")])
+    assert rc == 0
+    assert "prefer short-lived credentials" in capsys.readouterr().err
+
+
+def test_short_lived_creds_pass_silently(tmp_path, monkeypatch, capsys):
+    _verify_ok(monkeypatch)
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "ASIAEXAMPLE")
+    monkeypatch.setenv("AWS_SESSION_TOKEN", "tok")
+
+    def fake_run(plan, timeout=None):
+        (plan.report_dir / "report.html").write_text("<html><head></head><body>ok</body></html>")
+        return subprocess.CompletedProcess(plan.argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(launcher, "run", fake_run)
+    rc = cli.main(["aws", "--report-dir", str(tmp_path / "out"), "--require-short-lived-creds"])
+    assert rc == 0
+    err = capsys.readouterr().err
+    assert "credentials" not in err  # no warning/error for short-lived creds
+
+
 def test_dry_run_skips_integrity_gate(tmp_path, monkeypatch, capsys):
     # --dry-run runs nothing, so it must not require a verified scout.
     def boom(*a, **k):
