@@ -74,6 +74,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="exit non-zero if a secret remains in the report after redaction",
     )
     parser.add_argument(
+        "--fail-on-remote-ref",
+        action="store_true",
+        help="exit non-zero if the report references a remote (network) resource",
+    )
+    parser.add_argument(
         "--scout-bin",
         default="scout",
         help="path to the upstream ScoutSuite executable (default: 'scout' on PATH)",
@@ -165,18 +170,31 @@ def main(argv: list[str] | None = None) -> int:
             print(f"redacted {len(findings)} secret(s) in {rel}", file=sys.stderr)
 
     try:
-        guard = report_guard.guard_report(plan.report_dir, fail_on_secret=args.fail_on_secret)
+        guard = report_guard.guard_report(
+            plan.report_dir,
+            fail_on_secret=args.fail_on_secret,
+            fail_on_remote_ref=args.fail_on_remote_ref,
+        )
     except PresidioScoutError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 3
 
     print(
         f"report ready: {plan.report_dir} "
-        f"({len(guard.manifest)} files, {len(guard.html_hardened)} HTML hardened)"
+        f"({len(guard.manifest)} files, {len(guard.html_hardened)} HTML hardened, "
+        f"{len(guard.sri_hardened)} SRI-pinned)"
     )
+    if guard.manifest_path is not None:
+        print(f"integrity manifest: {guard.manifest_path} (verify with presidio-scout-verify)")
     if guard.has_secrets:
         print(
             f"warning: {len(guard.secret_findings)} file(s) still contain secret-like strings",
+            file=sys.stderr,
+        )
+    if guard.has_remote_refs:
+        print(
+            f"warning: report references {len(guard.remote_refs)} remote resource(s); "
+            "the CSP blocks them but the report is not fully self-contained",
             file=sys.stderr,
         )
 

@@ -154,13 +154,62 @@ from the installed package (`ruleset.installed_rules`) and the release-time
 
 ---
 
+## v0.3.0 — Deeper report guard: SRI, offline viewer, signed manifests (2026-06-16)
+
+**Design decisions:**
+
+- **The integrity manifest is now persisted, not just computed.** 0.1/0.2
+  hashed every report file but kept the manifest in memory. 0.3 writes
+  `presidio-report-manifest.json` into the report dir, so a report can be
+  integrity-checked long after the run. The manifest **excludes itself** (a file
+  can't hash itself) and is re-runnable: a prior manifest is skipped on a second
+  guard pass.
+- **Tamper-evidence in two independent layers.** A `content_digest` (SHA-256
+  over the canonical, sorted file→hash map) makes edits to the recorded hashes
+  detectable on their own. An **optional HMAC-SHA256 signature**
+  (`PRESIDIO_MANIFEST_HMAC_KEY`) proves the manifest came from a holder of the
+  shared pipeline key. Both cover only the security-relevant content (algorithm
+  + file hashes), never the informational timestamp/generator — so verification
+  is independent of *when/where* the report was guarded. HMAC is symmetric by
+  design (pipeline integrity, not non-repudiation); for distribution the
+  manifest *blob* is signed out of band with **cosign `sign-blob`**, reusing the
+  release pipeline's existing keyless signing rather than inventing a runtime
+  asymmetric-key story (no runtime crypto deps).
+- **Offline verification, fail-closed.** New `verify.py` /
+  `presidio-scout-verify` re-hashes the tree and reports **modified / missing /
+  added** files, recomputes the self-digest, and checks the HMAC when a key is
+  present. A present-but-unverifiable signature (no key) does **not** fail —
+  the hashes already establish integrity — but a *bad* signature does. Exit
+  `0` verified · `3` mismatch · `2` no usable manifest. A malformed/missing
+  manifest raises rather than silently passing.
+- **Subresource Integrity closes the local-asset gap.** The CSP already pins
+  scripts to `'self'`; SRI goes further by pinning each local `<script>` /
+  stylesheet `<link>` to a `sha384` hash so the browser refuses a *tampered*
+  local asset. Injection is idempotent (skips tags that already carry
+  `integrity`), resolves hrefs relative to the HTML file, and **rejects path
+  traversal** (only files inside the report dir are hashed).
+- **Offline-viewer enforcement.** Any network-reaching reference (`http(s):` or
+  protocol-relative `//`) is detected and surfaced; `--fail-on-remote-ref`
+  turns one into a non-zero exit. Combined with `connect-src 'none'`, the
+  report is provably self-contained.
+
+**Delivered:**
+- `manifest.py` (shape, canonicalization, self-digest, HMAC signing)
+- `verify.py` + `ReportVerificationError`; `presidio-scout-verify` console script
+- `report_guard.py`: SRI injection, remote-ref detection, manifest persistence,
+  `--fail-on-remote-ref`; `cli.py` surfaces the manifest path + SRI/remote counts
+- `test_manifest.py`, `test_verify.py`, extended `test_report_guard.py`/`test_cli.py`;
+  coverage 95% (≥90% gate); ruff clean
+
+---
+
 ## Roadmap
 
 | Version | Planned |
 |---|---|
 | **0.1.0** | Out-of-process hardened launcher + redaction/guard + AWS ruleset/IAM + container + supply-chain posture |
 | **0.2.0** | Azure & GCP curated baselines + least-privilege roles; **rule-name validation** against the pinned ScoutSuite (offline manifest in CI, installed-source drift gate at release) ✓ |
-| **0.3.0** | Deeper report guard (SRI, offline viewer), signed report manifests |
+| **0.3.0** | Deeper report guard (SRI, offline viewer), signed report manifests ✓ |
 | **0.4.0** | SLSA provenance verification on install; reproducible-build attestation |
 
 ---

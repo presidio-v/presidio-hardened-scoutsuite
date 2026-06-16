@@ -12,9 +12,11 @@ from .errors import (
     PresidioScoutError,
     RedactionError,
     ReportGuardError,
+    ReportVerificationError,
     RulesetValidationError,
 )
 from .launcher import LaunchPlan, build_plan, run, scrub_env, validate_passthrough
+from .manifest import build_manifest
 from .redact import assert_clean, redact_report_dir, redact_text, scan
 from .report_guard import GuardResult, guard_report
 from .ruleset import (
@@ -24,6 +26,7 @@ from .ruleset import (
     validate_all,
     validate_provider,
 )
+from .verify import VerifyResult, verify_report
 from .version import __version__
 
 __all__ = [
@@ -32,6 +35,7 @@ __all__ = [
     "LauncherError",
     "RedactionError",
     "ReportGuardError",
+    "ReportVerificationError",
     "RulesetValidationError",
     "LaunchPlan",
     "build_plan",
@@ -44,6 +48,9 @@ __all__ = [
     "redact_report_dir",
     "GuardResult",
     "guard_report",
+    "build_manifest",
+    "VerifyResult",
+    "verify_report",
     "referenced_rules",
     "available_rules",
     "missing_rules",

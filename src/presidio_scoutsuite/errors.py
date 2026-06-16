@@ -28,6 +28,16 @@ class ReportGuardError(PresidioScoutError):
     """The generated report failed an integrity or sanitization check."""
 
 
+class ReportVerificationError(PresidioScoutError):
+    """A report could not be verified against its integrity manifest.
+
+    Raised when the manifest is missing/unreadable, has been tampered with
+    (its self-digest or signature does not match), or the report's files no
+    longer hash to the values the manifest records (modified, added, or
+    removed files).
+    """
+
+
 class RulesetValidationError(PresidioScoutError):
     """A curated ruleset references rule names the pinned ScoutSuite does not
     provide.

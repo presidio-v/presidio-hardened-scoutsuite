@@ -23,6 +23,7 @@ NCC Group's multi-cloud security auditing tool.
 | Axis | What you get |
 |---|---|
 | **Runtime credential & data safety** | Env scrubbed to cloud creds only; 0700 report dir + `umask 0077`; secrets redacted out of the report and ScoutSuite's logs; `--fail-on-secret` gate |
+| **Report integrity & isolation** | Strict CSP + **Subresource Integrity** on local report assets; remote-reference detection (`--fail-on-remote-ref`); a signed-able **SHA-256 integrity manifest** verified offline with `presidio-scout-verify` |
 | **Secure-by-default policy** | Curated, CIS-aligned **AWS baseline ruleset** applied by default (high-impact IAM/logging/network controls forced to `danger`) |
 | **Supply-chain & build integrity** | Hash-pinned `requirements.lock`, CycloneDX SBOM, CodeQL, Dependabot, **cosign-signed** images + build provenance; release blocked if the lock isn't pinned |
 | **Hardened deployment** | Distroless, non-root, `--read-only` container; bundled **least-privilege AWS audit role** (read-only + explicit `Deny`, MFA + `ExternalId` trust) |
@@ -44,8 +45,11 @@ presidio-scout aws ──▶ launcher ──▶ [ scout aws … ] ──▶ reda
    needs.
 3. **redact** — credentials are scrubbed out of the report files and ScoutSuite's
    own output.
-4. **report_guard** — a strict CSP is injected into the HTML report and a
-   SHA-256 integrity manifest is recorded.
+4. **report_guard** — a strict CSP and per-asset Subresource Integrity hashes
+   are injected into the HTML report, network-reaching references are flagged,
+   and a SHA-256 integrity manifest (`presidio-report-manifest.json`,
+   optionally HMAC-signed) is written so the report can be verified later with
+   `presidio-scout-verify`.
 
 ---
 
@@ -81,6 +85,7 @@ presidio-scout aws                          # audit AWS with the hardened defaul
 presidio-scout aws --report-dir ./out       # choose the (0700) report directory
 presidio-scout aws -- --profile auditor     # pass-through flags after '--' (allowlisted)
 presidio-scout aws --fail-on-secret         # non-zero exit if a secret survives redaction
+presidio-scout aws --fail-on-remote-ref     # non-zero exit if the report references a remote resource
 presidio-scout aws --no-baseline            # use ScoutSuite's default ruleset instead
 presidio-scout aws --dry-run                # print the hardened command, run nothing
 presidio-scout azure                        # Azure audit with the hardened Azure baseline
@@ -111,9 +116,42 @@ print(plan.redacted_command())          # scout aws --no-browser --report-dir �
 
 result = run(plan)                      # subprocess.CompletedProcess
 redact_report_dir(plan.report_dir)      # scrub secrets out of the report
-guard = guard_report(plan.report_dir)   # inject CSP + build integrity manifest
-print(len(guard.manifest), "files;", len(guard.html_hardened), "HTML hardened")
+guard = guard_report(plan.report_dir)   # CSP + SRI + write integrity manifest
+print(len(guard.manifest), "files;", len(guard.sri_hardened), "SRI-pinned")
 ```
+
+---
+
+## Report integrity & verification
+
+Every guarded report carries `presidio-report-manifest.json`: a SHA-256 over
+each file plus a self-digest of those hashes. Verify a report offline — no
+ScoutSuite, no network — at any later point:
+
+```bash
+presidio-scout-verify ./scoutsuite-report
+# ok   verified 214 file(s) in scoutsuite-report
+```
+
+The verifier re-hashes the tree and reports any **modified**, **missing**, or
+**added** file, and detects edits to the manifest's own recorded hashes. Exit
+codes: `0` verified · `3` tampered/mismatch · `2` no usable manifest.
+
+**Signing.** Two layers, both optional and independent of the always-on hashes:
+
+- **HMAC (pipeline integrity).** Set `PRESIDIO_MANIFEST_HMAC_KEY` and the
+  manifest gains an HMAC-SHA256 signature; verification on a host with the same
+  key confirms the manifest came from your pipeline. Symmetric — proves
+  provenance within a trust boundary you control, not non-repudiation.
+- **Detached cosign (distribution).** For third-party verification, sign the
+  manifest *blob* out of band exactly as the release pipeline signs images:
+  `cosign sign-blob scoutsuite-report/presidio-report-manifest.json`.
+
+Beyond the manifest, the guard makes the static report **safe to open and fully
+offline**: a strict CSP (`default-src 'none'`, no remote/inline script),
+Subresource Integrity on every local `<script>`/stylesheet (the browser refuses
+a tampered local asset), and detection of any network-reaching reference
+(`--fail-on-remote-ref` turns one into a non-zero exit).
 
 ---
 
@@ -167,7 +205,7 @@ upstream unnoticed. Regenerate a manifest with
 |---|---|
 | **0.1.0** | Out-of-process hardened launcher, report redaction + guard, AWS-first curated ruleset + least-privilege IAM, hardened container, full supply-chain posture |
 | **0.2.0** | Azure + GCP curated baselines & least-privilege IAM; ruleset rule-name validation against the pinned ScoutSuite (offline manifest in CI, installed-source drift check at release) |
-| **0.3.0** _(planned)_ | Deeper report guard (subresource integrity, offline viewer), signed report manifests |
+| **0.3.0** | Deeper report guard — Subresource Integrity on local assets, offline-viewer (remote-reference) enforcement, and a signed-able, offline-verifiable report manifest (`presidio-scout-verify`) |
 | **0.4.0** _(planned)_ | SLSA provenance verification on pull; reproducible-build attestation |
 
 ---
@@ -191,7 +229,9 @@ presidio-hardened-scoutsuite/
 ├── src/presidio_scoutsuite/
 │   ├── launcher.py        # build/run the hardened scout subprocess
 │   ├── redact.py          # secret detection + in-place redaction
-│   ├── report_guard.py    # CSP injection + integrity manifest
+│   ├── report_guard.py    # CSP + SRI injection, remote-ref detection, manifest write
+│   ├── manifest.py        # integrity-manifest shape, self-digest, HMAC signing
+│   ├── verify.py          # offline report verification (presidio-scout-verify)
 │   ├── ruleset.py         # baseline rule-name validation (presidio-scout-validate)
 │   ├── cli.py             # presidio-scout entrypoint
 │   ├── errors.py          # exception hierarchy
