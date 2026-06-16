@@ -90,6 +90,13 @@ redaction, supply-chain controls, and a least-privilege deployment model.
   a malformed/missing waiver file errors, and an **expired** waiver stops
   suppressing so the finding resurfaces — exceptions can't silently hide risk
   forever, and every suppression is attributable.
+- **Signed run attestation (`--attest`, `presidio-scout-attest`)** — emits an
+  in-toto statement whose subject is the report's integrity manifest and whose
+  predicate records the run's inputs (provider, ruleset digest, verified
+  ScoutSuite version, wrapper version, manifest content digest). Signed as a
+  blob with cosign, it is a portable, verifiable record that *this* report was
+  produced by *that* provider/ruleset/ScoutSuite; `verify` re-checks the binding
+  to the on-disk report.
 - **ScoutSuite install-integrity gate** — before any cloud credentials are
   handed to ScoutSuite, a fail-closed preflight (`scout_integrity`) confirms the
   `scout` on PATH is the **pinned, vetted version** this distribution ships;

@@ -68,6 +68,15 @@ class ScoutIntegrityError(PresidioScoutError):
     """
 
 
+class AttestationError(PresidioScoutError):
+    """A run attestation could not be built or verified.
+
+    Raised when the report's integrity manifest is missing/unreadable while
+    building an attestation, or when an attestation does not match the report it
+    claims to describe (subject digest or recorded manifest digest mismatch).
+    """
+
+
 class ProvenanceVerificationError(PresidioScoutError):
     """A build-provenance attestation failed policy verification.
 

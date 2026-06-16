@@ -7,7 +7,9 @@ process (see :mod:`presidio_scoutsuite.launcher`) and is never imported here.
 
 from __future__ import annotations
 
+from .attestation import attest_report, build_attestation, verify_attestation
 from .errors import (
+    AttestationError,
     FindingsError,
     LauncherError,
     PresidioScoutError,
@@ -49,6 +51,7 @@ __all__ = [
     "ScoutIntegrityError",
     "FindingsError",
     "WaiverError",
+    "AttestationError",
     "RulesetValidationError",
     "LaunchPlan",
     "build_plan",
@@ -77,6 +80,9 @@ __all__ = [
     "Waiver",
     "load_waivers",
     "apply_waivers",
+    "build_attestation",
+    "attest_report",
+    "verify_attestation",
     "referenced_rules",
     "available_rules",
     "missing_rules",

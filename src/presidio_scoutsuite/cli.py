@@ -12,8 +12,8 @@ import sys
 from importlib import resources
 from pathlib import Path
 
+from . import attestation, launcher, redact, report_guard, sarif, scout_integrity
 from . import findings as findings_mod
-from . import launcher, redact, report_guard, sarif, scout_integrity
 from .errors import PresidioScoutError
 from .version import __version__
 
@@ -98,6 +98,12 @@ def build_parser() -> argparse.ArgumentParser:
         "(expired waivers do not suppress)",
     )
     parser.add_argument(
+        "--attest",
+        metavar="PATH",
+        help="write an in-toto run attestation (inputs -> report-manifest digest) to PATH; "
+        "sign it with cosign sign-blob",
+    )
+    parser.add_argument(
         "--scout-bin",
         default="scout",
         help="path to the upstream ScoutSuite executable (default: 'scout' on PATH)",
@@ -159,11 +165,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(head)
 
+    resolved_ruleset = _resolve_ruleset(args)
     try:
         plan = launcher.build_plan(
             args.provider,
             args.report_dir,
-            ruleset=_resolve_ruleset(args),
+            ruleset=resolved_ruleset,
             extra_args=extra,
             scout_bin=args.scout_bin,
         )
@@ -176,14 +183,15 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     # Integrity preflight: confirm the scout we're about to run is the pinned,
-    # vetted ScoutSuite before handing it cloud credentials.
+    # vetted ScoutSuite before handing it cloud credentials. Capture the version
+    # so the run attestation can record what actually ran.
     if args.allow_unverified_scout:
         check = scout_integrity.verify_scout(args.scout_bin, require=False)
         if not check.ok:
             print(f"warning: running unverified ScoutSuite: {check.reason}", file=sys.stderr)
     else:
         try:
-            scout_integrity.verify_scout(args.scout_bin)
+            check = scout_integrity.verify_scout(args.scout_bin)
         except PresidioScoutError as exc:
             print(f"error: {exc}", file=sys.stderr)
             print(
@@ -191,6 +199,7 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
             return 2
+    scout_version = check.detected_version
 
     try:
         completed = launcher.run(plan, timeout=args.timeout)
@@ -240,6 +249,7 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
 
+    findings_report = None
     if args.fail_on_finding or args.sarif:
         try:
             findings_report = findings_mod.load_report(plan.report_dir)
@@ -262,20 +272,36 @@ def main(argv: list[str] | None = None) -> int:
             Path(args.sarif).write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
             print(f"SARIF written: {args.sarif} ({len(findings_report.findings)} finding(s))")
 
-        if args.fail_on_finding:
-            counts = findings_report.counts
-            print(
-                f"findings: {len(findings_report.findings)} flagged "
-                f"(danger={counts['danger']}, warning={counts['warning']})"
+    # Run attestation: bind this run's inputs to the report's integrity manifest.
+    # Written even if the findings gate trips below, so the signed record exists.
+    if args.attest:
+        try:
+            statement = attestation.attest_report(
+                plan.report_dir,
+                provider=args.provider,
+                scoutsuite_version=scout_version,
+                ruleset_path=resolved_ruleset,
+                findings=findings_report.counts if findings_report is not None else None,
             )
-            offending = findings_report.at_or_above(args.fail_on_finding)
-            if offending:
-                print(
-                    f"error: {len(offending)} finding(s) at or above "
-                    f"{args.fail_on_finding!r} severity",
-                    file=sys.stderr,
-                )
-                return 4
+        except PresidioScoutError as exc:
+            print(f"error: cannot build run attestation: {exc}", file=sys.stderr)
+            return 3
+        Path(args.attest).write_text(json.dumps(statement, indent=2) + "\n", encoding="utf-8")
+        print(f"run attestation: {args.attest} (sign with cosign sign-blob)")
+
+    if args.fail_on_finding and findings_report is not None:
+        counts = findings_report.counts
+        print(
+            f"findings: {len(findings_report.findings)} flagged "
+            f"(danger={counts['danger']}, warning={counts['warning']})"
+        )
+        offending = findings_report.at_or_above(args.fail_on_finding)
+        if offending:
+            print(
+                f"error: {len(offending)} finding(s) at or above {args.fail_on_finding!r} severity",
+                file=sys.stderr,
+            )
+            return 4
 
     return completed.returncode
 
