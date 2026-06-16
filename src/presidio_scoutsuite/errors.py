@@ -59,6 +59,15 @@ class WaiverError(PresidioScoutError):
     """
 
 
+class VulnerabilityError(PresidioScoutError):
+    """A vulnerability-scan report could not be parsed or evaluated.
+
+    Raised when a Trivy/Grype report is missing, unreadable, or in an
+    unrecognized format — so a vulnerability gate can't silently pass on a scan
+    it never actually read.
+    """
+
+
 class FindingsError(PresidioScoutError):
     """The ScoutSuite results data could not be located or parsed.
 

@@ -124,6 +124,13 @@ redaction, supply-chain controls, and a least-privilege deployment model.
   rules or behaviour) is refused (exit 2) unless `--allow-unverified-scout` is
   given. Complements the install-time artifact-hash guarantee from
   `pip install --require-hashes -r requirements.lock`.
+- **Vulnerability-scan gate** — before a release is accepted, the locked runtime
+  tree is audited (`pip-audit`) and the published image is scanned (Trivy); the
+  scan is gated by `presidio-scout-vuln-gate`, which **fails closed** on any
+  *fixable* vulnerability at or above a chosen severity (Trivy *or* Grype JSON).
+  A **signed CycloneDX SBOM** is attached to the image (GitHub attestation) and
+  re-verified alongside the provenance in the `verify-image` gate — so the
+  release records, and re-checks, exactly what shipped and that it was scanned.
 - **Provenance policy verification** — `presidio-scout-verify-provenance` checks
   a *cryptographically verified* SLSA provenance statement (from `cosign
   verify-attestation`) against this distribution's policy: the expected builder

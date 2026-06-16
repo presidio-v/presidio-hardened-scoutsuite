@@ -22,6 +22,7 @@ from .errors import (
     ReportVerificationError,
     RulesetValidationError,
     ScoutIntegrityError,
+    VulnerabilityError,
     WaiverError,
 )
 from .findings import Finding, FindingsReport, load_report
@@ -41,6 +42,7 @@ from .sarif import to_sarif
 from .scout_integrity import ScoutIntegrityResult, pinned_version, verify_scout
 from .verify import VerifyResult, verify_report
 from .version import __version__
+from .vuln import Vuln, VulnReport, parse_report
 from .waivers import Waiver, apply_waivers, load_waivers
 
 __all__ = [
@@ -56,6 +58,7 @@ __all__ = [
     "FindingsError",
     "WaiverError",
     "AttestationError",
+    "VulnerabilityError",
     "RulesetValidationError",
     "LaunchPlan",
     "build_plan",
@@ -93,6 +96,9 @@ __all__ = [
     "CredentialCheck",
     "inspect_credentials",
     "assert_short_lived",
+    "Vuln",
+    "VulnReport",
+    "parse_report",
     "referenced_rules",
     "available_rules",
     "missing_rules",

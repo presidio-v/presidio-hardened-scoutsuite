@@ -91,6 +91,20 @@ jobs:
           subject-name: ${{ env.IMAGE }}
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
+      - name: Generate the image SBOM (CycloneDX)
+        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0 # v0.29.0
+        with:
+          scan-type: image
+          image-ref: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
+          format: cyclonedx
+          output: sbom.cdx.json
+      - name: Attach signed SBOM attestation
+        uses: actions/attest-sbom@10926c72720ffc3f7b666661c8e55b1344e2a365 # v2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          sbom-path: sbom.cdx.json
+          push-to-registry: true
 
   # Hard gate: independently re-verify the freshly published image end to end —
   # the cosign signature, then the SLSA provenance (cryptographically via gh,
@@ -136,3 +150,19 @@ jobs:
           gh attestation verify "oci://${IMAGE}@${DIGEST}" \
             --repo "${{ github.repository }}" --format json > provenance.json
           presidio-scout-verify-provenance provenance.json --digest "${DIGEST}"
+      - name: Verify the signed SBOM attestation is present
+        run: |
+          gh attestation verify "oci://${IMAGE}@${DIGEST}" \
+            --repo "${{ github.repository }}" \
+            --predicate-type https://cyclonedx.org/bom > /dev/null
+      - name: Scan the published image for vulnerabilities
+        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0 # v0.29.0
+        with:
+          scan-type: image
+          image-ref: ${{ env.IMAGE }}@${{ env.DIGEST }}
+          scanners: vuln
+          format: json
+          output: trivy.json
+          exit-code: "0" # our policy gate decides, not trivy
+      - name: Enforce the vulnerability policy (fail on fixable critical)
+        run: presidio-scout-vuln-gate trivy.json --fail-on critical --ignore-unfixed

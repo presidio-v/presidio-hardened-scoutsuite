@@ -25,7 +25,7 @@ NCC Group's multi-cloud security auditing tool.
 | **Runtime credential & data safety** | Env scrubbed to cloud creds only; 0700 report dir + `umask 0077`; secrets redacted out of the report and ScoutSuite's logs; `--fail-on-secret` gate |
 | **Report integrity & isolation** | Strict CSP + **Subresource Integrity** on local report assets; remote-reference detection (`--fail-on-remote-ref`); a signed-able **SHA-256 integrity manifest** verified offline with `presidio-scout-verify` |
 | **Secure-by-default policy** | Curated, CIS-aligned **AWS baseline ruleset** applied by default (high-impact IAM/logging/network controls forced to `danger`) |
-| **Supply-chain & build integrity** | Hash-pinned `requirements.lock`, pinned build backend, CycloneDX SBOM, CodeQL, Dependabot, **cosign-signed** images + SLSA build provenance, **reproducible** wheel/sdist, a `presidio-scout-verify-provenance` policy gate for what you pull, and a **fail-closed preflight that the `scout` you run is the pinned, vetted ScoutSuite version** |
+| **Supply-chain & build integrity** | Hash-pinned `requirements.lock`, pinned build backend, CycloneDX SBOM, CodeQL, Dependabot, **cosign-signed** images + SLSA build provenance, **reproducible** wheel/sdist, a `presidio-scout-verify-provenance` policy gate for what you pull, a **fail-closed preflight that the `scout` you run is the pinned, vetted ScoutSuite version**, and a release **vulnerability-scan gate** (`pip-audit` + Trivy + `presidio-scout-vuln-gate`) with **signed SBOM/provenance attestations** |
 | **Hardened deployment** | Distroless, non-root, `--read-only` container; bundled **least-privilege AWS audit role** (read-only + explicit `Deny`, MFA + `ExternalId` trust); hardened Kubernetes `Job`/`CronJob` + Helm chart (workload identity, read-only rootfs, dropped caps, seccomp, default-deny `NetworkPolicy`) |
 
 ---
@@ -309,6 +309,20 @@ cosign verify ghcr.io/presidio-v/presidio-hardened-scoutsuite@sha256:DIGEST \
 gh attestation verify oci://ghcr.io/presidio-v/presidio-hardened-scoutsuite@sha256:DIGEST \
   --repo presidio-v/presidio-hardened-scoutsuite --format json \
   | presidio-scout-verify-provenance - --digest sha256:DIGEST
+# a signed CycloneDX SBOM is attached too:
+gh attestation verify oci://ghcr.io/presidio-v/presidio-hardened-scoutsuite@sha256:DIGEST \
+  --repo presidio-v/presidio-hardened-scoutsuite --predicate-type https://cyclonedx.org/bom
+```
+
+**Vulnerability gate.** Before a release is accepted, the locked dependency tree
+is audited (`pip-audit`) and the published image is scanned (Trivy); the scan is
+gated by `presidio-scout-vuln-gate`, which fails closed on any **fixable**
+vulnerability at or above a chosen severity. It reads a Trivy *or* Grype JSON
+report, so you can run the same gate locally:
+
+```bash
+trivy image --format json ghcr.io/presidio-v/presidio-hardened-scoutsuite:vX > scan.json
+presidio-scout-vuln-gate scan.json --fail-on critical --ignore-unfixed   # exit 4 if any remain
 ```
 
 **Reproducible build.** Builds are pinned to the tagged commit's timestamp
@@ -450,7 +464,7 @@ upstream unnoticed. Regenerate a manifest with
 | **0.11.0** | Reproducible, multi-arch (`amd64`+`arm64`) container; GitHub-signed image provenance; a release `verify-image` gate that re-checks the signature + provenance (cosign + `presidio-scout-verify-provenance`) end-to-end |
 | **0.12.0** | Keyless / short-lived credentials — a fail-closed `--require-short-lived-creds` preflight that rejects long-lived static secrets, keyless/managed-identity env passthrough, and OIDC/assume-role/impersonation setup docs (chose configuration + preflight over in-wrapper brokering) |
 | **0.13.0** | Kubernetes deployment — hardened `Job`/`CronJob` + Helm chart (workload identity, read-only rootfs, dropped caps, seccomp, default-deny `NetworkPolicy`) under `deploy/` |
-| **0.14.0** _(planned)_ | Vulnerability-scan gate + signed SBOM/vuln attestations verified alongside provenance |
+| **0.14.0** | Vulnerability-scan gate (`pip-audit` + Trivy + `presidio-scout-vuln-gate`, fail-closed on fixable findings) + signed CycloneDX SBOM attestation verified alongside provenance at release |
 | **0.15.0** _(planned)_ | Org policy profiles / config (`.presidio-scout.toml`, `presidio-scout-policy`) |
 
 See [`PRESIDIO-REQ.md`](./PRESIDIO-REQ.md) for the per-version rationale,
@@ -488,6 +502,7 @@ presidio-hardened-scoutsuite/
 │   ├── attestation.py     # in-toto run attestation (presidio-scout-attest)
 │   ├── diff.py            # drift detection between two runs (presidio-scout-diff)
 │   ├── credentials.py     # short-lived-credential preflight (--require-short-lived-creds)
+│   ├── vuln.py            # Trivy/Grype vulnerability gate (presidio-scout-vuln-gate)
 │   ├── ruleset.py         # baseline rule-name validation (presidio-scout-validate)
 │   ├── cli.py             # presidio-scout entrypoint
 │   ├── errors.py          # exception hierarchy

@@ -603,9 +603,43 @@ A-lite (opt-in CLI brokering) for the reasons above.
 
 ---
 
+## v0.14.0 — Vulnerability-scan gate + signed SBOM/vuln attestations (2026-06-16)
+
+**Design decisions:**
+
+- **Scanner finds, we decide.** Same split as the rest of the project: Trivy (and
+  the existing `pip-audit` from the #16 remediation) produce reports; `vuln.py` is
+  the **policy gate**. It normalizes a **Trivy** or **Grype** JSON report into a
+  common `Vuln` model and fails closed (exit 4) on anything at or above a
+  severity, with `--ignore-unfixed` so a release is only blocked by issues that
+  actually have a fix. Pure-stdlib, offline-testable — the testable core of the
+  version.
+- **Signed SBOM, verified at release.** The image carries a GitHub-signed
+  CycloneDX SBOM attestation (`actions/attest-sbom`); the `verify-image` gate
+  re-verifies it (`gh attestation verify --predicate-type https://cyclonedx.org/bom`)
+  next to the provenance, so "what shipped" is recorded and re-checked.
+- **Image scan in the verify gate.** `verify-image` scans the *published* digest
+  with Trivy and runs `presidio-scout-vuln-gate --fail-on critical
+  --ignore-unfixed`, so a release with a fixable critical in the bundled
+  (GPL) ScoutSuite tree can't go green.
+
+**Delivered:**
+- `vuln.py` (`parse_report`, `Vuln`, `VulnReport`) + `VulnerabilityError`;
+  `presidio-scout-vuln-gate` console script (Trivy/Grype, `--fail-on`,
+  `--ignore-unfixed`)
+- `release.yml`: image SBOM (Trivy) + signed SBOM attestation; `verify-image`
+  re-verifies the SBOM and runs the Trivy scan + policy gate (new actions SHA-pinned)
+- Public API exports (`Vuln`, `VulnReport`, `parse_report`)
+- `test_vuln.py` (Trivy/Grype parsing, severity + fixable-only gating, CLI);
+  coverage 96% (≥90% gate); ruff clean
+- README *Vulnerability gate* + SBOM verify, SECURITY.md, this log
+- Note: release-workflow changes are tag-triggered (validated by YAML + review).
+
+---
+
 ## Roadmap
 
-Delivered (0.1.0–0.13.0) and planned (0.14.0–0.15.0). The arc: **0.5** hardens
+Delivered (0.1.0–0.14.0) and planned (0.15.0). The arc: **0.5** hardens
 *what runs*; **0.6–0.8** turn findings into an enforceable, waiver-aware policy
 gate; **0.9–0.10** make every run attested and comparable over time; **0.11–0.14**
 harden how it's built and deployed; **0.15** makes it configurable for an org.
@@ -627,7 +661,7 @@ ScoutSuite, MIT wrapper, stdlib runtime, fail-closed, offline-testable.
 | **0.11.0** | **Reproducible, multi-arch container + image provenance E2E** — `amd64`+`arm64`, reproducible digests, GitHub-signed provenance; release `verify-image` gate re-verifies the published image (cosign + `gh attestation verify` + `presidio-scout-verify-provenance`). ✓ | supply-chain + deployment · 0.4 |
 | **0.12.0** | **Keyless / short-lived credentials** — chose configuration + a fail-closed `--require-short-lived-creds` preflight (reject long-lived static secrets) + keyless-env passthrough + OIDC/assume-role/impersonation docs, over in-wrapper brokering (see deliberation). ✓ | runtime credential safety · iam/ |
 | **0.13.0** | **Kubernetes deployment** — hardened `Job`/`CronJob` manifests + Helm chart (IRSA / GKE WI / Azure WI; read-only rootfs, dropped caps, seccomp, default-deny `NetworkPolicy`) under `deploy/`. ✓ | hardened deployment · 0.11, 0.12 |
-| **0.14.0** | **Vulnerability-scan gate + SBOM/vuln attestations** — Grype/Trivy gate on fixable criticals; SBOM and vuln report attached as **signed attestations** and verified alongside provenance. | supply-chain · 0.11 |
+| **0.14.0** | **Vulnerability-scan gate + signed SBOM** — `pip-audit` + Trivy + `presidio-scout-vuln-gate` (Trivy/Grype, fail-closed on fixable findings); signed CycloneDX SBOM attestation verified alongside provenance at release. ✓ | supply-chain · 0.11 |
 | **0.15.0** | **Org policy profiles / config** — `.presidio-scout.toml` for org defaults (provider, ruleset, gates, waiver/redaction paths, named profiles) + `presidio-scout-policy` to validate it. | usability / policy · most prior |
 
 **Open design questions (revisit when the version lands):**
