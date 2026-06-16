@@ -93,6 +93,7 @@ presidio-scout aws --fail-on-finding danger # exit 4 if any flagged finding is d
 presidio-scout aws --sarif results.sarif    # also emit SARIF for GitHub code scanning
 presidio-scout aws --waivers waivers.json --fail-on-finding danger  # suppress accepted findings
 presidio-scout aws --attest run.intoto.json # emit a signed-able run attestation
+presidio-scout aws --require-short-lived-creds  # refuse to run with long-lived static keys
 presidio-scout aws --no-baseline            # use ScoutSuite's default ruleset instead
 presidio-scout aws --allow-unverified-scout # run even if scout isn't the pinned version (warns)
 presidio-scout aws --dry-run                # print the hardened command, run nothing
@@ -345,6 +346,43 @@ grant exactly that and nothing else, per cloud:
 
 ---
 
+## Keyless / short-lived credentials
+
+The wrapper doesn't broker credentials itself — ScoutSuite's bundled cloud SDKs
+already resolve assumed roles, OIDC, impersonation, and managed identity. What it
+adds is a **fail-closed preflight**: `presidio-scout … --require-short-lived-creds`
+refuses to run when the (scrubbed) environment carries a **long-lived static
+secret** — an AWS access key with no session token, a downloaded GCP
+service-account key, or an Azure client secret — pushing you onto short-lived
+credentials that pair with the bundled audit roles. Without the flag, a static
+secret is allowed but **warned** about. (An "unknown" posture — e.g. an
+`AWS_PROFILE` that may itself assume a role — never blocks.)
+
+Recommended keyless setups:
+
+- **AWS** — a profile that assumes the audit role (`role_arn` + `source_profile`
+  + `mfa_serial` + `external_id`) so the SDK vends temporary creds; or, in CI,
+  GitHub OIDC → `AWS_ROLE_ARN` + `AWS_WEB_IDENTITY_TOKEN_FILE` (no stored keys).
+- **GCP** — service-account **impersonation**
+  (`CLOUDSDK_AUTH_IMPERSONATE_SERVICE_ACCOUNT`) or Workload Identity Federation
+  (`external_account`), never a downloaded key.
+- **Azure** — **managed identity** (`IDENTITY_ENDPOINT`/`MSI_ENDPOINT`, passed
+  through to the child) or workload-identity federation
+  (`AZURE_FEDERATED_TOKEN_FILE`), not a client secret.
+
+```yaml
+# CI: GitHub OIDC → assume the AWS audit role, then run with no long-lived keys
+permissions: { id-token: write, contents: read }
+steps:
+  - uses: aws-actions/configure-aws-credentials@v4
+    with:
+      role-to-assume: arn:aws:iam::<acct>:role/presidio-scoutsuite-auditor
+      aws-region: us-east-1
+  - run: presidio-scout aws --report-dir ./report --require-short-lived-creds
+```
+
+---
+
 ## Curated rulesets
 
 Curated baselines ship for **AWS, Azure, and GCP** under
@@ -386,7 +424,7 @@ upstream unnoticed. Regenerate a manifest with
 | **0.9.0** | Signed run attestation — in-toto statement binding run inputs (provider, ruleset digest, ScoutSuite version) to the report-manifest digest; `presidio-scout --attest` + `presidio-scout-attest generate/verify` |
 | **0.10.0** | Drift detection / run diff — `presidio-scout-diff` compares two reports at resource granularity (new vs resolved findings), with `--fail-on-new-finding {any,warning,danger}` |
 | **0.11.0** | Reproducible, multi-arch (`amd64`+`arm64`) container; GitHub-signed image provenance; a release `verify-image` gate that re-checks the signature + provenance (cosign + `presidio-scout-verify-provenance`) end-to-end |
-| **0.12.0** _(planned)_ | Credential brokering / keyless auth — auto-assume the bundled least-privilege audit role; OIDC in CI |
+| **0.12.0** | Keyless / short-lived credentials — a fail-closed `--require-short-lived-creds` preflight that rejects long-lived static secrets, keyless/managed-identity env passthrough, and OIDC/assume-role/impersonation setup docs (chose configuration + preflight over in-wrapper brokering) |
 | **0.13.0** _(planned)_ | Kubernetes deployment — least-privilege Job/CronJob + Helm (IRSA / Workload Identity), seccomp, egress policy |
 | **0.14.0** _(planned)_ | Vulnerability-scan gate + signed SBOM/vuln attestations verified alongside provenance |
 | **0.15.0** _(planned)_ | Org policy profiles / config (`.presidio-scout.toml`, `presidio-scout-policy`) |
@@ -425,6 +463,7 @@ presidio-hardened-scoutsuite/
 │   ├── waivers.py         # expiring findings waivers / exceptions (--waivers)
 │   ├── attestation.py     # in-toto run attestation (presidio-scout-attest)
 │   ├── diff.py            # drift detection between two runs (presidio-scout-diff)
+│   ├── credentials.py     # short-lived-credential preflight (--require-short-lived-creds)
 │   ├── ruleset.py         # baseline rule-name validation (presidio-scout-validate)
 │   ├── cli.py             # presidio-scout entrypoint
 │   ├── errors.py          # exception hierarchy

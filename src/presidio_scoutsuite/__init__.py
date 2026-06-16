@@ -8,9 +8,11 @@ process (see :mod:`presidio_scoutsuite.launcher`) and is never imported here.
 from __future__ import annotations
 
 from .attestation import attest_report, build_attestation, verify_attestation
+from .credentials import CredentialCheck, assert_short_lived, inspect_credentials
 from .diff import DiffResult, diff_reports, load_and_diff
 from .errors import (
     AttestationError,
+    CredentialError,
     FindingsError,
     LauncherError,
     PresidioScoutError,
@@ -45,6 +47,7 @@ __all__ = [
     "__version__",
     "PresidioScoutError",
     "LauncherError",
+    "CredentialError",
     "RedactionError",
     "ReportGuardError",
     "ReportVerificationError",
@@ -87,6 +90,9 @@ __all__ = [
     "DiffResult",
     "diff_reports",
     "load_and_diff",
+    "CredentialCheck",
+    "inspect_credentials",
+    "assert_short_lived",
     "referenced_rules",
     "available_rules",
     "missing_rules",

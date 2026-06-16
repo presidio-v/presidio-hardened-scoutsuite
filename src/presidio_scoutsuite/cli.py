@@ -12,7 +12,7 @@ import sys
 from importlib import resources
 from pathlib import Path
 
-from . import attestation, launcher, redact, report_guard, sarif, scout_integrity
+from . import attestation, credentials, launcher, redact, report_guard, sarif, scout_integrity
 from . import findings as findings_mod
 from .errors import PresidioScoutError
 from .version import __version__
@@ -115,6 +115,13 @@ def build_parser() -> argparse.ArgumentParser:
         "(downgrades the integrity gate to a warning; NOT recommended)",
     )
     parser.add_argument(
+        "--require-short-lived-creds",
+        action="store_true",
+        help="refuse to run with long-lived static credentials (an access key without "
+        "a session token, a downloaded GCP key, an Azure client secret) — require "
+        "assumed-role / OIDC / impersonation / managed identity instead",
+    )
+    parser.add_argument(
         "--timeout",
         type=float,
         default=None,
@@ -200,6 +207,23 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 2
     scout_version = check.detected_version
+
+    # Credential preflight: inspect the (scrubbed) child env and fail closed on
+    # long-lived static secrets when the operator requires short-lived creds.
+    cred = credentials.inspect_credentials(args.provider, plan.env)
+    if cred.is_static:
+        if args.require_short_lived_creds:
+            print(
+                f"error: {args.provider}: {cred.detail}; supply short-lived credentials "
+                "(assume the bundled audit role, OIDC, impersonation, or managed identity)",
+                file=sys.stderr,
+            )
+            return 2
+        print(
+            f"warning: {args.provider}: {cred.detail}; prefer short-lived credentials "
+            "(see the README 'Keyless / short-lived credentials' section)",
+            file=sys.stderr,
+        )
 
     try:
         completed = launcher.run(plan, timeout=args.timeout)

@@ -515,9 +515,63 @@ from the installed package (`ruleset.installed_rules`) and the release-time
 
 ---
 
+## v0.12.0 — Keyless / short-lived credentials (2026-06-16)
+
+**Deliberation (A vs B):** the roadmap framed 0.12.0 as *auto-assuming the audit
+role via the cloud CLI as a subprocess* (**Direction A**). On inspection that
+conflicts with the project's invariants:
+
+- ScoutSuite's bundled SDKs (boto3, azure-identity, google-auth) **already**
+  resolve assumed roles, OIDC web identity, impersonation, and managed identity.
+  Brokering in the wrapper would **duplicate** that with a new, security-sensitive
+  responsibility (handling temp secrets / session tokens / MFA).
+- It would require **either** a runtime dependency on `aws`/`gcloud`/`az`
+  (which the distroless image ships none of → de-hardening/bloat) **or**
+  hand-rolling SigV4 STS + GCP impersonation + Azure token flows across three
+  clouds in stdlib (large, must track three providers, only mock-testable —
+  the worst place to have only mock coverage).
+
+**Direction B (chosen):** keep credential *resolution* in the SDKs; the wrapper
+adds a deterministic, dependency-free, fail-closed **preflight** over the
+credential *shape* plus keyless setup docs. It hits the same goal ("no long-lived
+keys reach the audit") while preserving every invariant (zero runtime deps,
+out-of-process, minimal secret-handling surface, distroless unchanged) and
+reusing the SDKs' battle-tested resolution. Rejected A (active brokering) and
+A-lite (opt-in CLI brokering) for the reasons above.
+
+**Design decisions:**
+
+- **Classify, don't broker.** `credentials.inspect_credentials(provider, env)`
+  returns `short-lived` / `static` / `unknown` from variable presence (and, for
+  GCP, only the non-secret `type` field of the credential file — never secret
+  values). `--require-short-lived-creds` fails closed (exit 2) on `static`;
+  without it, `static` warns. `unknown` (e.g. `AWS_PROFILE`, CLI/ADC login)
+  **never** blocks — the gate only trips on an unambiguous long-lived secret.
+- **Per-provider signals.** AWS: session token / OIDC web-identity → short-lived;
+  access key without a session token → static. Azure: federation / managed
+  identity → short-lived; client secret / certificate → static. GCP:
+  impersonation / `external_account` → short-lived; downloaded `service_account`
+  key → static.
+- **Keyless env survives the scrub.** Added the non-prefixed managed-identity
+  endpoints (`IDENTITY_ENDPOINT`, `IDENTITY_HEADER`, `MSI_ENDPOINT`, `MSI_SECRET`)
+  to the launcher's env allowlist so Azure managed identity works in the child
+  without any stored secret.
+
+**Delivered:**
+- `credentials.py` (`inspect_credentials`, `assert_short_lived`, `CredentialCheck`)
+  + `CredentialError`; `--require-short-lived-creds` on the CLI (default-warn);
+  launcher keyless-env passthrough
+- Public API exports (`inspect_credentials`, `assert_short_lived`, `CredentialCheck`)
+- `test_credentials.py` + CLI tests (strict block / default warn / short-lived
+  silent) + launcher scrub test; coverage 96% (≥90% gate); ruff clean
+- README *Keyless / short-lived credentials* section (per-cloud + OIDC CI),
+  SECURITY.md, this log
+
+---
+
 ## Roadmap
 
-Delivered (0.1.0–0.11.0) and planned (0.12.0–0.15.0). The arc: **0.5** hardens
+Delivered (0.1.0–0.12.0) and planned (0.13.0–0.15.0). The arc: **0.5** hardens
 *what runs*; **0.6–0.8** turn findings into an enforceable, waiver-aware policy
 gate; **0.9–0.10** make every run attested and comparable over time; **0.11–0.14**
 harden how it's built and deployed; **0.15** makes it configurable for an org.
@@ -537,15 +591,15 @@ ScoutSuite, MIT wrapper, stdlib runtime, fail-closed, offline-testable.
 | **0.9.0** | **Signed run attestation** — an in-toto statement binding inputs (provider, ruleset digest, verified ScoutSuite version) → output (report-manifest digest); `presidio-scout --attest` + `presidio-scout-attest generate/verify`, cosign-signable. ✓ | supply-chain integrity · 0.3, 0.4, 0.5 |
 | **0.10.0** | **Drift detection / run diff** — `presidio-scout-diff` over two reports at resource granularity (new vs resolved findings/resources); `--fail-on-new-finding {any,warning,danger}`. ✓ | policy / operational · 0.6, 0.9 |
 | **0.11.0** | **Reproducible, multi-arch container + image provenance E2E** — `amd64`+`arm64`, reproducible digests, GitHub-signed provenance; release `verify-image` gate re-verifies the published image (cosign + `gh attestation verify` + `presidio-scout-verify-provenance`). ✓ | supply-chain + deployment · 0.4 |
-| **0.12.0** | **Credential brokering / keyless auth** — auto-assume the bundled least-privilege audit role (AWS STS + ExternalId/MFA; GCP SA impersonation; Azure Reader) via the cloud CLI as a subprocess, and OIDC in CI, so operators never pass long-lived keys. | runtime credential safety · iam/ |
+| **0.12.0** | **Keyless / short-lived credentials** — chose configuration + a fail-closed `--require-short-lived-creds` preflight (reject long-lived static secrets) + keyless-env passthrough + OIDC/assume-role/impersonation docs, over in-wrapper brokering (see deliberation). ✓ | runtime credential safety · iam/ |
 | **0.13.0** | **Kubernetes deployment** — least-privilege `Job`/`CronJob` manifests + optional Helm chart using IRSA / Workload Identity; read-only rootfs, seccomp, dropped caps, egress `NetworkPolicy`. | hardened deployment · 0.11, 0.12 |
 | **0.14.0** | **Vulnerability-scan gate + SBOM/vuln attestations** — Grype/Trivy gate on fixable criticals; SBOM and vuln report attached as **signed attestations** and verified alongside provenance. | supply-chain · 0.11 |
 | **0.15.0** | **Org policy profiles / config** — `.presidio-scout.toml` for org defaults (provider, ruleset, gates, waiver/redaction paths, named profiles) + `presidio-scout-policy` to validate it. | usability / policy · most prior |
 
 **Open design questions (revisit when the version lands):**
 
-- **0.12.0** leans on cloud CLIs via subprocess to stay dependency-free; if owning
-  auth flows is undesirable it can narrow to docs + thin helpers only.
+- **0.12.0** — resolved: chose configuration + fail-closed preflight (Direction B)
+  over in-wrapper brokering. See the v0.12.0 deliberation above.
 - **0.15.0** needs `tomllib` (stdlib ≥3.11) or a small `tomli` backport for 3.9/3.10
   — the one place a runtime dependency would creep in.
 

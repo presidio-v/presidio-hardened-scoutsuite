@@ -69,6 +69,20 @@ def test_scrub_env_keeps_cloud_and_essentials_drops_rest():
     assert "MY_DB_PASSWORD" not in scrubbed
 
 
+def test_scrub_env_keeps_managed_identity_endpoints():
+    # Keyless / managed-identity vars aren't cloud-prefixed but must reach the
+    # child so federated auth works without any long-lived secret.
+    base = {
+        "IDENTITY_ENDPOINT": "http://169.254.169.254/...",
+        "IDENTITY_HEADER": "hdr",
+        "MSI_ENDPOINT": "http://...",
+        "MSI_SECRET": "x",
+        "UNRELATED": "drop",
+    }
+    scrubbed = launcher.scrub_env(base)
+    assert set(scrubbed) == {"IDENTITY_ENDPOINT", "IDENTITY_HEADER", "MSI_ENDPOINT", "MSI_SECRET"}
+
+
 def test_harden_report_dir_sets_0700(tmp_path):
     target = tmp_path / "report"
     path = launcher.harden_report_dir(target)
