@@ -58,12 +58,12 @@ class Waiver:
         return self.resource in (None, "*")
 
     def matches_rule(self, finding: Finding) -> bool:
-        key = finding.key
-        stripped = key[:-5] if key.endswith(".json") else key
+        rule = finding.rule
+        stripped = rule[:-5] if rule.endswith(".json") else rule
         candidates = {
-            f"{finding.service}/{key}",
+            f"{finding.service}/{rule}",
             f"{finding.service}/{stripped}",
-            key,
+            rule,
             stripped,
         }
         return self.rule in candidates

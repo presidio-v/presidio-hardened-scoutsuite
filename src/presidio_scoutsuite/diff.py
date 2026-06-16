@@ -62,7 +62,7 @@ def _occurrences(
     levels: dict[tuple[str, str], str] = {}
     occ: dict[tuple[str, str], set[str | None]] = {}
     for finding in report.findings:
-        key = (finding.service, finding.key)
+        key = (finding.service, finding.rule)
         levels[key] = finding.level
         items: set[str | None] = set(finding.items) if finding.items else {None}
         occ.setdefault(key, set()).update(items)

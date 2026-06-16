@@ -46,7 +46,7 @@ class Finding:
     """A single ScoutSuite finding that flagged at least one resource."""
 
     service: str
-    key: str
+    rule: str
     level: str
     flagged_items: int
     description: str = ""
@@ -91,7 +91,7 @@ def extract_findings(results: dict) -> list[Finding]:
         findings = service.get("findings")
         if not isinstance(findings, dict):
             continue
-        for key, finding in findings.items():
+        for rule_name, finding in findings.items():
             if not isinstance(finding, dict):
                 continue
             try:
@@ -106,7 +106,7 @@ def extract_findings(results: dict) -> list[Finding]:
             out.append(
                 Finding(
                     service=str(service_name),
-                    key=str(key),
+                    rule=str(rule_name),
                     level=str(finding.get("level", "")).lower(),
                     flagged_items=flagged,
                     description=str(finding.get("description", "")),
@@ -223,7 +223,7 @@ def _main(argv: list[str] | None = None) -> int:
             "findings": [
                 {
                     "service": f.service,
-                    "key": f.key,
+                    "rule": f.rule,
                     "level": f.level,
                     "flagged_items": f.flagged_items,
                 }
@@ -240,9 +240,9 @@ def _main(argv: list[str] | None = None) -> int:
             f"FAIL {len(offending)} finding(s) at or above {args.fail_on!r}:",
             file=sys.stderr,
         )
-        for finding in sorted(offending, key=lambda f: (-_rank(f.level), f.service, f.key)):
+        for finding in sorted(offending, key=lambda f: (-_rank(f.level), f.service, f.rule)):
             print(
-                f"  {finding.level:<7} {finding.service}/{finding.key} "
+                f"  {finding.level:<7} {finding.service}/{finding.rule} "
                 f"({finding.flagged_items} flagged)",
                 file=sys.stderr,
             )

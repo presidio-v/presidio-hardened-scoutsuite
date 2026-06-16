@@ -52,7 +52,7 @@ def build_summary(report_dir: str | Path, *, top: int = _DEFAULT_TOP) -> dict:
     report = load_report(report_dir)
     ranked = sorted(
         report.findings,
-        key=lambda f: (-_RANK.get(f.level, 0), f.service, f.key),
+        key=lambda f: (-_RANK.get(f.level, 0), f.service, f.rule),
     )
     return {
         "tool": "presidio-hardened-scoutsuite",
@@ -64,7 +64,7 @@ def build_summary(report_dir: str | Path, *, top: int = _DEFAULT_TOP) -> dict:
             {
                 "level": f.level,
                 "service": f.service,
-                "rule": f.key[:-5] if f.key.endswith(".json") else f.key,
+                "rule": f.rule[:-5] if f.rule.endswith(".json") else f.rule,
                 "flagged_items": f.flagged_items,
             }
             for f in ranked[: max(0, top)]

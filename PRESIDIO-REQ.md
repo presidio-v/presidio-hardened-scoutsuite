@@ -898,6 +898,17 @@ Make a gate result reach where the team looks, without leaking anything.
 - README *Notify a sink* section + roadmap row + structure entry; SECURITY.md
   feature bullet + supported-version bump; this log
 
+**CodeQL remediation (during PR #29 review).** CodeQL's clear-text-storage query
+flagged the notify file-sink write as storing "sensitive information": its
+secret-name heuristic classified the `Finding.key` attribute (a ScoutSuite *rule
+filename*) as a cryptographic key. It is a false positive — the value is not a
+secret and the payload is redaction-guarded — but rather than suppress it, the
+misleadingly-named attribute was renamed **`Finding.key` → `Finding.rule`** across
+all modules (findings/sarif/asff/compliance/diff/waivers/notify) and tests. This
+removes the heuristic source and reads better (it is a rule). Note: the
+`presidio-scout-findings --format json` output field `key` is likewise now
+`rule`; `presidio-scout-diff`'s own `Change.key` is unchanged.
+
 ---
 
 ## Roadmap

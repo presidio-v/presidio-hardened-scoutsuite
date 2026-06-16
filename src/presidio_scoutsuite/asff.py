@@ -82,9 +82,9 @@ def to_asff(
 
     findings: list[dict] = []
     for finding in report.findings:
-        rule = _rule_id(finding.key)
+        rule = _rule_id(finding.rule)
         label, normalized = _SEVERITY.get(finding.level, ("INFORMATIONAL", 0))
-        requirements = compliance.related_requirements(lookup.get(finding.key, {}))
+        requirements = compliance.related_requirements(lookup.get(finding.rule, {}))
         title = (finding.description or f"{finding.service}/{rule}")[:256]
 
         targets = finding.items or (None,)
