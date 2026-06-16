@@ -235,8 +235,12 @@ from the installed package (`ruleset.installed_rules`) and the release-time
 - **Reproducible builds make provenance *useful*.** If you can't rebuild the
   artifact bit-for-bit, you can't independently confirm what shipped. Builds are
   pinned to the tagged commit's `SOURCE_DATE_EPOCH` (publish.yml) and a new
-  `reproducible-build` CI job builds twice and **hard-fails on differing
-  SHA-256 digests** (verified locally: identical wheel + sdist across builds).
+  `reproducible-build` CI job builds twice and **hard-fails on any difference**.
+  The wheel is compared byte-for-byte; the sdist is compared at the
+  *decompressed-tar* level, because a gzip container embeds an mtime that is not
+  part of the archived content (the reproducible-builds.org convention) — this
+  surfaced as a real CI failure when a freshly-resolved hatchling didn't pin the
+  gzip mtime, and the content-level check is the correct, robust assertion.
 
 **Delivered:**
 - `provenance.py` + `ProvenanceVerificationError`; `presidio-scout-verify-provenance`

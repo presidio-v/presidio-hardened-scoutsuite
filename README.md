@@ -185,13 +185,18 @@ Override the expected source/builder with `--source-uri` / `--builder-id-prefix`
 
 **Reproducible build.** Builds are pinned to the tagged commit's timestamp
 (`SOURCE_DATE_EPOCH`), so anyone can rebuild from the same commit and confirm
-identical digests — and CI fails the `reproducible-build` job if two builds
-diverge:
+the **wheel** is byte-identical to what was published — and CI fails the
+`reproducible-build` job if two builds diverge:
 
 ```bash
 SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct) python -m build
-sha256sum dist/*          # compare against the published artifact's digest
+sha256sum dist/*.whl          # compare against the published wheel's digest
 ```
+
+(The `.tar.gz` sdist is reproducible at the *content* level; its gzip container
+carries an mtime that isn't part of the archived files, so compare it with
+`gzip -dc dist/*.tar.gz | sha256sum` rather than the raw bytes — which is exactly
+what the CI gate does.)
 
 ---
 
