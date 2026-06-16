@@ -989,6 +989,36 @@ into a tracked trend with a regression gate.
 
 ---
 
+## v0.23.0 — Remediation guidance (2026-06-16)
+
+Tell operators *how* to fix a finding, not just that it failed.
+
+**Design decisions:**
+
+- **Curated data, validated like the control map.** `policy/<provider>.remediation.json`
+  maps each finding rule to `{summary, steps[], references[]}`. `remediation.validate_remediation`
+  reuses the rule manifest the same way compliance does — guidance that names a
+  rule the pinned ScoutSuite doesn't ship errors, so fix steps can't drift from
+  the rules. Covers all curated rules (AWS 34 / Azure 26 / GCP 27).
+- **Fills the ASFF `Remediation` field.** `asff.to_asff` now attaches
+  `Remediation.Recommendation` (`Text` = summary + steps, capped to ASFF's 512;
+  `Url` = first reference) so Security Hub shows the fix inline — reusing the same
+  data, no second source of truth.
+- **Unmapped findings stay visible.** `presidio-scout-remediate --fail-on-unmapped`
+  (exit 4) lets a pipeline insist every flagged finding has guidance; otherwise a
+  finding with no remediation is shown as such rather than silently omitted.
+
+**Delivered:**
+- `remediation.py` (`load_remediation`, `validate_remediation`, `merged_remediation`,
+  `remediation_for`) + `presidio-scout-remediate`; `RemediationError`
+- `policy/{aws,azure,gcp}.remediation.json`; ASFF `Remediation` integration
+- Public API exports; version 0.23.0 (both files)
+- `test_remediation.py` (incl. real-data validation + ASFF integration); coverage
+  95% (≥90% gate); ruff clean
+- README roadmap row; SECURITY.md feature bullet + supported-version bump; this log
+
+---
+
 ## Roadmap
 
 Delivered (0.1.0–0.15.0) — the planned arc is complete. The arc: **0.5** hardens
@@ -1064,7 +1094,7 @@ offline-testable).
 | Version | Planned | Axis · depends on |
 |---|---|---|
 | **0.22.0** | **Posture history & trend** — `presidio-scout-trend record|show`: append each run to an append-only JSONL history; report new/resolved findings vs the previous run; fail-closed `--fail-on-regression` gate (block when a new finding appears). ✓ | operational / continuous · 0.10, 0.17, 0.19 |
-| **0.23.0** | **Remediation guidance** — curated per-rule remediation steps + doc links (bundled like the control maps, validated against the manifest); `presidio-scout-remediate` emits fix guidance per finding and fills the ASFF `Remediation` field + notify summaries. | policy / integration · 0.17, 0.20 |
+| **0.23.0** | **Remediation guidance** — curated per-rule remediation steps + doc links (bundled like the control maps, validated against the manifest; AWS 34 / Azure 26 / GCP 27); `presidio-scout-remediate` emits fix guidance per finding and fills the ASFF `Remediation` field. ✓ | policy / integration · 0.17, 0.20 |
 | **0.24.0** | **Policy-as-code assertions** — `presidio-scout-assert`: a declarative policy file of named assertions (provider/service/rule/resource predicates) richer than a single severity threshold (e.g. "no public storage in prod", "MFA on all admins"); fail-closed. | policy · 0.6, 0.8, 0.15 |
 | **0.25.0** | **Aliyun & OCI baselines** — curated, manifest-verified baselines + least-privilege IAM for ScoutSuite's remaining providers, reconciled against the real upstream source (the 0.18 method). | secure-by-default policy · 0.2, 0.18 |
 | **0.26.0** | **Executive & multi-format reporting** — a self-contained Markdown/HTML executive summary + CSV export, and fleet rollups aggregating many targets into one view. | reporting · 0.17, 0.19 |

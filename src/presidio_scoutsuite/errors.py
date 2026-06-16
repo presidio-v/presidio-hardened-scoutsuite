@@ -136,6 +136,16 @@ class AsffError(PresidioScoutError):
     """
 
 
+class RemediationError(PresidioScoutError):
+    """A remediation guidance mapping is missing, malformed, or invalid.
+
+    Raised when a per-rule remediation file can't be read/parsed, an entry omits
+    a required field (summary/steps/references), or it references a finding rule
+    the pinned ScoutSuite's manifest doesn't provide — so guidance can't silently
+    drift from the rules it claims to fix.
+    """
+
+
 class TrendError(PresidioScoutError):
     """A posture-history store could not be read, appended, or compared.
 

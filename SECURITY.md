@@ -4,8 +4,8 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 0.22.x  | ✅ Yes (current) |
-| <0.22   | Best-effort security fixes only |
+| 0.23.x  | ✅ Yes (current) |
+| <0.23   | Best-effort security fixes only |
 
 ## Reporting a Vulnerability
 
@@ -117,6 +117,12 @@ redaction, supply-chain controls, and a least-privilege deployment model.
   signature *and* the provenance (cryptographically, then against this
   distribution's `presidio-scout-verify-provenance` policy) — before the release
   run is allowed to succeed.
+- **Remediation guidance (fail-closed)** — `presidio-scout-remediate` attaches
+  curated per-rule fix steps + documentation references to a report's flagged
+  findings, and the same data fills the AWS Security Hub ASFF `Remediation` field.
+  The guidance is validated against the rule manifest, so a fix step can't point
+  at a rule the pinned ScoutSuite no longer ships; `--fail-on-unmapped` flags any
+  finding lacking guidance.
 - **Posture-regression gate** — `presidio-scout-trend` records each run's flagged
   findings to an append-only history and compares the latest run to the previous
   one; `--fail-on-regression danger|warning` exits non-zero when a *new* finding

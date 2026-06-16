@@ -666,12 +666,12 @@ planned (see the tables at the end).
 | **0.20.0** | Notification sinks — `presidio-scout-notify` pushes an audit summary to a file / webhook / Slack sink (config- or flag-driven), redaction-aware and fail-closed so a secret can't leak to an external sink |
 | **0.21.0** | Config-driven redaction & baseline composition — `[redaction].extra-patterns` add org secret redactors; `[baseline]` composes a ruleset from a bundled baseline (set-level / disable), both validated fail-closed by `presidio-scout-policy` |
 | **0.22.0** | Posture history & trend — `presidio-scout-trend` records each run to an append-only history and gates on **regression** (a new finding vs the previous run); persists across runs without keeping old reports |
+| **0.23.0** | Remediation guidance — curated per-rule fix steps + doc references (AWS/Azure/GCP, validated against the manifest); `presidio-scout-remediate` emits them and they fill the AWS Security Hub ASFF `Remediation` field |
 
 ### Planned — third arc: continuous assurance & remediation (0.22.0+)
 
 | Version | Planned |
 |---|---|
-| **0.23.0** | Remediation guidance — curated per-rule fix steps; `presidio-scout-remediate` emits them and fills ASFF `Remediation` + notify summaries |
 | **0.24.0** | Policy-as-code assertions — `presidio-scout-assert` evaluates a declarative policy (richer than a severity threshold), fail-closed |
 | **0.25.0** | Aliyun & OCI baselines — curated, manifest-verified baselines + least-privilege IAM for the remaining providers |
 | **0.26.0** | Executive & multi-format reporting — Markdown/HTML exec summary, CSV export, fleet rollups |

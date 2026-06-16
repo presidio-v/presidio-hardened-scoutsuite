@@ -33,6 +33,7 @@ from .errors import (
     PresidioScoutError,
     ProvenanceVerificationError,
     RedactionError,
+    RemediationError,
     ReportGuardError,
     ReportVerificationError,
     RulesetValidationError,
@@ -56,6 +57,7 @@ from .orchestrate import (
 )
 from .provenance import Provenance, ProvenancePolicy, load_statement
 from .redact import assert_clean, redact_report_dir, redact_text, scan
+from .remediation import Remediation, load_remediation, remediation_for, validate_remediation
 from .report_guard import GuardResult, guard_report
 from .ruleset import (
     available_rules,
@@ -104,7 +106,12 @@ __all__ = [
     "OrchestrationError",
     "NotificationError",
     "TrendError",
+    "RemediationError",
     "UpgradeError",
+    "Remediation",
+    "load_remediation",
+    "validate_remediation",
+    "remediation_for",
     "Snapshot",
     "Comparison",
     "snapshot",
