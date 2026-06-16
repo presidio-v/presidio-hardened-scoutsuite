@@ -51,6 +51,7 @@ presidio-scout-attest = "presidio_scoutsuite.attestation:_main"
 presidio-scout-diff = "presidio_scoutsuite.diff:_main"
 presidio-scout-vuln-gate = "presidio_scoutsuite.vuln:_main"
 presidio-scout-policy = "presidio_scoutsuite.config:_main"
+presidio-scout-upgrade = "presidio_scoutsuite.upgrade:_main"
 
 [project.urls]
 Homepage = "https://github.com/presidio-v/presidio-hardened-scoutsuite"

@@ -97,3 +97,56 @@ def test_cli_main_fails_on_missing_rule(monkeypatch, capsys):
     rc = ruleset._main(["--provider", "aws"])
     assert rc == 1
     assert "FAIL" in capsys.readouterr().err
+
+
+# --- manifest regeneration (upgrade automation) ------------------------------
+
+
+def test_render_manifest_is_sorted_and_parseable():
+    text = ruleset.render_manifest("aws", {"b.json", "a.json", "c.json"})
+    assert "aws-cis.json" in text  # header mentions the provider baseline
+    body = [ln for ln in text.splitlines() if ln and not ln.startswith("#")]
+    assert body == ["a.json", "b.json", "c.json"]  # sorted, deterministic
+    assert ruleset._parse_manifest(text) == {"a.json", "b.json", "c.json"}
+
+
+def test_regenerate_manifest_writes_installed_inventory(monkeypatch, tmp_path):
+    target = tmp_path / "aws.rules.txt"
+    target.write_text("# stale\nold-rule.json\n")
+    monkeypatch.setattr(ruleset, "_policy_resource", lambda name: target)
+    monkeypatch.setattr(ruleset, "installed_rules", lambda p: {"new-a.json", "new-b.json"})
+    path = ruleset.regenerate_manifest("aws")
+    assert path == target
+    assert ruleset._parse_manifest(target.read_text()) == {"new-a.json", "new-b.json"}
+
+
+def test_regenerate_manifest_unknown_provider():
+    with pytest.raises(RulesetValidationError, match="no rule manifest"):
+        ruleset.regenerate_manifest("neptune")
+
+
+def test_cli_regenerate_requires_installed_source(capsys):
+    assert ruleset._main(["--regenerate"]) == 2
+    assert "requires --source installed" in capsys.readouterr().err
+
+
+def test_cli_regenerate_runs(monkeypatch, capsys):
+    written: list[str] = []
+
+    def fake_regen(provider):
+        written.append(provider)
+        return f"/policy/{provider}.rules.txt"
+
+    monkeypatch.setattr(ruleset, "regenerate_manifest", fake_regen)
+    monkeypatch.setattr(ruleset, "manifest_rules", lambda p: {"x.json"})
+    rc = ruleset._main(["--regenerate", "--source", "installed", "--provider", "aws"])
+    assert rc == 0
+    assert written == ["aws"]
+    assert "regenerated aws" in capsys.readouterr().out
+
+
+def test_cli_regenerate_fails_closed_without_scoutsuite(capsys):
+    # No ScoutSuite installed -> installed_rules raises -> non-zero, nothing written.
+    rc = ruleset._main(["--regenerate", "--source", "installed", "--provider", "aws"])
+    assert rc == 1
+    assert "FAIL" in capsys.readouterr().err

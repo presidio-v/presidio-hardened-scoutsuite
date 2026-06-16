@@ -4,8 +4,8 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 0.8.x   | ✅ Yes (current) |
-| <0.8    | Best-effort security fixes only |
+| 0.16.x  | ✅ Yes (current) |
+| <0.16   | Best-effort security fixes only |
 
 ## Reporting a Vulnerability
 
@@ -117,6 +117,16 @@ redaction, supply-chain controls, and a least-privilege deployment model.
   signature *and* the provenance (cryptographically, then against this
   distribution's `presidio-scout-verify-provenance` policy) — before the release
   run is allowed to succeed.
+- **Pinned-version coherence gate + upgrade automation** — the pinned ScoutSuite
+  version is declared in several files that must agree (the `scoutsuite` extra,
+  `requirements.lock`, the install-integrity fallback constant); drift would let
+  a gate silently check against the wrong version. `presidio-scout-upgrade check`
+  is a **fail-closed** gate (run on every push by the `pin-coherence` CI job)
+  that errors on any disagreement, and `plan`/`apply` make a version bump a
+  deterministic, reviewable operation. A scheduled workflow bumps the pin,
+  regenerates the hash-pinned lockfile and the rule manifests
+  (`presidio-scout-validate --regenerate`), runs every gate, and opens a PR —
+  so staying current is reviewed, not silent drift, and never auto-merged.
 - **ScoutSuite install-integrity gate** — before any cloud credentials are
   handed to ScoutSuite, a fail-closed preflight (`scout_integrity`) confirms the
   `scout` on PATH is the **pinned, vetted version** this distribution ships;

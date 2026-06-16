@@ -1,0 +1,116 @@
+name: ScoutSuite upgrade
+
+# Keep the pinned ScoutSuite current as a reviewed, fail-closed bump rather than
+# manual drift. Runs the deterministic in-repo pin edits, regenerates the
+# hash-pinned lockfile and the rule-name manifests, runs every gate, and opens a
+# PR. Nothing merges automatically — a human reviews the diff and the green run.
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "ScoutSuite version to upgrade to (blank = latest on PyPI)"
+        required: false
+        default: ""
+  schedule:
+    - cron: "17 6 * * 1" # Mondays 06:17 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  propose-upgrade:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the upgrade branch
+      pull-requests: write # open the PR
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - name: Install tooling (wrapper + pip-tools; no GPL ScoutSuite yet)
+        run: |
+          python -m pip install --upgrade pip pip-tools
+          pip install -e .
+
+      - name: Determine target version
+        id: target
+        env:
+          INPUT_TARGET: ${{ inputs.target }}
+        run: |
+          current="$(presidio-scout-upgrade current)"
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+          if [ -n "$INPUT_TARGET" ]; then
+            target="$INPUT_TARGET"
+          else
+            target="$(python - <<'PY'
+          import json, urllib.request
+          url = "https://pypi.org/pypi/ScoutSuite/json"
+          with urllib.request.urlopen(url, timeout=30) as r:  # nosec B310 (https)
+              print(json.load(r)["info"]["version"])
+          PY
+          )"
+          fi
+          echo "target=$target" >> "$GITHUB_OUTPUT"
+          if [ "$target" = "$current" ]; then
+            echo "::notice::ScoutSuite already pinned to $current; nothing to do."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Proposing ScoutSuite $current -> $target"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Apply offline text pins
+        if: steps.target.outputs.skip == 'false'
+        run: presidio-scout-upgrade apply --to "${{ steps.target.outputs.target }}"
+
+      - name: Regenerate hash-pinned requirements.lock
+        if: steps.target.outputs.skip == 'false'
+        run: |
+          pip-compile --allow-unsafe --extra=scoutsuite --generate-hashes \
+            --output-file=requirements.lock --strip-extras pyproject.toml
+
+      - name: Install pinned ScoutSuite + regenerate rule manifests
+        if: steps.target.outputs.skip == 'false'
+        run: |
+          pip install --require-hashes -r requirements.lock
+          pip install --no-deps -e .
+          presidio-scout-validate --regenerate --source installed
+
+      - name: Fail-closed gates (coherence, rulesets, tests)
+        if: steps.target.outputs.skip == 'false'
+        run: |
+          presidio-scout-upgrade check
+          presidio-scout-validate --source manifest
+          presidio-scout-validate --source installed
+          pip install -e ".[dev]"
+          pytest -q
+
+      - name: Open pull request
+        if: steps.target.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET: ${{ steps.target.outputs.target }}
+          CURRENT: ${{ steps.target.outputs.current }}
+        run: |
+          branch="scout-upgrade/${TARGET}"
+          title="deps: bump ScoutSuite ${CURRENT} -> ${TARGET}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add -A
+          git commit -m "$title"
+          git push -f origin "$branch"
+          if ! gh pr create --base main --head "$branch" --title "$title" --body \
+            "Automated ScoutSuite upgrade ${CURRENT} → ${TARGET}.
+
+          Performed by the upgrade workflow:
+          - bumped the \`scoutsuite\` extra pin and the install-integrity constant
+          - regenerated the hash-pinned \`requirements.lock\`
+          - regenerated the rule-name manifests from the installed ScoutSuite
+          - all fail-closed gates passed (pin coherence, ruleset validation, tests)
+
+          Review the diff and the green CI run before merging."; then
+            echo "::notice::PR for $branch may already exist; branch updated."
+          fi

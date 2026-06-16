@@ -24,6 +24,7 @@ from .errors import (
     ReportVerificationError,
     RulesetValidationError,
     ScoutIntegrityError,
+    UpgradeError,
     VulnerabilityError,
     WaiverError,
 )
@@ -37,11 +38,22 @@ from .ruleset import (
     available_rules,
     missing_rules,
     referenced_rules,
+    regenerate_manifest,
+    render_manifest,
     validate_all,
     validate_provider,
 )
 from .sarif import to_sarif
 from .scout_integrity import ScoutIntegrityResult, pinned_version, verify_scout
+from .upgrade import (
+    CoherenceReport,
+    Pin,
+    UpgradePlan,
+    apply_text_pins,
+    check_coherence,
+    discover_pins,
+    plan_upgrade,
+)
 from .verify import VerifyResult, verify_report
 from .version import __version__
 from .vuln import Vuln, VulnReport, parse_report
@@ -63,6 +75,14 @@ __all__ = [
     "AttestationError",
     "VulnerabilityError",
     "RulesetValidationError",
+    "UpgradeError",
+    "Pin",
+    "CoherenceReport",
+    "UpgradePlan",
+    "discover_pins",
+    "check_coherence",
+    "plan_upgrade",
+    "apply_text_pins",
     "LaunchPlan",
     "build_plan",
     "run",
@@ -110,4 +130,6 @@ __all__ = [
     "missing_rules",
     "validate_provider",
     "validate_all",
+    "render_manifest",
+    "regenerate_manifest",
 ]

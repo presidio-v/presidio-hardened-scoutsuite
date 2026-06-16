@@ -432,6 +432,30 @@ fails loudly. See [`.presidio-scout.toml.example`](./.presidio-scout.toml.exampl
 
 ---
 
+## Keep ScoutSuite current (upgrade automation)
+
+The pinned ScoutSuite version underpins every gate — the install-integrity
+preflight, the hash-pinned lockfile, and the rule inventory the baselines
+validate against. That version is declared in several files that **must agree**;
+`presidio-scout-upgrade` makes coherence a fail-closed gate and bumps reviewable.
+
+```bash
+presidio-scout-upgrade check          # all pin sites must agree (exit 4 on drift)
+presidio-scout-upgrade current        # the authoritative pinned version
+presidio-scout-upgrade plan --to 5.15.0   # ordered, reviewable bump steps
+presidio-scout-upgrade apply --to 5.15.0  # apply the offline text pins only
+```
+
+`apply` does only the deterministic in-repo edits (the `scoutsuite` extra and the
+install-integrity constant); regenerating the hash-pinned `requirements.lock`
+(needs PyPI) and the rule manifests (needs the installed ScoutSuite) is done by
+the scheduled [`scout-upgrade`](./.github/workflows/scout-upgrade.yml) workflow,
+which runs the whole sequence, all gates, and opens a PR — nothing merges without
+review. The `pin-coherence` CI job runs `presidio-scout-upgrade check` on every
+push so the pin sites can never silently drift.
+
+---
+
 ## Run in Kubernetes
 
 Hardened in-cluster manifests and a Helm chart live under
@@ -477,8 +501,9 @@ presidio-scout-validate --source installed   # release: baselines ⊆ the instal
 
 CI runs the offline check on every push; the release pipeline runs the
 `installed` check against the pinned ScoutSuite so the manifest can't drift from
-upstream unnoticed. Regenerate a manifest with
-`ruleset.installed_rules("<provider>")` (see the header of each `.rules.txt`).
+upstream unnoticed. Regenerate the manifests from an installed ScoutSuite with
+`presidio-scout-validate --regenerate --source installed` (the upgrade workflow
+does this automatically on a version bump).
 
 ---
 
@@ -501,6 +526,7 @@ upstream unnoticed. Regenerate a manifest with
 | **0.13.0** | Kubernetes deployment — hardened `Job`/`CronJob` + Helm chart (workload identity, read-only rootfs, dropped caps, seccomp, default-deny `NetworkPolicy`) under `deploy/` |
 | **0.14.0** | Vulnerability-scan gate (`pip-audit` + Trivy + `presidio-scout-vuln-gate`, fail-closed on fixable findings) + signed CycloneDX SBOM attestation verified alongside provenance at release |
 | **0.15.0** | Org policy profiles / config — `.presidio-scout.toml` defaults + named profiles applied as CLI defaults, validated by `presidio-scout-policy` |
+| **0.16.0** | ScoutSuite upgrade automation — `presidio-scout-upgrade` (fail-closed pin-coherence gate + reviewable bump planner/applier), `--regenerate` for the rule manifests, a `pin-coherence` CI gate, and a scheduled workflow that bumps the lockfile + manifests and opens a PR |
 
 See [`PRESIDIO-REQ.md`](./PRESIDIO-REQ.md) for the per-version rationale,
 dependencies, and open design questions.
@@ -540,6 +566,7 @@ presidio-hardened-scoutsuite/
 │   ├── vuln.py            # Trivy/Grype vulnerability gate (presidio-scout-vuln-gate)
 │   ├── config.py          # .presidio-scout.toml org config (presidio-scout-policy)
 │   ├── ruleset.py         # baseline rule-name validation (presidio-scout-validate)
+│   ├── upgrade.py         # ScoutSuite pin-coherence gate + bump tooling (presidio-scout-upgrade)
 │   ├── cli.py             # presidio-scout entrypoint
 │   ├── errors.py          # exception hierarchy
 │   └── policy/            # curated baselines + rule manifests + provenance-policy.json

@@ -121,6 +121,49 @@ def installed_rules(provider: str) -> set[str]:
         return {f.name for f in directory.glob("*.json")}
 
 
+def render_manifest(provider: str, rules: set[str]) -> str:
+    """Render the canonical ``<provider>.rules.txt`` text for ``rules``.
+
+    Pure and deterministic (rules are sorted) so the upgrade automation produces
+    a stable, reviewable diff. Used by :func:`regenerate_manifest`.
+    """
+
+    header = (
+        f"# Finding-rule inventory for the pinned ScoutSuite (see requirements.lock).\n"
+        f"#\n"
+        f"# One finding-rule filename per line; '#' starts a comment. This is the offline\n"
+        f"# source of truth the curated {provider}-cis.json baseline is validated against\n"
+        f"# in CI, so the wrapper can be checked without installing GPL ScoutSuite.\n"
+        f"#\n"
+        f"# Regenerated from the installed ScoutSuite's rule inventory:\n"
+        f"#\n"
+        f"#     presidio-scout-validate --regenerate --source installed\n"
+        f"#\n"
+        f"# 'presidio-scout-validate --source installed' flags any drift between this\n"
+        f"# inventory and the installed ScoutSuite.\n"
+        f"\n"
+    )
+    return header + "".join(f"{rule}\n" for rule in sorted(rules))
+
+
+def regenerate_manifest(provider: str) -> Path:
+    """Rewrite ``<provider>.rules.txt`` from the installed ScoutSuite inventory.
+
+    Fail-closed via :func:`installed_rules` (raises if ScoutSuite isn't
+    installed). Returns the path written. Intended to run inside an env with the
+    ``[scoutsuite]`` extra installed — the upgrade workflow does this after a
+    version bump so the offline manifest tracks the newly pinned ScoutSuite.
+    """
+
+    try:
+        name = _MANIFEST_FILES[provider]
+    except KeyError as exc:
+        raise RulesetValidationError(f"no rule manifest bundled for provider {provider!r}") from exc
+    path = _policy_resource(name)
+    path.write_text(render_manifest(provider, installed_rules(provider)), encoding="utf-8")
+    return path
+
+
 def available_rules(provider: str, *, source: str = "manifest") -> set[str]:
     """Return the rules ScoutSuite provides for ``provider`` from ``source``."""
 
@@ -178,9 +221,35 @@ def _main(argv: list[str] | None = None) -> int:
         choices=VALIDATED_PROVIDERS,
         help="validate a single provider (default: all)",
     )
+    parser.add_argument(
+        "--regenerate",
+        action="store_true",
+        help=(
+            "rewrite the offline rule manifest(s) from the installed ScoutSuite "
+            "inventory (requires --source installed); used by upgrade automation"
+        ),
+    )
     args = parser.parse_args(argv)
 
     providers = (args.provider,) if args.provider else VALIDATED_PROVIDERS
+
+    if args.regenerate:
+        if args.source != "installed":
+            print(
+                "error: --regenerate requires --source installed",
+                file=sys.stderr,
+            )
+            return 2
+        try:
+            for provider in providers:
+                path = regenerate_manifest(provider)
+                count = len(manifest_rules(provider))
+                print(f"regenerated {provider}: {count} rule(s) -> {path}")
+        except RulesetValidationError as exc:
+            print(f"FAIL {exc}", file=sys.stderr)
+            return 1
+        return 0
+
     failed = False
     for provider in providers:
         try:
