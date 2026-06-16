@@ -729,6 +729,45 @@ them, and a bump was a manual, error-prone, multi-file edit.
 
 ---
 
+## v0.17.0 — Compliance mapping + ASFF export (2026-06-16)
+
+Make findings consumable by GRC and AWS-native finding stores: express the audit
+as control failures, and feed it to Security Hub.
+
+**Design decisions:**
+
+- **Mapping is curated data, validated fail-closed.** `policy/<provider>.controls.json`
+  maps each finding-rule filename to control IDs in CIS, NIST 800-53 Rev. 5, and
+  SOC 2. `compliance.validate_mapping` reuses the rule manifest the same way
+  curated baselines are checked — a mapping that names a rule the pinned
+  ScoutSuite doesn't ship errors (covered by a real-repo unit test, like the
+  baseline and pin-coherence guards), so a typo/rename can't silently drop a
+  control. Frameworks and value shapes are checked on load.
+- **Unmapped findings stay visible.** A flagged finding with no mapping entry is
+  collected in `unmapped` rather than silently uncounted; `--fail-on-unmapped`
+  (exit 4) lets a pipeline insist every flagged finding is classified.
+- **ASFF reuses the mapping.** `asff.to_asff` builds AWS Security Hub findings
+  (`BatchImportFindings` shape) one per flagged resource, attaching the mapped
+  controls as `Compliance.RelatedRequirements`. `danger`→HIGH/70, `warning`→
+  MEDIUM/40; timestamps are injectable for deterministic, testable output; the
+  account id (12-digit) and region are validated fail-closed. Wired into the main
+  CLI as `--asff` (with `--aws-account-id`/`--aws-region`) next to `--sarif`.
+- **Invariants held.** Both modules are pure stdlib, offline-testable, and never
+  import ScoutSuite; the mappings ride the existing `policy/*.json` package glob.
+
+**Delivered:**
+- `compliance.py` (`load_mapping`, `validate_mapping`, `build_report`,
+  `merged_controls`, `related_requirements`) + `presidio-scout-compliance`
+- `asff.py` (`to_asff`) + `presidio-scout-asff`; `--asff` on the main CLI
+- `policy/{aws,azure,gcp}.controls.json` curated CIS/NIST/SOC2 mappings
+- `ComplianceError`/`AsffError`; public API exports; version 0.17.0
+- `test_compliance.py` + `test_asff.py` + main-CLI `--asff` tests; coverage 96%
+  (≥90% gate); ruff clean
+- README *Compliance mapping* + *AWS Security Hub (ASFF)* sections + roadmap row +
+  structure entries; SECURITY.md feature bullets + supported-version bump; this log
+
+---
+
 ## Roadmap
 
 Delivered (0.1.0–0.15.0) — the planned arc is complete. The arc: **0.5** hardens
@@ -777,7 +816,7 @@ stdlib-only runtime, fail-closed, offline-testable).
 | Version | Planned | Axis · depends on |
 |---|---|---|
 | **0.16.0** | **ScoutSuite upgrade automation** — `presidio-scout-upgrade` (fail-closed pin-coherence gate + reviewable bump planner/applier), `--regenerate` for the rule manifests, a `pin-coherence` CI gate, and a scheduled workflow that regenerates the hash-pinned `requirements.lock` + manifests and opens a PR (never auto-merged). ✓ | supply-chain / maintenance · 0.5, 0.14 |
-| **0.17.0** | **Compliance mapping + ASFF export** — map findings to control frameworks (CIS / NIST 800-53 / SOC 2) and export AWS Security Hub ASFF alongside SARIF, so the gate feeds GRC and cloud-native finding stores. | policy / integration · 0.6, 0.7 |
+| **0.17.0** | **Compliance mapping + ASFF export** — `presidio-scout-compliance` maps findings to CIS / NIST 800-53 / SOC 2 controls (curated mappings validated fail-closed against the manifest; `--fail-on-unmapped`); `presidio-scout-asff` / `--asff` export AWS Security Hub findings enriched with the mapped controls. ✓ | policy / integration · 0.6, 0.7 |
 | **0.18.0** | **Deeper / additional provider baselines** — extend curated CIS-aligned baselines (more AWS/Azure/GCP services; consider OCI/Alibaba/K8s if ScoutSuite supports), each behind the rule-name validation gate. | secure-by-default policy · 0.2 |
 | **0.19.0** | **Org-wide orchestration** — drive a fan-out across many accounts/subscriptions/projects (assume-role / impersonation matrix), one attested report + diff per target, aggregated gate — still out-of-process per account. | operational scale · 0.10, 0.12, 0.13 |
 | **0.20.0** | **Notification / finding sinks** — fail-closed push of gate results to sinks (issue tracker, Slack/webhook, S3/GCS), driven by `.presidio-scout.toml` profiles; redaction-aware, no secret leakage. | integration · 0.15, 0.17 |

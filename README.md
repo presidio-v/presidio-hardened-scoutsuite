@@ -249,6 +249,38 @@ Export the flagged findings as **SARIF 2.1.0** so they surface as code-scanning
 `warning` (4.0 / medium); each flagged resource becomes a result with a stable
 fingerprint so GitHub tracks the same alert across runs.
 
+### Compliance mapping (CIS / NIST 800-53 / SOC 2)
+
+Express the audit as **control** failures, not just raw findings.
+`presidio-scout-compliance` maps each flagged finding to the controls it breaks
+across CIS, NIST SP 800-53 Rev. 5, and the SOC 2 Trust Services Criteria, using
+curated, checked-in mappings (`policy/<provider>.controls.json`):
+
+```bash
+presidio-scout-compliance ./report                       # per-control summary
+presidio-scout-compliance ./report --framework cis --format json
+presidio-scout-compliance ./report --fail-on-unmapped    # exit 4 if a finding has no mapping
+```
+
+The mappings are validated **fail-closed** against the rule manifest (a mapping
+that names a rule the pinned ScoutSuite doesn't ship errors in CI), and a flagged
+finding with no mapping is reported as `unmapped` rather than silently dropped.
+
+### AWS Security Hub (ASFF)
+
+Send findings to **Security Hub** as ASFF (`BatchImportFindings` input), enriched
+with the compliance controls as `Compliance.RelatedRequirements` — inline
+(`--asff PATH`) or from an existing report (`presidio-scout-asff`):
+
+```bash
+presidio-scout aws --report-dir ./report \
+  --asff findings.asff.json --aws-account-id 123456789012 --aws-region us-east-1
+aws securityhub batch-import-findings --findings file://findings.asff.json
+```
+
+`danger` maps to `HIGH` (Normalized 70), `warning` to `MEDIUM` (40); each flagged
+resource becomes one ASFF finding with a stable `Id`.
+
 ### Tracking drift between runs
 
 Gating on the absolute set of findings is noisy when there's a known,
@@ -527,6 +559,7 @@ does this automatically on a version bump).
 | **0.14.0** | Vulnerability-scan gate (`pip-audit` + Trivy + `presidio-scout-vuln-gate`, fail-closed on fixable findings) + signed CycloneDX SBOM attestation verified alongside provenance at release |
 | **0.15.0** | Org policy profiles / config — `.presidio-scout.toml` defaults + named profiles applied as CLI defaults, validated by `presidio-scout-policy` |
 | **0.16.0** | ScoutSuite upgrade automation — `presidio-scout-upgrade` (fail-closed pin-coherence gate + reviewable bump planner/applier), `--regenerate` for the rule manifests, a `pin-coherence` CI gate, and a scheduled workflow that bumps the lockfile + manifests and opens a PR |
+| **0.17.0** | Compliance mapping + ASFF export — `presidio-scout-compliance` maps findings to CIS / NIST 800-53 / SOC 2 controls (validated fail-closed against the manifest); `presidio-scout-asff` / `--asff` emit AWS Security Hub findings enriched with the mapped controls |
 
 See [`PRESIDIO-REQ.md`](./PRESIDIO-REQ.md) for the per-version rationale,
 dependencies, and open design questions.
@@ -559,6 +592,8 @@ presidio-hardened-scoutsuite/
 │   ├── scout_integrity.py # pinned-ScoutSuite preflight gate
 │   ├── findings.py        # findings model + severity gate (presidio-scout-findings)
 │   ├── sarif.py           # SARIF 2.1.0 export for code scanning (presidio-scout-export)
+│   ├── compliance.py      # CIS/NIST/SOC2 control mapping (presidio-scout-compliance)
+│   ├── asff.py            # AWS Security Hub ASFF export (presidio-scout-asff)
 │   ├── waivers.py         # expiring findings waivers / exceptions (--waivers)
 │   ├── attestation.py     # in-toto run attestation (presidio-scout-attest)
 │   ├── diff.py            # drift detection between two runs (presidio-scout-diff)

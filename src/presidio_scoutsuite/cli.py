@@ -13,6 +13,7 @@ from importlib import resources
 from pathlib import Path
 
 from . import (
+    asff,
     attestation,
     config,
     credentials,
@@ -114,6 +115,20 @@ def build_parser() -> argparse.ArgumentParser:
         "--sarif",
         metavar="PATH",
         help="also write the findings as SARIF 2.1.0 to PATH (for GitHub code scanning)",
+    )
+    parser.add_argument(
+        "--asff",
+        metavar="PATH",
+        help="also write the findings as AWS Security Hub ASFF to PATH "
+        "(requires --aws-account-id and --aws-region)",
+    )
+    parser.add_argument(
+        "--aws-account-id",
+        help="12-digit AWS account id for ASFF export (--asff)",
+    )
+    parser.add_argument(
+        "--aws-region",
+        help="AWS region for ASFF export (--asff)",
     )
     parser.add_argument(
         "--waivers",
@@ -322,7 +337,7 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     findings_report = None
-    if args.fail_on_finding or args.sarif:
+    if args.fail_on_finding or args.sarif or args.asff:
         try:
             findings_report = findings_mod.load_report(plan.report_dir)
             if args.waivers:
@@ -343,6 +358,25 @@ def main(argv: list[str] | None = None) -> int:
             document = sarif.to_sarif(findings_report)
             Path(args.sarif).write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
             print(f"SARIF written: {args.sarif} ({len(findings_report.findings)} finding(s))")
+
+        if args.asff:
+            if not args.aws_account_id or not args.aws_region:
+                print(
+                    "error: --asff requires --aws-account-id and --aws-region",
+                    file=sys.stderr,
+                )
+                return 2
+            try:
+                asff_findings = asff.to_asff(
+                    findings_report,
+                    account_id=args.aws_account_id,
+                    region=args.aws_region,
+                )
+            except PresidioScoutError as exc:
+                print(f"error: {exc}", file=sys.stderr)
+                return 2
+            Path(args.asff).write_text(json.dumps(asff_findings, indent=2) + "\n", encoding="utf-8")
+            print(f"ASFF written: {args.asff} ({len(asff_findings)} finding(s))")
 
     # Run attestation: bind this run's inputs to the report's integrity manifest.
     # Written even if the findings gate trips below, so the signed record exists.

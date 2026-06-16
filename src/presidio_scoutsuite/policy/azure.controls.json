@@ -1,0 +1,28 @@
+{
+  "provider": "azure",
+  "frameworks": ["cis", "nist-800-53", "soc2"],
+  "_note": "Curated starter mapping from ScoutSuite finding rules to compliance controls. CIS = CIS Microsoft Azure Foundations Benchmark; nist-800-53 = NIST SP 800-53 Rev. 5; soc2 = AICPA Trust Services Criteria. Validated fail-closed against azure.rules.txt.",
+  "controls": {
+    "storageaccount-not-requiring-secure-transfer.json": {"cis": ["3.1"], "nist-800-53": ["SC-8"], "soc2": ["CC6.7"]},
+    "storageaccount-public-blob-access.json": {"cis": ["3.7"], "nist-800-53": ["AC-3", "AC-6"], "soc2": ["CC6.1"]},
+    "storageaccount-no-network-restriction.json": {"cis": ["3.8"], "nist-800-53": ["SC-7", "AC-4"], "soc2": ["CC6.6"]},
+    "storageaccount-no-soft-delete.json": {"cis": [], "nist-800-53": ["CP-9", "SI-12"], "soc2": ["A1.2"]},
+    "sqldatabase-no-transparent-data-encryption.json": {"cis": ["4.1.2"], "nist-800-53": ["SC-28"], "soc2": ["CC6.1"]},
+    "sqlserver-no-auditing.json": {"cis": ["4.1.1"], "nist-800-53": ["AU-2", "AU-12"], "soc2": ["CC7.2"]},
+    "sqlserver-public-network-access-enabled.json": {"cis": ["4.1.3"], "nist-800-53": ["SC-7", "AC-4"], "soc2": ["CC6.6"]},
+    "sqlserver-no-active-directory-admin.json": {"cis": ["4.1.4"], "nist-800-53": ["IA-2", "AC-2"], "soc2": ["CC6.1"]},
+    "network-security-group-allowing-ssh-from-all.json": {"cis": ["6.1"], "nist-800-53": ["SC-7"], "soc2": ["CC6.6"]},
+    "network-security-group-allowing-rdp-from-all.json": {"cis": ["6.2"], "nist-800-53": ["SC-7"], "soc2": ["CC6.6"]},
+    "network-watcher-disabled.json": {"cis": ["6.5"], "nist-800-53": ["AU-2", "SC-7"], "soc2": ["CC7.2"]},
+    "vm-no-disk-encryption.json": {"cis": ["7.2"], "nist-800-53": ["SC-28"], "soc2": ["CC6.1"]},
+    "vm-no-managed-disks.json": {"cis": ["7.1"], "nist-800-53": ["CM-6"], "soc2": ["CC6.1"]},
+    "keyvault-no-purge-protection.json": {"cis": ["8.4"], "nist-800-53": ["SC-12", "CP-9"], "soc2": ["CC6.1"]},
+    "keyvault-secret-no-expiration.json": {"cis": ["8.2"], "nist-800-53": ["IA-5", "SC-12"], "soc2": ["CC6.1"]},
+    "keyvault-key-no-expiration.json": {"cis": ["8.1"], "nist-800-53": ["SC-12"], "soc2": ["CC6.1"]},
+    "aad-no-mfa-for-privileged-users.json": {"cis": ["1.1.1"], "nist-800-53": ["IA-2"], "soc2": ["CC6.1"]},
+    "aad-guest-users-present.json": {"cis": ["1.3"], "nist-800-53": ["AC-2", "AC-6"], "soc2": ["CC6.2"]},
+    "rbac-custom-role-with-subscription-owner-permissions.json": {"cis": ["1.23"], "nist-800-53": ["AC-6"], "soc2": ["CC6.3"]},
+    "monitor-no-activity-log-alert-for-policy-changes.json": {"cis": ["5.2.1"], "nist-800-53": ["AU-6", "SI-4"], "soc2": ["CC7.2"]},
+    "monitor-no-activity-log-alert-for-nsg-changes.json": {"cis": ["5.2.9"], "nist-800-53": ["AU-6", "SI-4"], "soc2": ["CC7.2"]}
+  }
+}

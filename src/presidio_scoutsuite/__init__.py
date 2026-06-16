@@ -7,12 +7,22 @@ process (see :mod:`presidio_scoutsuite.launcher`) and is never imported here.
 
 from __future__ import annotations
 
+from .asff import to_asff
 from .attestation import attest_report, build_attestation, verify_attestation
+from .compliance import (
+    ComplianceMapping,
+    ComplianceReport,
+    build_report,
+    load_mapping,
+    validate_mapping,
+)
 from .config import load_settings, resolve, validate_file
 from .credentials import CredentialCheck, assert_short_lived, inspect_credentials
 from .diff import DiffResult, diff_reports, load_and_diff
 from .errors import (
+    AsffError,
     AttestationError,
+    ComplianceError,
     ConfigError,
     CredentialError,
     FindingsError,
@@ -75,7 +85,15 @@ __all__ = [
     "AttestationError",
     "VulnerabilityError",
     "RulesetValidationError",
+    "ComplianceError",
+    "AsffError",
     "UpgradeError",
+    "ComplianceMapping",
+    "ComplianceReport",
+    "load_mapping",
+    "validate_mapping",
+    "build_report",
+    "to_asff",
     "Pin",
     "CoherenceReport",
     "UpgradePlan",

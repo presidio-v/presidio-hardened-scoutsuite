@@ -4,8 +4,8 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 0.16.x  | ✅ Yes (current) |
-| <0.16   | Best-effort security fixes only |
+| 0.17.x  | ✅ Yes (current) |
+| <0.17   | Best-effort security fixes only |
 
 ## Reporting a Vulnerability
 
@@ -117,6 +117,18 @@ redaction, supply-chain controls, and a least-privilege deployment model.
   signature *and* the provenance (cryptographically, then against this
   distribution's `presidio-scout-verify-provenance` policy) — before the release
   run is allowed to succeed.
+- **Compliance mapping (CIS / NIST 800-53 / SOC 2)** — `presidio-scout-compliance`
+  expresses flagged findings as **control** failures using curated, checked-in
+  rule→control mappings (`policy/<provider>.controls.json`). The mappings are
+  validated **fail-closed** against the rule manifest (a mapping that names a rule
+  the pinned ScoutSuite doesn't ship errors in CI), and a flagged finding with no
+  mapping is surfaced as `unmapped` (`--fail-on-unmapped` makes it a non-zero
+  exit) rather than silently dropped — so a control view can't quietly omit risk.
+- **AWS Security Hub (ASFF) export** — `presidio-scout-asff` (and `--asff`) emit
+  findings in AWS Security Hub Finding Format, enriched with the mapped controls
+  as `Compliance.RelatedRequirements`, so the audit feeds Security Hub alongside
+  the SARIF code-scanning path. Required identifiers (account id, region) are
+  validated fail-closed so a malformed batch can't be emitted.
 - **Pinned-version coherence gate + upgrade automation** — the pinned ScoutSuite
   version is declared in several files that must agree (the `scoutsuite` extra,
   `requirements.lock`, the install-integrity fallback constant); drift would let
