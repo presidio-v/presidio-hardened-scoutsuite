@@ -253,9 +253,54 @@ from the installed package (`ruleset.installed_rules`) and the release-time
 
 ---
 
+## v0.5.0 — ScoutSuite install-integrity gate + real lockfile (2026-06-16)
+
+**Design decisions:**
+
+- **Verify *what runs*, out of process.** The wrapper drives `scout` as a
+  subprocess and never imports it, so it can't assume the `scout` on PATH is the
+  version we pinned and vetted — a newer/older/modified ScoutSuite can ship
+  different rules and silently weaken an audit. `scout_integrity` runs a
+  fail-closed preflight before any credentials are handed over: resolve the
+  executable, read `scout --version` out of process, and require it to equal the
+  pinned version. Mismatch / not-found / undeterminable → exit 2, unless
+  `--allow-unverified-scout` downgrades it to a warning.
+- **Two complementary integrity layers, at the right layers.** Artifact-hash
+  integrity (the *installed files* are the exact PyPI artifacts) belongs at
+  install time — `pip install --require-hashes -r requirements.lock`. The
+  runtime gate confirms the *executed* scout is that pinned version, which also
+  covers the case where ScoutSuite lives in a separate env or is supplied via
+  `--scout-bin`. We deliberately did **not** try to re-hash installed files at
+  runtime (fragile, and meaningless when scout is a separate install).
+- **Single source of truth for the pinned version.** `pinned_version()` reads
+  the `ScoutSuite==` pin from our *own* package metadata (the `scoutsuite`
+  extra), so the gate can't drift from what the extra/lockfile install; a
+  constant is the fallback for odd installs.
+- **Real hash-pinned `requirements.lock`.** Replaced the un-hashed placeholder
+  with the full transitive tree (130 packages) pinned + SHA-256-hashed via
+  `pip-compile --generate-hashes --allow-unsafe --extra scoutsuite`. Validated
+  with `pip install --require-hashes --dry-run` (129 packages resolve + verify,
+  incl. ScoutSuite 5.14.0). This satisfies the release `verify-lock` hard gate
+  for the first time.
+- **Pinned build backend + Python alignment.** `requires = ["hatchling==1.30.1"]`
+  so the wheel/sdist build is deterministic across environments (the
+  reproducible-build gate depends on it). The lock is resolved under Python 3.11
+  to match the distroless runtime (`python3-debian12` = 3.11); the Dockerfile
+  builder was moved from 3.12 to **3.11** so the venv matches both the runtime
+  and the lock (it was a latent mismatch).
+
+**Delivered:**
+- `scout_integrity.py` + `ScoutIntegrityError`; CLI preflight + `--allow-unverified-scout`
+- Real hash-pinned `requirements.lock` (130 pkgs); pinned `hatchling`; Dockerfile → py3.11
+- Public API exports (`verify_scout`, `ScoutIntegrityResult`, `pinned_version`)
+- `test_scout_integrity.py` + CLI gate tests; coverage 95% (≥90% gate); ruff clean
+- README (preflight in the flow, CLI flag, exit codes), SECURITY.md, this log
+
+---
+
 ## Roadmap
 
-Delivered (0.1.0–0.4.0) and planned (0.5.0–0.15.0). The arc: **0.5** hardens
+Delivered (0.1.0–0.5.0) and planned (0.6.0–0.15.0). The arc: **0.5** hardens
 *what runs*; **0.6–0.8** turn findings into an enforceable, waiver-aware policy
 gate; **0.9–0.10** make every run attested and comparable over time; **0.11–0.14**
 harden how it's built and deployed; **0.15** makes it configurable for an org.
@@ -268,7 +313,7 @@ ScoutSuite, MIT wrapper, stdlib runtime, fail-closed, offline-testable.
 | **0.2.0** | Azure & GCP curated baselines + least-privilege roles; **rule-name validation** against the pinned ScoutSuite (offline manifest in CI, installed-source drift gate at release) | policy ✓ |
 | **0.3.0** | Deeper report guard (SRI, offline viewer), signed report manifests | report integrity ✓ |
 | **0.4.0** | SLSA provenance verification on pull; reproducible-build attestation | supply-chain ✓ |
-| **0.5.0** | **ScoutSuite install-integrity gate** — verify the `scout` on PATH matches the pinned version + hash before running; refuse a modified/unexpected ScoutSuite (`--allow-unverified-scout`). Replace the placeholder `requirements.lock` with real `--generate-hashes` pins; pin the `hatchling` build backend. | supply-chain + runtime trust · lockfile |
+| **0.5.0** | **ScoutSuite install-integrity gate** — fail-closed preflight that the `scout` on PATH is the pinned, vetted version before running (`--allow-unverified-scout` to override); real hash-pinned `requirements.lock`; pinned `hatchling` build backend. ✓ | supply-chain + runtime trust · lockfile |
 | **0.6.0** | **Findings model + severity gate** — parse the `scoutsuite-results` data off disk into a deterministic findings summary; `--fail-on-finding danger\|warning` to gate a pipeline. | secure-by-default policy |
 | **0.7.0** | **SARIF export + code-scanning** — `presidio-scout-export --format sarif`; documented GitHub Action to upload to code scanning; findings mapped to rule IDs/severities. | policy / integration · 0.6 |
 | **0.8.0** | **Waivers / exceptions framework** — checked-in waivers (rule + resource + justification + owner + **expiry**); waived findings suppressed in the gate but recorded; **expired waivers fail closed**. | policy · 0.6 |

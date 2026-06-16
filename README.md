@@ -25,7 +25,7 @@ NCC Group's multi-cloud security auditing tool.
 | **Runtime credential & data safety** | Env scrubbed to cloud creds only; 0700 report dir + `umask 0077`; secrets redacted out of the report and ScoutSuite's logs; `--fail-on-secret` gate |
 | **Report integrity & isolation** | Strict CSP + **Subresource Integrity** on local report assets; remote-reference detection (`--fail-on-remote-ref`); a signed-able **SHA-256 integrity manifest** verified offline with `presidio-scout-verify` |
 | **Secure-by-default policy** | Curated, CIS-aligned **AWS baseline ruleset** applied by default (high-impact IAM/logging/network controls forced to `danger`) |
-| **Supply-chain & build integrity** | Hash-pinned `requirements.lock`, CycloneDX SBOM, CodeQL, Dependabot, **cosign-signed** images + SLSA build provenance, **reproducible** wheel/sdist, and a `presidio-scout-verify-provenance` policy gate for what you pull; release blocked if the lock isn't pinned |
+| **Supply-chain & build integrity** | Hash-pinned `requirements.lock`, pinned build backend, CycloneDX SBOM, CodeQL, Dependabot, **cosign-signed** images + SLSA build provenance, **reproducible** wheel/sdist, a `presidio-scout-verify-provenance` policy gate for what you pull, and a **fail-closed preflight that the `scout` you run is the pinned, vetted ScoutSuite version** |
 | **Hardened deployment** | Distroless, non-root, `--read-only` container; bundled **least-privilege AWS audit role** (read-only + explicit `Deny`, MFA + `ExternalId` trust) |
 
 ---
@@ -41,11 +41,14 @@ presidio-scout aws ──▶ launcher ──▶ [ scout aws … ] ──▶ reda
 1. **launcher** — validates the provider + pass-through flags (fail-closed
    allowlist), forces `--no-browser` and a locked-down `--report-dir`, wires in
    the curated ruleset, and scrubs the environment.
-2. **subprocess** — stock ScoutSuite runs with only the cloud credentials it
+2. **preflight** — before any credentials are handed over, a fail-closed gate
+   confirms the `scout` on PATH is the **pinned, vetted ScoutSuite version**; an
+   unexpected/modified ScoutSuite is refused (override: `--allow-unverified-scout`).
+3. **subprocess** — stock ScoutSuite runs with only the cloud credentials it
    needs.
-3. **redact** — credentials are scrubbed out of the report files and ScoutSuite's
+4. **redact** — credentials are scrubbed out of the report files and ScoutSuite's
    own output.
-4. **report_guard** — a strict CSP and per-asset Subresource Integrity hashes
+5. **report_guard** — a strict CSP and per-asset Subresource Integrity hashes
    are injected into the HTML report, network-reaching references are flagged,
    and a SHA-256 integrity manifest (`presidio-report-manifest.json`,
    optionally HMAC-signed) is written so the report can be verified later with
@@ -87,6 +90,7 @@ presidio-scout aws -- --profile auditor     # pass-through flags after '--' (all
 presidio-scout aws --fail-on-secret         # non-zero exit if a secret survives redaction
 presidio-scout aws --fail-on-remote-ref     # non-zero exit if the report references a remote resource
 presidio-scout aws --no-baseline            # use ScoutSuite's default ruleset instead
+presidio-scout aws --allow-unverified-scout # run even if scout isn't the pinned version (warns)
 presidio-scout aws --dry-run                # print the hardened command, run nothing
 presidio-scout azure                        # Azure audit with the hardened Azure baseline
 presidio-scout gcp                          # GCP audit with the hardened GCP baseline
@@ -101,8 +105,8 @@ pass-through allowlist** (`--profile`, `--region(s)`, `--services`, `--skip`,
 `--no-browser`) and unknown flags are rejected with exit code 2 — a new upstream
 flag can't silently weaken a run until it's vetted and added.
 
-Exit codes: `0` ok · `2` invalid invocation / `scout` not found · `3` report
-guard failure (e.g. `--fail-on-secret`).
+Exit codes: `0` ok · `2` invalid invocation / `scout` not found / unverified
+ScoutSuite · `3` report guard failure (e.g. `--fail-on-secret`).
 
 ---
 
@@ -252,7 +256,7 @@ upstream unnoticed. Regenerate a manifest with
 | **0.2.0** | Azure + GCP curated baselines & least-privilege IAM; ruleset rule-name validation against the pinned ScoutSuite (offline manifest in CI, installed-source drift check at release) |
 | **0.3.0** | Deeper report guard — Subresource Integrity on local assets, offline-viewer (remote-reference) enforcement, and a signed-able, offline-verifiable report manifest (`presidio-scout-verify`) |
 | **0.4.0** | SLSA build-provenance policy verification (`presidio-scout-verify-provenance`, v0.2 + v1) and a reproducible wheel/sdist with a `reproducible-build` CI gate |
-| **0.5.0** _(planned)_ | ScoutSuite install-integrity gate — verify the `scout` you run matches the pinned version + hash; real hash-pinned lockfile; pinned build backend |
+| **0.5.0** | ScoutSuite install-integrity gate — fail-closed preflight that the `scout` you run is the pinned, vetted version (`--allow-unverified-scout` to override); real hash-pinned `requirements.lock`; pinned build backend |
 | **0.6.0** _(planned)_ | Findings model + severity gate (`--fail-on-finding danger\|warning`) parsed from the report data |
 | **0.7.0** _(planned)_ | SARIF export + GitHub code-scanning integration (`presidio-scout-export`) |
 | **0.8.0** _(planned)_ | Waivers / exceptions framework with justification + owner + expiry (expired waivers fail closed) |

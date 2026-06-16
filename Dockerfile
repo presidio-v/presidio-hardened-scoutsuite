@@ -3,8 +3,12 @@
 # ---------------------------------------------------------------------------
 # Builder: install ScoutSuite (GPL-2.0) + this MIT wrapper into a venv, pinned
 # and hash-verified. Nothing from this stage ships except the finished venv.
+#
+# Python 3.11 to match the distroless runtime below (debian12 ships Python 3.11)
+# and the interpreter requirements.lock is resolved against — a venv built on a
+# different minor version would mismatch the runtime and the pinned tree.
 # ---------------------------------------------------------------------------
-FROM python:3.12-slim AS builder
+FROM python:3.11-slim AS builder
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \

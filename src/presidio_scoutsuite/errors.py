@@ -38,6 +38,17 @@ class ReportVerificationError(PresidioScoutError):
     """
 
 
+class ScoutIntegrityError(PresidioScoutError):
+    """The ScoutSuite about to be run is not the pinned, vetted version.
+
+    Raised by the fail-closed preflight when the ``scout`` executable can't be
+    found, its version can't be determined, or its version does not match the
+    one this distribution pins — so an unvetted or modified ScoutSuite (which
+    could ship different rules or behaviour) can't silently weaken an audit.
+    Bypass with ``--allow-unverified-scout``.
+    """
+
+
 class ProvenanceVerificationError(PresidioScoutError):
     """A build-provenance attestation failed policy verification.
 
