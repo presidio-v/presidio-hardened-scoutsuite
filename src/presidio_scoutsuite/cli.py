@@ -12,7 +12,16 @@ import sys
 from importlib import resources
 from pathlib import Path
 
-from . import attestation, credentials, launcher, redact, report_guard, sarif, scout_integrity
+from . import (
+    attestation,
+    config,
+    credentials,
+    launcher,
+    redact,
+    report_guard,
+    sarif,
+    scout_integrity,
+)
 from . import findings as findings_mod
 from .errors import PresidioScoutError
 from .version import __version__
@@ -48,12 +57,23 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument(
         "provider",
+        nargs="?",
         choices=launcher.PROVIDERS,
-        help="cloud provider to audit",
+        default=None,
+        help="cloud provider to audit (may be set in .presidio-scout.toml)",
+    )
+    parser.add_argument(
+        "--config",
+        metavar="PATH",
+        help=f"org config file (default: ./{config.CONFIG_FILENAME} if present)",
+    )
+    parser.add_argument(
+        "--profile",
+        help="apply a named [profiles.<name>] section from the config",
     )
     parser.add_argument(
         "--report-dir",
-        default="scoutsuite-report",
+        default=None,
         help="directory for the report (locked to 0700); default: ./scoutsuite-report",
     )
     parser.add_argument(
@@ -63,21 +83,25 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--no-baseline",
         action="store_true",
+        default=None,
         help="do not apply the bundled hardened ruleset; use ScoutSuite's default",
     )
     parser.add_argument(
         "--no-redact",
         action="store_true",
+        default=None,
         help="skip in-place redaction of the report (NOT recommended)",
     )
     parser.add_argument(
         "--fail-on-secret",
         action="store_true",
+        default=None,
         help="exit non-zero if a secret remains in the report after redaction",
     )
     parser.add_argument(
         "--fail-on-remote-ref",
         action="store_true",
+        default=None,
         help="exit non-zero if the report references a remote (network) resource",
     )
     parser.add_argument(
@@ -105,18 +129,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--scout-bin",
-        default="scout",
+        default=None,
         help="path to the upstream ScoutSuite executable (default: 'scout' on PATH)",
     )
     parser.add_argument(
         "--allow-unverified-scout",
         action="store_true",
+        default=None,
         help="run even if the scout version doesn't match the pinned, vetted one "
         "(downgrades the integrity gate to a warning; NOT recommended)",
     )
     parser.add_argument(
         "--require-short-lived-creds",
         action="store_true",
+        default=None,
         help="refuse to run with long-lived static credentials (an access key without "
         "a session token, a downloaded GCP key, an Azure client secret) — require "
         "assumed-role / OIDC / impersonation / managed identity instead",
@@ -171,6 +197,28 @@ def main(argv: list[str] | None = None) -> int:
     head, extra = _split_passthrough(list(argv))
     parser = build_parser()
     args = parser.parse_args(head)
+
+    # Org config: [defaults] overlaid with --profile, applied only where the CLI
+    # didn't set the option (explicit flags always win). Fail-closed on a bad file.
+    try:
+        settings = config.load_settings(config_path=args.config, profile=args.profile)
+    except PresidioScoutError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    for dest, value in settings.items():
+        if getattr(args, dest, None) is None:
+            setattr(args, dest, value)
+    # Restore the built-in defaults for anything still unset.
+    if args.provider is None:
+        print(
+            "error: no provider given (pass one or set it in .presidio-scout.toml)",
+            file=sys.stderr,
+        )
+        return 2
+    if args.report_dir is None:
+        args.report_dir = "scoutsuite-report"
+    if args.scout_bin is None:
+        args.scout_bin = "scout"
 
     resolved_ruleset = _resolve_ruleset(args)
     try:

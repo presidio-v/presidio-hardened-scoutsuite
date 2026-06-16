@@ -16,6 +16,16 @@ class LauncherError(PresidioScoutError):
     hardened posture (bad provider, disallowed pass-through flag, etc.)."""
 
 
+class ConfigError(PresidioScoutError):
+    """The ``.presidio-scout.toml`` config is missing, malformed, or invalid.
+
+    Raised when the config can't be parsed, references an unknown section/setting,
+    has a value of the wrong type or outside the allowed set, or names a profile
+    that doesn't exist — so a typo in org defaults fails loudly instead of being
+    silently ignored.
+    """
+
+
 class CredentialError(PresidioScoutError):
     """The cloud credentials supplied to a run are long-lived/static.
 

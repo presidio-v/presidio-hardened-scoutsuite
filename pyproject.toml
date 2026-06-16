@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "presidio-hardened-scoutsuite"
-version = "0.14.0"
+version = "0.15.0"
 description = "Presidio security-hardened distribution of ScoutSuite — runs the multi-cloud auditor out of process with hardened defaults, report redaction, and a least-privilege deployment model."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -26,7 +26,13 @@ classifiers = [
 # (a subprocess, never imported), which keeps this wrapper a separate, non-
 # derivative work and lets it ship under MIT. Install ScoutSuite (GPL-2.0)
 # separately, or use the bundled container image.
-dependencies = []
+#
+# The only runtime dependency is the tiny `tomli` TOML parser, and only on
+# Python < 3.11 (3.11+ uses the stdlib `tomllib`) — for reading the optional
+# `.presidio-scout.toml` org config.
+dependencies = [
+  "tomli >= 2.0 ; python_version < '3.11'",
+]
 
 [project.optional-dependencies]
 # Convenience extra that pulls in a pinned ScoutSuite. NOTE: ScoutSuite is
@@ -44,6 +50,7 @@ presidio-scout-export = "presidio_scoutsuite.sarif:_main"
 presidio-scout-attest = "presidio_scoutsuite.attestation:_main"
 presidio-scout-diff = "presidio_scoutsuite.diff:_main"
 presidio-scout-vuln-gate = "presidio_scoutsuite.vuln:_main"
+presidio-scout-policy = "presidio_scoutsuite.config:_main"
 
 [project.urls]
 Homepage = "https://github.com/presidio-v/presidio-hardened-scoutsuite"

@@ -637,9 +637,44 @@ A-lite (opt-in CLI brokering) for the reasons above.
 
 ---
 
+## v0.15.0 — Org policy profiles / config (2026-06-16)
+
+**Design decisions:**
+
+- **Config supplies defaults; flags still win.** `config.py` reads
+  `.presidio-scout.toml` (`[defaults]` overlaid with a `--profile`
+  `[profiles.<name>]` table) and the CLI applies it only where the operator
+  didn't pass the flag. Implemented by defaulting the config-overridable argparse
+  options (incl. the positional `provider` and the `store_true` flags) to
+  ``None`` so "unset" is distinguishable from an explicit value.
+- **Fail-closed validation.** Unknown top-level sections, unknown settings,
+  wrong types, and out-of-range values (an unknown provider or severity) all
+  raise — a typo in org policy errors loudly instead of silently disabling a
+  control. `presidio-scout-policy validate|show` exposes this; the example file
+  ships as `.presidio-scout.toml.example` (the real name is auto-discovered, and
+  deliberately *not* committed so it can't perturb tests/CI).
+- **The one conditional runtime dep.** TOML is read with the stdlib `tomllib`
+  (3.11+); on 3.9/3.10 the tiny `tomli` backport is pulled in via
+  `tomli; python_version < "3.11"`. This is the single, documented exception to
+  the otherwise dependency-free runtime (and unrelated to the no-ScoutSuite-import
+  invariant, which still holds).
+
+**Delivered:**
+- `config.py` (`load_settings`, `resolve`, `validate_file`, `find_config`) +
+  `ConfigError`; `presidio-scout-policy` console script (`validate` / `show`);
+  `--config` / `--profile` on the CLI, applied as defaults
+- `tomli` conditional runtime dependency; `.presidio-scout.toml.example`
+- Public API exports (`load_settings`, `resolve`, `validate_file`)
+- `test_config.py` + CLI tests (config supplies provider/defaults, profile gate
+  trips, CLI overrides config, missing provider, bad config); coverage 96%
+  (≥90% gate); ruff clean
+- README *Org config & profiles* section + install note, SECURITY.md, this log
+
+---
+
 ## Roadmap
 
-Delivered (0.1.0–0.14.0) and planned (0.15.0). The arc: **0.5** hardens
+Delivered (0.1.0–0.15.0) — the planned arc is complete. The arc: **0.5** hardens
 *what runs*; **0.6–0.8** turn findings into an enforceable, waiver-aware policy
 gate; **0.9–0.10** make every run attested and comparable over time; **0.11–0.14**
 harden how it's built and deployed; **0.15** makes it configurable for an org.
@@ -662,14 +697,14 @@ ScoutSuite, MIT wrapper, stdlib runtime, fail-closed, offline-testable.
 | **0.12.0** | **Keyless / short-lived credentials** — chose configuration + a fail-closed `--require-short-lived-creds` preflight (reject long-lived static secrets) + keyless-env passthrough + OIDC/assume-role/impersonation docs, over in-wrapper brokering (see deliberation). ✓ | runtime credential safety · iam/ |
 | **0.13.0** | **Kubernetes deployment** — hardened `Job`/`CronJob` manifests + Helm chart (IRSA / GKE WI / Azure WI; read-only rootfs, dropped caps, seccomp, default-deny `NetworkPolicy`) under `deploy/`. ✓ | hardened deployment · 0.11, 0.12 |
 | **0.14.0** | **Vulnerability-scan gate + signed SBOM** — `pip-audit` + Trivy + `presidio-scout-vuln-gate` (Trivy/Grype, fail-closed on fixable findings); signed CycloneDX SBOM attestation verified alongside provenance at release. ✓ | supply-chain · 0.11 |
-| **0.15.0** | **Org policy profiles / config** — `.presidio-scout.toml` for org defaults (provider, ruleset, gates, waiver/redaction paths, named profiles) + `presidio-scout-policy` to validate it. | usability / policy · most prior |
+| **0.15.0** | **Org policy profiles / config** — `.presidio-scout.toml` defaults + named profiles applied as CLI defaults (flags still win); `presidio-scout-policy validate/show`; one conditional `tomli` dep on <3.11. ✓ | usability / policy · most prior |
 
 **Open design questions (revisit when the version lands):**
 
 - **0.12.0** — resolved: chose configuration + fail-closed preflight (Direction B)
   over in-wrapper brokering. See the v0.12.0 deliberation above.
-- **0.15.0** needs `tomllib` (stdlib ≥3.11) or a small `tomli` backport for 3.9/3.10
-  — the one place a runtime dependency would creep in.
+- **0.15.0** — resolved: stdlib `tomllib` on 3.11+, with a conditional `tomli`
+  dependency on 3.9/3.10 (the one documented runtime dep). See the v0.15.0 log.
 
 ---
 
