@@ -84,6 +84,12 @@ redaction, supply-chain controls, and a least-privilege deployment model.
   `presidio-scout-export`) emits SARIF 2.1.0 so findings become GitHub
   code-scanning alerts; severity-mapped (`danger`→error/8.0, `warning`→warning/4.0)
   with per-resource results and stable fingerprints for cross-run alert tracking.
+- **Findings waivers (`--waivers`)** — accepted findings are checked in as data
+  with a justification, owner, and mandatory expiry; matching findings are
+  suppressed before the gate/SARIF (whole-finding or per-resource). Fail-closed:
+  a malformed/missing waiver file errors, and an **expired** waiver stops
+  suppressing so the finding resurfaces — exceptions can't silently hide risk
+  forever, and every suppression is attributable.
 - **ScoutSuite install-integrity gate** — before any cloud credentials are
   handed to ScoutSuite, a fail-closed preflight (`scout_integrity`) confirms the
   `scout` on PATH is the **pinned, vetted version** this distribution ships;

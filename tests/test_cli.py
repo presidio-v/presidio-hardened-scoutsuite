@@ -312,6 +312,85 @@ def test_sarif_and_fail_on_finding_together(tmp_path, monkeypatch, capsys):
     assert sarif_path.exists()
 
 
+def test_waiver_suppresses_gate(tmp_path, monkeypatch, capsys):
+    import json
+
+    report_dir = tmp_path / "out"
+    waivers_file = tmp_path / "waivers.json"
+    waivers_file.write_text(
+        json.dumps(
+            {
+                "waivers": [
+                    {
+                        "rule": "s3/world",
+                        "justification": "accepted public bucket",
+                        "owner": "web@example.com",
+                        "expires": "2099-01-01",
+                    }
+                ]
+            }
+        )
+    )
+    _verify_ok(monkeypatch)
+
+    def fake_run(plan, timeout=None):
+        (plan.report_dir / "report.html").write_text("<html><head></head><body>ok</body></html>")
+        _write_results(
+            plan.report_dir,
+            {
+                "provider_code": "aws",
+                "services": {
+                    "s3": {"findings": {"world.json": {"level": "danger", "flagged_items": 1}}}
+                },
+            },
+        )
+        return subprocess.CompletedProcess(plan.argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(launcher, "run", fake_run)
+    rc = cli.main(
+        [
+            "aws",
+            "--report-dir",
+            str(report_dir),
+            "--fail-on-finding",
+            "danger",
+            "--waivers",
+            str(waivers_file),
+        ]
+    )
+    # The only danger finding is waived -> gate passes.
+    assert rc == 0
+    assert "suppressed 1" in capsys.readouterr().err
+
+
+def test_bad_waiver_file_fails_closed(tmp_path, monkeypatch, capsys):
+    report_dir = tmp_path / "out"
+    _verify_ok(monkeypatch)
+
+    def fake_run(plan, timeout=None):
+        (plan.report_dir / "report.html").write_text("<html><head></head><body>ok</body></html>")
+        _write_results(
+            plan.report_dir,
+            {"provider_code": "aws", "services": {}},
+        )
+        return subprocess.CompletedProcess(plan.argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(launcher, "run", fake_run)
+    rc = cli.main(
+        [
+            "aws",
+            "--report-dir",
+            str(report_dir),
+            "--fail-on-finding",
+            "warning",
+            "--waivers",
+            str(tmp_path / "missing.json"),
+        ]
+    )
+    assert rc == 2
+    assert "cannot read findings" in capsys.readouterr().err
+
+
 def test_dry_run_skips_integrity_gate(tmp_path, monkeypatch, capsys):
     # --dry-run runs nothing, so it must not require a verified scout.
     def boom(*a, **k):

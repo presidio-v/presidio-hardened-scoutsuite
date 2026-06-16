@@ -150,3 +150,26 @@ def test_cli_no_results_returns_2(tmp_path, capsys):
     rc = sarif._main([str(tmp_path)])
     assert rc == 2
     assert "no ScoutSuite results data" in capsys.readouterr().err
+
+
+def test_cli_waivers_exclude_from_sarif(tmp_path, capsys):
+    _write_results(tmp_path)  # one danger finding w.json with item "b"
+    waivers = tmp_path / "w.json"
+    waivers.write_text(
+        json.dumps(
+            {
+                "waivers": [
+                    {
+                        "rule": "s3/w",
+                        "justification": "accepted",
+                        "owner": "o@x",
+                        "expires": "2099-01-01",
+                    }
+                ]
+            }
+        )
+    )
+    rc = sarif._main([str(tmp_path), "--waivers", str(waivers)])
+    assert rc == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["runs"][0]["results"] == []  # waived finding excluded

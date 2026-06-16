@@ -27,7 +27,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .errors import FindingsError
+from .errors import FindingsError, PresidioScoutError
 
 #: Severity levels in ascending order; rank used for threshold comparisons.
 LEVELS: tuple[str, ...] = ("warning", "danger")
@@ -195,11 +195,23 @@ def _main(argv: list[str] | None = None) -> int:
         default="text",
         help="output format (default: text)",
     )
+    parser.add_argument(
+        "--waivers",
+        metavar="PATH",
+        help="JSON waiver file; matching findings are suppressed (expired waivers do not)",
+    )
     args = parser.parse_args(argv)
 
     try:
         report = load_report(args.report_dir)
-    except FindingsError as exc:
+        if args.waivers:
+            from . import waivers as waivers_mod
+
+            outcome = waivers_mod.apply_waivers(report, waivers_mod.load_waivers(args.waivers))
+            for message in waivers_mod.summarize_outcome(outcome):
+                print(message, file=sys.stderr)
+            report = outcome.kept
+    except PresidioScoutError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 

@@ -17,6 +17,7 @@ from .errors import (
     ReportVerificationError,
     RulesetValidationError,
     ScoutIntegrityError,
+    WaiverError,
 )
 from .findings import Finding, FindingsReport, load_report
 from .launcher import LaunchPlan, build_plan, run, scrub_env, validate_passthrough
@@ -35,6 +36,7 @@ from .sarif import to_sarif
 from .scout_integrity import ScoutIntegrityResult, pinned_version, verify_scout
 from .verify import VerifyResult, verify_report
 from .version import __version__
+from .waivers import Waiver, apply_waivers, load_waivers
 
 __all__ = [
     "__version__",
@@ -46,6 +48,7 @@ __all__ = [
     "ProvenanceVerificationError",
     "ScoutIntegrityError",
     "FindingsError",
+    "WaiverError",
     "RulesetValidationError",
     "LaunchPlan",
     "build_plan",
@@ -71,6 +74,9 @@ __all__ = [
     "FindingsReport",
     "load_report",
     "to_sarif",
+    "Waiver",
+    "load_waivers",
+    "apply_waivers",
     "referenced_rules",
     "available_rules",
     "missing_rules",

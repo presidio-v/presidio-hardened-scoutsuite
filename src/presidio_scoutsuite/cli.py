@@ -92,6 +92,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="also write the findings as SARIF 2.1.0 to PATH (for GitHub code scanning)",
     )
     parser.add_argument(
+        "--waivers",
+        metavar="PATH",
+        help="JSON waiver file; matching findings are suppressed before the gate/SARIF "
+        "(expired waivers do not suppress)",
+    )
+    parser.add_argument(
         "--scout-bin",
         default="scout",
         help="path to the upstream ScoutSuite executable (default: 'scout' on PATH)",
@@ -237,8 +243,17 @@ def main(argv: list[str] | None = None) -> int:
     if args.fail_on_finding or args.sarif:
         try:
             findings_report = findings_mod.load_report(plan.report_dir)
+            if args.waivers:
+                from . import waivers as waivers_mod
+
+                outcome = waivers_mod.apply_waivers(
+                    findings_report, waivers_mod.load_waivers(args.waivers)
+                )
+                for message in waivers_mod.summarize_outcome(outcome):
+                    print(message, file=sys.stderr)
+                findings_report = outcome.kept
         except PresidioScoutError as exc:
-            # Fail-closed: if we can't read the results we can't gate or export.
+            # Fail-closed: if we can't read the results/waivers we can't gate or export.
             print(f"error: cannot read findings: {exc}", file=sys.stderr)
             return 2
 
