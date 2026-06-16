@@ -282,9 +282,11 @@ from the installed package (`ruleset.installed_rules`) and the release-time
   with `pip install --require-hashes --dry-run` (129 packages resolve + verify,
   incl. ScoutSuite 5.14.0). This satisfies the release `verify-lock` hard gate
   for the first time.
-- **Pinned build backend + Python alignment.** `requires = ["hatchling==1.30.1"]`
+- **Pinned build backend + Python alignment.** `requires = ["hatchling==1.27.0"]`
   so the wheel/sdist build is deterministic across environments (the
-  reproducible-build gate depends on it). The lock is resolved under Python 3.11
+  reproducible-build gate depends on it). Pinned to 1.27.0 — the last hatchling
+  that still supports Python 3.9 (1.28+ requires ≥3.10); 1.30.1 broke the 3.9 CI
+  job's editable install and was rolled back. The lock is resolved under Python 3.11
   to match the distroless runtime (`python3-debian12` = 3.11); the Dockerfile
   builder was moved from 3.12 to **3.11** so the venv matches both the runtime
   and the lock (it was a latent mismatch).
