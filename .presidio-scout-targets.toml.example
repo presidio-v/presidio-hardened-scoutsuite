@@ -1,0 +1,35 @@
+# Fleet targets for `presidio-scout-orchestrate` — one audited account per entry.
+#
+# The orchestrator runs `presidio-scout <provider> --report-dir <base>/<name>`
+# once per target, out of process, with that target's `env` overlaid for
+# credential *resolution* (it never brokers credentials itself — set up
+# assume-role / impersonation / managed identity in your cloud config). Run:
+#
+#     presidio-scout-orchestrate --report-dir ./fleet --fail-on-finding danger
+#     # pass extra flags through to every run after `--`:
+#     presidio-scout-orchestrate -- --require-short-lived-creds --attest run.intoto
+#
+# Copy to `.presidio-scout-targets.toml` and edit.
+
+[[targets]]
+name = "prod-aws"
+provider = "aws"
+# Use a named profile wired for an assumed read-only audit role (sts:AssumeRole).
+env = { AWS_PROFILE = "prod-audit", AWS_DEFAULT_REGION = "us-east-1" }
+args = ["--fail-on-finding", "danger"]
+
+[[targets]]
+name = "sandbox-aws"
+provider = "aws"
+env = { AWS_PROFILE = "sandbox-audit", AWS_DEFAULT_REGION = "eu-west-1" }
+
+[[targets]]
+name = "analytics-gcp"
+provider = "gcp"
+# Impersonate a read-only service account; no downloaded key.
+env = { CLOUDSDK_CORE_PROJECT = "analytics-123456" }
+
+[[targets]]
+name = "corp-azure"
+provider = "azure"
+env = { AZURE_SUBSCRIPTION_ID = "00000000-0000-0000-0000-000000000000" }

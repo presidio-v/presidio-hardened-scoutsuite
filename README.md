@@ -488,6 +488,42 @@ push so the pin sites can never silently drift.
 
 ---
 
+## Audit a fleet of accounts
+
+Most orgs have many accounts, not one. `presidio-scout-orchestrate` fans the
+hardened audit out across a declared matrix of **targets** — each pinned to its
+own read-only identity — producing one report per target and a single aggregated
+gate. Declare targets in `.presidio-scout-targets.toml`:
+
+```toml
+[[targets]]
+name = "prod-aws"
+provider = "aws"
+env = { AWS_PROFILE = "prod-audit", AWS_DEFAULT_REGION = "us-east-1" }
+
+[[targets]]
+name = "analytics-gcp"
+provider = "gcp"
+env = { CLOUDSDK_CORE_PROJECT = "analytics-123456" }
+```
+
+```bash
+presidio-scout-orchestrate --report-dir ./fleet --fail-on-finding danger
+# pass extra flags through to every run after `--`:
+presidio-scout-orchestrate -- --require-short-lived-creds --attest run.intoto
+```
+
+Each target is a **separate `presidio-scout` subprocess** with its own scrubbed
+environment, so ScoutSuite state never bleeds between accounts. The orchestrator
+only *selects* each target's identity via its `env` (profile / project /
+subscription) — it never brokers credentials (set up assume-role / impersonation
+/ managed identity in your cloud config). **Fail-closed:** a target that can't be
+audited, or whose results can't be read for the gate, fails the fleet run (exit
+2) rather than being silently skipped; the severity gate exits 4. See
+[`.presidio-scout-targets.toml.example`](./.presidio-scout-targets.toml.example).
+
+---
+
 ## Run in Kubernetes
 
 Hardened in-cluster manifests and a Helm chart live under
@@ -561,6 +597,7 @@ does this automatically on a version bump).
 | **0.16.0** | ScoutSuite upgrade automation — `presidio-scout-upgrade` (fail-closed pin-coherence gate + reviewable bump planner/applier), `--regenerate` for the rule manifests, a `pin-coherence` CI gate, and a scheduled workflow that bumps the lockfile + manifests and opens a PR |
 | **0.17.0** | Compliance mapping + ASFF export — `presidio-scout-compliance` maps findings to CIS / NIST 800-53 / SOC 2 controls (validated fail-closed against the manifest); `presidio-scout-asff` / `--asff` emit AWS Security Hub findings enriched with the mapped controls |
 | **0.18.0** | Verified & extended provider baselines — every AWS/Azure/GCP baseline, manifest, and compliance-map rule name reconciled against the real ScoutSuite 5.14.0 source (correcting names that never existed upstream) and expanded (AWS 34 / Azure 26 / GCP 27 curated rules, incl. GKE) |
+| **0.19.0** | Org-wide orchestration — `presidio-scout-orchestrate` fans the audit across a `.presidio-scout-targets.toml` matrix (one out-of-process run + report per account, no credential brokering) with an aggregated, fail-closed severity gate |
 
 See [`PRESIDIO-REQ.md`](./PRESIDIO-REQ.md) for the per-version rationale,
 dependencies, and open design questions.
@@ -603,6 +640,7 @@ presidio-hardened-scoutsuite/
 │   ├── config.py          # .presidio-scout.toml org config (presidio-scout-policy)
 │   ├── ruleset.py         # baseline rule-name validation (presidio-scout-validate)
 │   ├── upgrade.py         # ScoutSuite pin-coherence gate + bump tooling (presidio-scout-upgrade)
+│   ├── orchestrate.py     # multi-account fleet fan-out + aggregated gate (presidio-scout-orchestrate)
 │   ├── cli.py             # presidio-scout entrypoint
 │   ├── errors.py          # exception hierarchy
 │   └── policy/            # curated baselines + rule manifests + provenance-policy.json

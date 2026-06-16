@@ -822,6 +822,50 @@ Center / PostgreSQL-MySQL SSL on Azure, and GKE controls on GCP).
 
 ---
 
+## v0.19.0 — Org-wide orchestration (2026-06-16)
+
+Turn the single-account auditor into a fleet tool. (First version after the
+release pipeline was finally exercised end-to-end — `verify-rulesets` validated
+the 0.18.0 corrected baselines against a real ScoutSuite install, and the wrapper
+published to PyPI.)
+
+**Design decisions:**
+
+- **Out of process per target.** `orchestrate.run_target` runs each account as a
+  separate `presidio-scout` subprocess with its own scrubbed env, so ScoutSuite
+  state never bleeds between accounts — the same boundary a single run keeps,
+  applied per-target. The per-target runner is injectable so the whole module is
+  offline-testable without spawning ScoutSuite.
+- **No credential brokering (0.12.0 holds).** A target declares only its
+  *credential-resolution* env (`AWS_PROFILE`, `CLOUDSDK_CORE_PROJECT`,
+  `AZURE_SUBSCRIPTION_ID`, …); the orchestrator overlays it and lets ScoutSuite's
+  SDKs resolve assume-role / impersonation / managed identity. It never mints or
+  assumes credentials itself.
+- **Fail-closed aggregation.** A target whose audit didn't exit cleanly fails the
+  fleet (exit 2); the `--fail-on-finding` gate (exit 4) treats a target whose
+  results can't be read as a breach, so the gate can't pass on an account it
+  never evaluated. Targets run sequentially for deterministic output.
+- **Targets file validated fail-closed.** `.presidio-scout-targets.toml`
+  (`[[targets]]` with `name`/`provider`/`env`/`args`) rejects unknown keys,
+  duplicate names, unknown providers, and bad value shapes — a typo can't silently
+  drop an account.
+
+**Also:** added a `test_packaging.py` guard that `pyproject.toml`'s static
+`version` equals `presidio_scoutsuite.__version__` (and that every console script
+resolves) — preventing the version drift that PR #27 had to fix after the first
+real release. Version is now bumped in **both** `pyproject.toml` and `version.py`.
+
+**Delivered:**
+- `orchestrate.py` (`load_targets`, `run_target`, `run_all`, `OrchestrationReport`,
+  `Target`/`TargetResult`, `find_targets`) + `OrchestrationError`;
+  `presidio-scout-orchestrate` console script
+- `.presidio-scout-targets.toml.example`; public API exports; version 0.19.0
+- `test_orchestrate.py` + `test_packaging.py`; coverage 96% (≥90% gate); ruff clean
+- README *Audit a fleet of accounts* section + roadmap row + structure entry;
+  SECURITY.md feature bullet + supported-version bump; this log
+
+---
+
 ## Roadmap
 
 Delivered (0.1.0–0.15.0) — the planned arc is complete. The arc: **0.5** hardens
@@ -872,7 +916,7 @@ stdlib-only runtime, fail-closed, offline-testable).
 | **0.16.0** | **ScoutSuite upgrade automation** — `presidio-scout-upgrade` (fail-closed pin-coherence gate + reviewable bump planner/applier), `--regenerate` for the rule manifests, a `pin-coherence` CI gate, and a scheduled workflow that regenerates the hash-pinned `requirements.lock` + manifests and opens a PR (never auto-merged). ✓ | supply-chain / maintenance · 0.5, 0.14 |
 | **0.17.0** | **Compliance mapping + ASFF export** — `presidio-scout-compliance` maps findings to CIS / NIST 800-53 / SOC 2 controls (curated mappings validated fail-closed against the manifest; `--fail-on-unmapped`); `presidio-scout-asff` / `--asff` export AWS Security Hub findings enriched with the mapped controls. ✓ | policy / integration · 0.6, 0.7 |
 | **0.18.0** | **Verified & extended provider baselines** — reconciled every AWS/Azure/GCP baseline, manifest, and compliance-map rule name against the real ScoutSuite 5.14.0 source (correcting names that never existed upstream — Azure/GCP were almost entirely invalid) and extended them (AWS 34 / Azure 26 / GCP 27 curated rules, incl. GKE). ✓ | secure-by-default policy · 0.2 |
-| **0.19.0** | **Org-wide orchestration** — drive a fan-out across many accounts/subscriptions/projects (assume-role / impersonation matrix), one attested report + diff per target, aggregated gate — still out-of-process per account. | operational scale · 0.10, 0.12, 0.13 |
+| **0.19.0** | **Org-wide orchestration** — `presidio-scout-orchestrate` fans the audit across a `.presidio-scout-targets.toml` matrix (one out-of-process run + report per account; identity selected via per-target env, no credential brokering) with a fail-closed aggregated severity gate; pass-through flags enable per-target attest/diff. ✓ | operational scale · 0.10, 0.12, 0.13 |
 | **0.20.0** | **Notification / finding sinks** — fail-closed push of gate results to sinks (issue tracker, Slack/webhook, S3/GCS), driven by `.presidio-scout.toml` profiles; redaction-aware, no secret leakage. | integration · 0.15, 0.17 |
 | **0.21.0** (stretch) | **Config-driven redaction & baseline composition** — let an org extend redaction patterns and compose/layer baselines from config, validated fail-closed by `presidio-scout-policy`. | usability / policy · 0.15 |
 

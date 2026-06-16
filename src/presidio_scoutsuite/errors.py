@@ -136,6 +136,16 @@ class AsffError(PresidioScoutError):
     """
 
 
+class OrchestrationError(PresidioScoutError):
+    """A multi-target orchestration run is misconfigured or a target failed.
+
+    Raised when the targets file is missing/malformed, a target is invalid
+    (duplicate name, unknown provider, bad env/args shape), or — fail-closed —
+    when a target's audit could not be run or its results could not be read for
+    the aggregated gate, so a fleet run can't silently skip an account.
+    """
+
+
 class UpgradeError(PresidioScoutError):
     """The pinned ScoutSuite version is incoherent, or an upgrade is invalid.
 

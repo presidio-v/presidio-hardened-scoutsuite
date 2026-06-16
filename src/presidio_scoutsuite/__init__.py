@@ -27,6 +27,7 @@ from .errors import (
     CredentialError,
     FindingsError,
     LauncherError,
+    OrchestrationError,
     PresidioScoutError,
     ProvenanceVerificationError,
     RedactionError,
@@ -41,6 +42,14 @@ from .errors import (
 from .findings import Finding, FindingsReport, load_report
 from .launcher import LaunchPlan, build_plan, run, scrub_env, validate_passthrough
 from .manifest import build_manifest
+from .orchestrate import (
+    OrchestrationReport,
+    Target,
+    TargetResult,
+    load_targets,
+    run_all,
+    run_target,
+)
 from .provenance import Provenance, ProvenancePolicy, load_statement
 from .redact import assert_clean, redact_report_dir, redact_text, scan
 from .report_guard import GuardResult, guard_report
@@ -87,7 +96,14 @@ __all__ = [
     "RulesetValidationError",
     "ComplianceError",
     "AsffError",
+    "OrchestrationError",
     "UpgradeError",
+    "Target",
+    "TargetResult",
+    "OrchestrationReport",
+    "load_targets",
+    "run_target",
+    "run_all",
     "ComplianceMapping",
     "ComplianceReport",
     "load_mapping",
