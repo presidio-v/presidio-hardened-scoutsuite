@@ -8,10 +8,12 @@ process (see :mod:`presidio_scoutsuite.launcher`) and is never imported here.
 from __future__ import annotations
 
 from .attestation import attest_report, build_attestation, verify_attestation
+from .config import load_settings, resolve, validate_file
 from .credentials import CredentialCheck, assert_short_lived, inspect_credentials
 from .diff import DiffResult, diff_reports, load_and_diff
 from .errors import (
     AttestationError,
+    ConfigError,
     CredentialError,
     FindingsError,
     LauncherError,
@@ -50,6 +52,7 @@ __all__ = [
     "PresidioScoutError",
     "LauncherError",
     "CredentialError",
+    "ConfigError",
     "RedactionError",
     "ReportGuardError",
     "ReportVerificationError",
@@ -99,6 +102,9 @@ __all__ = [
     "Vuln",
     "VulnReport",
     "parse_report",
+    "load_settings",
+    "resolve",
+    "validate_file",
     "referenced_rules",
     "available_rules",
     "missing_rules",

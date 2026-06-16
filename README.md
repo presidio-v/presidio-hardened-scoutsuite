@@ -58,8 +58,10 @@ presidio-scout aws ──▶ launcher ──▶ [ scout aws … ] ──▶ reda
 
 ## Install
 
-The wrapper has **no runtime dependencies** and never imports ScoutSuite. You
-supply `scout` yourself (recommended: a pinned virtualenv or the container).
+The wrapper has **effectively no runtime dependencies** (only the tiny `tomli`
+TOML parser, and only on Python < 3.11; 3.11+ uses the stdlib) and never imports
+ScoutSuite. You supply `scout` yourself (recommended: a pinned virtualenv or the
+container).
 
 ```bash
 pip install presidio-hardened-scoutsuite          # wrapper only (MIT)
@@ -94,6 +96,7 @@ presidio-scout aws --sarif results.sarif    # also emit SARIF for GitHub code sc
 presidio-scout aws --waivers waivers.json --fail-on-finding danger  # suppress accepted findings
 presidio-scout aws --attest run.intoto.json # emit a signed-able run attestation
 presidio-scout aws --require-short-lived-creds  # refuse to run with long-lived static keys
+presidio-scout --profile nightly            # apply org defaults from .presidio-scout.toml
 presidio-scout aws --no-baseline            # use ScoutSuite's default ruleset instead
 presidio-scout aws --allow-unverified-scout # run even if scout isn't the pinned version (warns)
 presidio-scout aws --dry-run                # print the hardened command, run nothing
@@ -397,6 +400,38 @@ steps:
 
 ---
 
+## Org config & profiles
+
+Check in your hardened defaults once instead of repeating flags in every
+pipeline. A `.presidio-scout.toml` in the repo root (auto-discovered, or pass
+`--config`) supplies defaults; a `[profiles.<name>]` table overlays them with
+`--profile`; and explicit CLI flags always win over both.
+
+```toml
+# .presidio-scout.toml
+[defaults]
+provider = "aws"
+require-short-lived-creds = true
+fail-on-secret = true
+waivers = "security/scout-waivers.json"
+
+[profiles.nightly]
+fail-on-finding = "danger"
+sarif = "scoutsuite-report/results.sarif"
+```
+
+```bash
+presidio-scout --profile nightly      # provider + gates come from the config
+presidio-scout-policy validate        # fail-closed check of the org config
+presidio-scout-policy show --profile nightly   # print the resolved settings
+```
+
+`presidio-scout-policy validate` rejects unknown sections/keys, wrong types, and
+out-of-range values (an unknown provider or severity), so a typo in org policy
+fails loudly. See [`.presidio-scout.toml.example`](./.presidio-scout.toml.example).
+
+---
+
 ## Run in Kubernetes
 
 Hardened in-cluster manifests and a Helm chart live under
@@ -465,7 +500,7 @@ upstream unnoticed. Regenerate a manifest with
 | **0.12.0** | Keyless / short-lived credentials — a fail-closed `--require-short-lived-creds` preflight that rejects long-lived static secrets, keyless/managed-identity env passthrough, and OIDC/assume-role/impersonation setup docs (chose configuration + preflight over in-wrapper brokering) |
 | **0.13.0** | Kubernetes deployment — hardened `Job`/`CronJob` + Helm chart (workload identity, read-only rootfs, dropped caps, seccomp, default-deny `NetworkPolicy`) under `deploy/` |
 | **0.14.0** | Vulnerability-scan gate (`pip-audit` + Trivy + `presidio-scout-vuln-gate`, fail-closed on fixable findings) + signed CycloneDX SBOM attestation verified alongside provenance at release |
-| **0.15.0** _(planned)_ | Org policy profiles / config (`.presidio-scout.toml`, `presidio-scout-policy`) |
+| **0.15.0** | Org policy profiles / config — `.presidio-scout.toml` defaults + named profiles applied as CLI defaults, validated by `presidio-scout-policy` |
 
 See [`PRESIDIO-REQ.md`](./PRESIDIO-REQ.md) for the per-version rationale,
 dependencies, and open design questions.
@@ -503,12 +538,14 @@ presidio-hardened-scoutsuite/
 │   ├── diff.py            # drift detection between two runs (presidio-scout-diff)
 │   ├── credentials.py     # short-lived-credential preflight (--require-short-lived-creds)
 │   ├── vuln.py            # Trivy/Grype vulnerability gate (presidio-scout-vuln-gate)
+│   ├── config.py          # .presidio-scout.toml org config (presidio-scout-policy)
 │   ├── ruleset.py         # baseline rule-name validation (presidio-scout-validate)
 │   ├── cli.py             # presidio-scout entrypoint
 │   ├── errors.py          # exception hierarchy
 │   └── policy/            # curated baselines + rule manifests + provenance-policy.json
 ├── iam/{aws,azure,gcp}/   # least-privilege audit identities per cloud
 ├── deploy/                # hardened Kubernetes manifests + Helm chart
+├── .presidio-scout.toml.example   # org config / profiles example
 ├── tests/
 ├── Dockerfile             # distroless, non-root
 ├── requirements.lock      # hash-pinned runtime tree (incl. ScoutSuite)

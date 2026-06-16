@@ -178,6 +178,10 @@ separately (or bundled into the container image). See
 - The container/runtime lockfile is audited with `pip-audit` before image
   release; new images are not published while known vulnerabilities remain in
   the bundled ScoutSuite dependency tree.
+- A checked-in `.presidio-scout.toml` (defaults + named profiles) lets a team
+  enforce the hardened gates by default across every pipeline;
+  `presidio-scout-policy validate` fail-closed-checks it so a typo in org policy
+  errors rather than silently disabling a control.
 - All changes require passing CI (pytest + ruff) before merge.
 
 ## Responsible Disclosure

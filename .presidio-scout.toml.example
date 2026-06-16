@@ -1,0 +1,22 @@
+# Example org config for presidio-scout. Copy to `.presidio-scout.toml` in your
+# repo root. `[defaults]` applies to every run; `--profile <name>` overlays a
+# `[profiles.<name>]` table; explicit CLI flags always win over both.
+# Validate with: presidio-scout-policy validate
+
+[defaults]
+provider = "aws"
+require-short-lived-creds = true
+fail-on-secret = true
+fail-on-remote-ref = true
+waivers = "security/scout-waivers.json"
+
+# Strict gate for scheduled/CI audits: block on any danger finding and emit SARIF.
+[profiles.nightly]
+fail-on-finding = "danger"
+sarif = "scoutsuite-report/results.sarif"
+attest = "scoutsuite-report/run.intoto.json"
+
+# Looser local-dev profile.
+[profiles.dev]
+require-short-lived-creds = false
+fail-on-finding = "warning"

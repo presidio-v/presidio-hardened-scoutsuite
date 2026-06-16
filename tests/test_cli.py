@@ -495,6 +495,82 @@ def test_short_lived_creds_pass_silently(tmp_path, monkeypatch, capsys):
     assert "credentials" not in err  # no warning/error for short-lived creds
 
 
+def test_config_provides_provider_and_defaults(tmp_path, monkeypatch, capsys):
+    report_dir = tmp_path / "out"
+    cfg = tmp_path / ".presidio-scout.toml"
+    cfg.write_text(f'[defaults]\nprovider = "aws"\nreport-dir = "{report_dir}"\n')
+    _verify_ok(monkeypatch)
+
+    def fake_run(plan, timeout=None):
+        assert plan.provider == "aws"  # provider came from the config
+        (plan.report_dir / "report.html").write_text("<html><head></head><body>ok</body></html>")
+        return subprocess.CompletedProcess(plan.argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(launcher, "run", fake_run)
+    rc = cli.main(["--config", str(cfg)])  # no provider on the CLI
+    assert rc == 0
+    assert "report ready" in capsys.readouterr().out
+
+
+def test_config_profile_gate_trips(tmp_path, monkeypatch, capsys):
+    report_dir = tmp_path / "out"
+    cfg = tmp_path / ".presidio-scout.toml"
+    cfg.write_text(
+        f'[defaults]\nprovider = "aws"\nreport-dir = "{report_dir}"\n'
+        '[profiles.nightly]\nfail-on-finding = "danger"\n'
+    )
+    _verify_ok(monkeypatch)
+
+    def fake_run(plan, timeout=None):
+        (plan.report_dir / "report.html").write_text("<html><head></head><body>ok</body></html>")
+        _write_results(
+            plan.report_dir,
+            {
+                "provider_code": "aws",
+                "services": {
+                    "s3": {"findings": {"w.json": {"level": "danger", "flagged_items": 1}}}
+                },
+            },
+        )
+        return subprocess.CompletedProcess(plan.argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(launcher, "run", fake_run)
+    rc = cli.main(["--config", str(cfg), "--profile", "nightly"])
+    assert rc == 4  # the profile's fail-on-finding danger gate trips
+
+
+def test_cli_flag_overrides_config(tmp_path, monkeypatch, capsys):
+    report_dir = tmp_path / "out"
+    cfg = tmp_path / ".presidio-scout.toml"
+    # config says gcp, but the CLI passes aws explicitly -> aws wins
+    cfg.write_text(f'[defaults]\nprovider = "gcp"\nreport-dir = "{report_dir}"\n')
+    _verify_ok(monkeypatch)
+
+    def fake_run(plan, timeout=None):
+        assert plan.provider == "aws"
+        (plan.report_dir / "report.html").write_text("<html><head></head><body>ok</body></html>")
+        return subprocess.CompletedProcess(plan.argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(launcher, "run", fake_run)
+    assert cli.main(["aws", "--config", str(cfg)]) == 0
+
+
+def test_missing_provider_no_config_returns_2(tmp_path, monkeypatch, capsys):
+    # run from an empty dir so no .presidio-scout.toml is auto-discovered
+    monkeypatch.chdir(tmp_path)
+    rc = cli.main([])
+    assert rc == 2
+    assert "no provider given" in capsys.readouterr().err
+
+
+def test_bad_config_returns_2(tmp_path, monkeypatch, capsys):
+    cfg = tmp_path / ".presidio-scout.toml"
+    cfg.write_text("[defaults]\nbogus = 1")
+    rc = cli.main(["aws", "--config", str(cfg)])
+    assert rc == 2
+    assert "unknown setting" in capsys.readouterr().err
+
+
 def test_dry_run_skips_integrity_gate(tmp_path, monkeypatch, capsys):
     # --dry-run runs nothing, so it must not require a verified scout.
     def boom(*a, **k):
