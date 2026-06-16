@@ -8,6 +8,7 @@ process (see :mod:`presidio_scoutsuite.launcher`) and is never imported here.
 from __future__ import annotations
 
 from .asff import to_asff
+from .assertions import Assertion, AssertionResult, PolicyReport, evaluate, load_policy
 from .attestation import attest_report, build_attestation, verify_attestation
 from .compliance import (
     ComplianceMapping,
@@ -30,6 +31,7 @@ from .errors import (
     LauncherError,
     NotificationError,
     OrchestrationError,
+    PolicyError,
     PresidioScoutError,
     ProvenanceVerificationError,
     RedactionError,
@@ -105,9 +107,15 @@ __all__ = [
     "AsffError",
     "OrchestrationError",
     "NotificationError",
+    "PolicyError",
     "TrendError",
     "RemediationError",
     "UpgradeError",
+    "Assertion",
+    "AssertionResult",
+    "PolicyReport",
+    "load_policy",
+    "evaluate",
     "Remediation",
     "load_remediation",
     "validate_remediation",

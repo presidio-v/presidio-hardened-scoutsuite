@@ -4,8 +4,8 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 0.23.x  | ✅ Yes (current) |
-| <0.23   | Best-effort security fixes only |
+| 0.24.x  | ✅ Yes (current) |
+| <0.24   | Best-effort security fixes only |
 
 ## Reporting a Vulnerability
 
@@ -117,6 +117,12 @@ redaction, supply-chain controls, and a least-privilege deployment model.
   signature *and* the provenance (cryptographically, then against this
   distribution's `presidio-scout-verify-provenance` policy) — before the release
   run is allowed to succeed.
+- **Policy-as-code assertions** — `presidio-scout-assert` evaluates a declarative
+  `[[assert]]` policy (named rules selecting findings by service / rule-glob /
+  severity, each capped by a `max` count) — far more specific than a single
+  severity threshold (e.g. "no public object storage", "no danger findings in
+  identity"). Fail-closed: a malformed policy, unknown key, bad severity, or
+  unreadable report errors; any violated assertion exits 4.
 - **Remediation guidance (fail-closed)** — `presidio-scout-remediate` attaches
   curated per-rule fix steps + documentation references to a report's flagged
   findings, and the same data fills the AWS Security Hub ASFF `Remediation` field.

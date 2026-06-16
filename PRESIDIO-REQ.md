@@ -1019,6 +1019,34 @@ Tell operators *how* to fix a finding, not just that it failed.
 
 ---
 
+## v0.24.0 — Policy-as-code assertions (2026-06-16)
+
+Express richer pass/fail policy than a single severity threshold.
+
+**Design decisions:**
+
+- **Declarative `[[assert]]` policy.** Each assertion has a `name` and optional
+  selectors — `service`, `rules` (globs, with/without `.json`), `min_level` —
+  ANDed, and a `max` matched-count (default 0). It fails when more than `max`
+  flagged findings match. This expresses "no public storage", "no danger in IAM",
+  or "≤25 warnings" precisely, where `--fail-on-finding` could only say "fail on
+  any danger".
+- **Fail-closed validation + evaluation.** `load_policy` rejects unknown
+  top-level keys, unknown assertion keys, a missing name, a duplicate name, a bad
+  severity, or a negative `max`; an unreadable report errors. Any violated
+  assertion exits 4 — a typo can't silently disable a check.
+- **A separate policy file**, not `.presidio-scout.toml` — policy-as-code is its
+  own artifact (`scout-policy.toml`) a team reviews and versions independently.
+
+**Delivered:**
+- `assertions.py` (`Assertion`, `load_policy`, `evaluate`, `PolicyReport`) +
+  `presidio-scout-assert`; `PolicyError`
+- `scout-policy.toml.example`; public API exports; version 0.24.0 (both files)
+- `test_assertions.py`; coverage 95% (≥90% gate); ruff clean
+- README roadmap row; SECURITY.md feature bullet + supported-version bump; this log
+
+---
+
 ## Roadmap
 
 Delivered (0.1.0–0.15.0) — the planned arc is complete. The arc: **0.5** hardens
@@ -1095,7 +1123,7 @@ offline-testable).
 |---|---|---|
 | **0.22.0** | **Posture history & trend** — `presidio-scout-trend record|show`: append each run to an append-only JSONL history; report new/resolved findings vs the previous run; fail-closed `--fail-on-regression` gate (block when a new finding appears). ✓ | operational / continuous · 0.10, 0.17, 0.19 |
 | **0.23.0** | **Remediation guidance** — curated per-rule remediation steps + doc links (bundled like the control maps, validated against the manifest; AWS 34 / Azure 26 / GCP 27); `presidio-scout-remediate` emits fix guidance per finding and fills the ASFF `Remediation` field. ✓ | policy / integration · 0.17, 0.20 |
-| **0.24.0** | **Policy-as-code assertions** — `presidio-scout-assert`: a declarative policy file of named assertions (provider/service/rule/resource predicates) richer than a single severity threshold (e.g. "no public storage in prod", "MFA on all admins"); fail-closed. | policy · 0.6, 0.8, 0.15 |
+| **0.24.0** | **Policy-as-code assertions** — `presidio-scout-assert`: a declarative `[[assert]]` policy of named rules (service / rule-glob / `min_level` selectors + a `max` count) richer than a single severity threshold; fail-closed, exit 4 on any violation. ✓ | policy · 0.6, 0.8, 0.15 |
 | **0.25.0** | **Aliyun & OCI baselines** — curated, manifest-verified baselines + least-privilege IAM for ScoutSuite's remaining providers, reconciled against the real upstream source (the 0.18 method). | secure-by-default policy · 0.2, 0.18 |
 | **0.26.0** | **Executive & multi-format reporting** — a self-contained Markdown/HTML executive summary + CSV export, and fleet rollups aggregating many targets into one view. | reporting · 0.17, 0.19 |
 | **0.27.0** (stretch) | **Stable extension API** — a documented, MIT-safe plugin entry point for custom exporters / sinks / redactors so orgs extend without forking. | extensibility · 0.20, 0.21 |

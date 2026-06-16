@@ -136,6 +136,16 @@ class AsffError(PresidioScoutError):
     """
 
 
+class PolicyError(PresidioScoutError):
+    """A policy-as-code assertion file is missing, malformed, or invalid.
+
+    Raised when the policy file can't be read/parsed, an assertion omits a name,
+    uses an unknown key, or has a bad selector/threshold (e.g. an unknown
+    severity or a negative max) — so a typo can't silently disable an assertion
+    and let a violating posture pass.
+    """
+
+
 class RemediationError(PresidioScoutError):
     """A remediation guidance mapping is missing, malformed, or invalid.
 

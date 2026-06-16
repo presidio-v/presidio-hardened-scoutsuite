@@ -1,0 +1,28 @@
+# Example policy-as-code for `presidio-scout-assert`. Each [[assert]] is a named
+# pass/fail rule over the report's flagged findings; it FAILS when the number of
+# matched findings exceeds `max` (default 0). Selectors (all optional, ANDed):
+#   service    exact ScoutSuite service name (e.g. "iam", "s3")
+#   rules      list of rule-name globs (with or without the .json suffix)
+#   min_level  "warning" | "danger" (danger outranks warning)
+# Run:  presidio-scout-assert ./report --policy scout-policy.toml   (exit 4 on any failure)
+
+[[assert]]
+name = "no public object storage"
+rules = ["s3-bucket-world-acl", "cloudstorage-bucket-*", "storageaccount-public-*"]
+max = 0
+
+[[assert]]
+name = "no danger findings in identity"
+service = "iam"
+min_level = "danger"
+max = 0
+
+[[assert]]
+name = "no internet-open security groups"
+rules = ["*-opens-all-ports-to-all", "*-rule-inbound-internet-all", "*-opens-sensitive-port-to-all"]
+max = 0
+
+[[assert]]
+name = "warning budget"
+min_level = "warning"
+max = 25
