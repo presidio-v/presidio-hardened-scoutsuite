@@ -569,9 +569,43 @@ A-lite (opt-in CLI brokering) for the reasons above.
 
 ---
 
+## v0.13.0 — Kubernetes deployment (2026-06-16)
+
+**Design decisions:**
+
+- **Ships as data, like `iam/`.** A `deploy/kubernetes/` set (Job, CronJob,
+  ServiceAccount, NetworkPolicy + README) and a `deploy/helm/presidio-scout`
+  chart — no package code, not in the wheel. Pairs the signed multi-arch image
+  (0.11), keyless credentials (0.12), and the findings gate (0.6).
+- **Hardened by construction.** Pod/container security context: `runAsNonRoot`
+  (uid/gid 65532), `readOnlyRootFilesystem` (writable `emptyDir` for `/tmp` and
+  `/report`), `allowPrivilegeEscalation: false`, `capabilities.drop: [ALL]`,
+  `seccompProfile: RuntimeDefault`. `automountServiceAccountToken: false` — the
+  audit pod never calls the K8s API.
+- **Workload identity, not keys.** The ServiceAccount carries (exactly one)
+  IRSA / GKE WI / Azure WI annotation; the invocation adds
+  `--require-short-lived-creds` so a static secret can't sneak in. The Azure WI
+  pod label and projected-token volume are accounted for; the GKE-WI metadata
+  dependency is documented so the NetworkPolicy doesn't break it.
+- **Default-deny network.** No ingress; egress only DNS + 443 (cloud APIs),
+  containing blast radius. README explains tightening the CIDR and blocking the
+  metadata IP on EKS/AKS (but not GKE).
+- **Testable without a YAML/helm dependency.** `test_deploy_manifests.py` does
+  string-presence assertions on the manifests + Helm defaults, failing closed if
+  a control is removed — a regression guard for data the wheel can't exercise.
+
+**Delivered:**
+- `deploy/kubernetes/{job,cronjob,serviceaccount,networkpolicy}.yaml` + README
+- `deploy/helm/presidio-scout/` chart (Chart/values/templates/NOTES; Job↔CronJob
+  on `schedule`, hardening via `values.yaml`)
+- `test_deploy_manifests.py`; coverage 96% (≥90% gate); ruff clean
+- README *Run in Kubernetes* section + table/structure, SECURITY.md, this log
+
+---
+
 ## Roadmap
 
-Delivered (0.1.0–0.12.0) and planned (0.13.0–0.15.0). The arc: **0.5** hardens
+Delivered (0.1.0–0.13.0) and planned (0.14.0–0.15.0). The arc: **0.5** hardens
 *what runs*; **0.6–0.8** turn findings into an enforceable, waiver-aware policy
 gate; **0.9–0.10** make every run attested and comparable over time; **0.11–0.14**
 harden how it's built and deployed; **0.15** makes it configurable for an org.
@@ -592,7 +626,7 @@ ScoutSuite, MIT wrapper, stdlib runtime, fail-closed, offline-testable.
 | **0.10.0** | **Drift detection / run diff** — `presidio-scout-diff` over two reports at resource granularity (new vs resolved findings/resources); `--fail-on-new-finding {any,warning,danger}`. ✓ | policy / operational · 0.6, 0.9 |
 | **0.11.0** | **Reproducible, multi-arch container + image provenance E2E** — `amd64`+`arm64`, reproducible digests, GitHub-signed provenance; release `verify-image` gate re-verifies the published image (cosign + `gh attestation verify` + `presidio-scout-verify-provenance`). ✓ | supply-chain + deployment · 0.4 |
 | **0.12.0** | **Keyless / short-lived credentials** — chose configuration + a fail-closed `--require-short-lived-creds` preflight (reject long-lived static secrets) + keyless-env passthrough + OIDC/assume-role/impersonation docs, over in-wrapper brokering (see deliberation). ✓ | runtime credential safety · iam/ |
-| **0.13.0** | **Kubernetes deployment** — least-privilege `Job`/`CronJob` manifests + optional Helm chart using IRSA / Workload Identity; read-only rootfs, seccomp, dropped caps, egress `NetworkPolicy`. | hardened deployment · 0.11, 0.12 |
+| **0.13.0** | **Kubernetes deployment** — hardened `Job`/`CronJob` manifests + Helm chart (IRSA / GKE WI / Azure WI; read-only rootfs, dropped caps, seccomp, default-deny `NetworkPolicy`) under `deploy/`. ✓ | hardened deployment · 0.11, 0.12 |
 | **0.14.0** | **Vulnerability-scan gate + SBOM/vuln attestations** — Grype/Trivy gate on fixable criticals; SBOM and vuln report attached as **signed attestations** and verified alongside provenance. | supply-chain · 0.11 |
 | **0.15.0** | **Org policy profiles / config** — `.presidio-scout.toml` for org defaults (provider, ruleset, gates, waiver/redaction paths, named profiles) + `presidio-scout-policy` to validate it. | usability / policy · most prior |
 

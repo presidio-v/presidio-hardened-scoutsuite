@@ -1,0 +1,12 @@
+apiVersion: v2
+name: presidio-scout
+description: Hardened in-cluster ScoutSuite audit (Job/CronJob) with workload identity, read-only rootfs, dropped capabilities, seccomp, and a default-deny NetworkPolicy.
+type: application
+version: 0.13.0
+appVersion: "0.13.0"
+keywords: [scoutsuite, cloud-security, audit, hardening, kubernetes]
+home: https://github.com/presidio-v/presidio-hardened-scoutsuite
+sources:
+  - https://github.com/presidio-v/presidio-hardened-scoutsuite
+maintainers:
+  - name: Presidio

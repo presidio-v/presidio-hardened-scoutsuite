@@ -1,0 +1,56 @@
+# Image — pin by digest in production (digest wins over tag).
+image:
+  repository: ghcr.io/presidio-v/presidio-hardened-scoutsuite
+  tag: "" # defaults to the chart appVersion when empty
+  digest: "" # e.g. sha256:… — overrides tag when set
+  pullPolicy: IfNotPresent
+
+# Audit invocation.
+provider: aws # aws | azure | gcp | aliyun | oci
+reportDir: /report
+requireShortLivedCreds: true # refuse long-lived static keys
+failOnFinding: danger # "", warning, or danger — fail the Job on findings at/above
+extraArgs: [] # any extra presidio-scout flags, e.g. ["--sarif", "/report/results.sarif"]
+
+# Empty => one-shot Job; a cron string => CronJob.
+schedule: ""
+
+serviceAccount:
+  name: presidio-scout-auditor
+  # Annotate for exactly one cloud's workload identity:
+  #   eks.amazonaws.com/role-arn: arn:aws:iam::<acct>:role/presidio-scoutsuite-auditor
+  #   iam.gke.io/gcp-service-account: …@<proj>.iam.gserviceaccount.com
+  #   azure.workload.identity/client-id: <client-id>
+  annotations: {}
+
+# Add the Azure Workload Identity pod label (no-op on AWS/GCP).
+azureWorkloadIdentity: false
+
+networkPolicy:
+  enabled: true
+
+ttlSecondsAfterFinished: 3600
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: "1"
+    memory: 2Gi
+
+# Hardened by default — override only with care.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  capabilities:
+    drop: ["ALL"]

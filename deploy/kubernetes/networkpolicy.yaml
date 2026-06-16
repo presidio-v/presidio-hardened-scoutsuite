@@ -1,0 +1,40 @@
+# Default-deny for the audit pod: no ingress at all (it serves nothing), and
+# egress only to DNS + HTTPS (the cloud control-plane APIs ScoutSuite calls).
+# This contains the blast radius if a finding string or dependency ever tried to
+# reach anything else.
+#
+# Note on cloud metadata (169.254.169.254): GKE Workload Identity *requires* the
+# metadata server, so it is intentionally left reachable here. On EKS (IRSA) and
+# AKS (Workload Identity) the credential is a projected token, so you can and
+# should additionally deny 169.254.169.254/32 — see deploy/kubernetes/README.md.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: presidio-scout-default-deny
+  namespace: presidio-scout
+  labels:
+    app.kubernetes.io/name: presidio-scout
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: presidio-scout
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: [] # deny all ingress
+  egress:
+    # DNS resolution.
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # HTTPS to cloud APIs (tighten the CIDR to your provider's ranges if you can).
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 443

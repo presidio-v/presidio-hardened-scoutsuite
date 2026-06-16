@@ -1,0 +1,14 @@
+presidio-scout is installed as {{ if .Values.schedule }}a CronJob (schedule: {{ .Values.schedule | quote }}){{ else }}a one-shot Job{{ end }}.
+
+  Provider:        {{ .Values.provider }}
+  Image:           {{ include "presidio-scout.image" . }}
+  ServiceAccount:  {{ .Values.serviceAccount.name }} (workload identity; no long-lived keys)
+  Short-lived creds required: {{ .Values.requireShortLivedCreds }}
+  Findings gate:   {{ .Values.failOnFinding | default "(none)" }}
+
+Before running, annotate the ServiceAccount for your cloud's workload identity
+and grant it the bundled least-privilege audit role (see iam/ in the repo).
+
+Watch it:
+  kubectl get jobs -l app.kubernetes.io/instance={{ .Release.Name }}
+  kubectl logs -l app.kubernetes.io/instance={{ .Release.Name }} --tail=-1

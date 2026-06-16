@@ -1,0 +1,68 @@
+# Scheduled hardened audit — same pod spec as job.yaml, run on a cron schedule.
+# Concurrency is forbidden so a slow audit can't stack up; history is bounded.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: presidio-scout-audit
+  namespace: presidio-scout
+  labels:
+    app.kubernetes.io/name: presidio-scout
+spec:
+  schedule: "0 6 * * *" # daily at 06:00 UTC
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 300
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      ttlSecondsAfterFinished: 3600
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: presidio-scout
+            azure.workload.identity/use: "true"
+        spec:
+          serviceAccountName: presidio-scout-auditor
+          automountServiceAccountToken: false
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            fsGroup: 65532
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: scout
+              image: ghcr.io/presidio-v/presidio-hardened-scoutsuite:v0.13.0
+              args:
+                - aws
+                - --report-dir
+                - /report
+                - --require-short-lived-creds
+                - --fail-on-finding
+                - danger
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                capabilities:
+                  drop: ["ALL"]
+              resources:
+                requests:
+                  cpu: 250m
+                  memory: 512Mi
+                limits:
+                  cpu: "1"
+                  memory: 2Gi
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+                - name: report
+                  mountPath: /report
+          volumes:
+            - name: tmp
+              emptyDir: {}
+            - name: report
+              emptyDir: {}
