@@ -38,6 +38,17 @@ class ReportVerificationError(PresidioScoutError):
     """
 
 
+class ProvenanceVerificationError(PresidioScoutError):
+    """A build-provenance attestation failed policy verification.
+
+    Raised when a SLSA provenance statement does not attest the expected
+    builder, source repository, predicate type, or artifact digest — i.e. the
+    artifact you are about to pull was not built the way this distribution
+    requires. This is a *policy* check run after the attestation's signature has
+    already been cryptographically verified (e.g. by ``cosign verify-attestation``).
+    """
+
+
 class RulesetValidationError(PresidioScoutError):
     """A curated ruleset references rule names the pinned ScoutSuite does not
     provide.

@@ -203,6 +203,52 @@ from the installed package (`ruleset.installed_rules`) and the release-time
 
 ---
 
+## v0.4.0 — SLSA provenance verification + reproducible builds (2026-06-16)
+
+**Design decisions:**
+
+- **Separate *policy* verification from *signature* verification.** `cosign
+  verify-attestation` already does the hard cryptographic part (Fulcio cert +
+  Rekor transparency log); re-implementing that in-tree would mean bundling
+  sigstore + a trust-root and would be easy to get subtly wrong. What cosign
+  does *not* do is tell you the provenance says the *right* thing — a valid
+  signature on an attestation for the *wrong* source/builder/digest still
+  passes. `provenance.py` owns exactly that gap: a fail-closed **policy gate**
+  run on the already-verified statement. This mirrors the project's existing
+  split (heavy work out of process; the *policy* owned here, pure-stdlib,
+  deterministic, offline-testable).
+- **Understand both SLSA v0.2 and v1.** The container build emits buildx
+  `slsa/provenance/v0.2`; slsa-github-generator and PyPI attestations emit
+  `v1`. The parser extracts builder id, source URI, and subject digests across
+  both layouts, and accepts a bare in-toto statement, a DSSE envelope, or a line
+  of cosign's JSON-Lines output — so it drops straight onto real tool output.
+- **URI normalization, not string equality.** SLSA tools spell the same repo
+  many ways (`git+https://…​.git@refs/tags/v1`, `https://…/`, `…#main`).
+  `_normalize_uri` strips the `git+` scheme, `@ref`/`#ref` suffix, `.git`, and
+  trailing slash so comparisons are robust without being permissive about the
+  actual host/path.
+- **Collect all violations, fail closed.** `verify` reports every policy
+  mismatch (predicate type, builder, source, digest) rather than the first, and
+  is `ok` only if none fired. Bundled policy data (`policy/provenance-policy.json`)
+  with `--source-uri` / `--builder-id-prefix` overrides — same data-not-code
+  pattern as the curated rulesets.
+- **Reproducible builds make provenance *useful*.** If you can't rebuild the
+  artifact bit-for-bit, you can't independently confirm what shipped. Builds are
+  pinned to the tagged commit's `SOURCE_DATE_EPOCH` (publish.yml) and a new
+  `reproducible-build` CI job builds twice and **hard-fails on differing
+  SHA-256 digests** (verified locally: identical wheel + sdist across builds).
+
+**Delivered:**
+- `provenance.py` + `ProvenanceVerificationError`; `presidio-scout-verify-provenance`
+  console script; bundled `policy/provenance-policy.json`
+- `reproducible-build` CI gate; `SOURCE_DATE_EPOCH` wired into publish.yml
+- Public API exports (`Provenance`, `ProvenancePolicy`, `load_statement`)
+- `test_provenance.py` (v0.2/v1/DSSE, field extraction, policy, CLI); coverage
+  96% (≥90% gate); ruff clean
+- README *Verifying what you pull* section, SECURITY.md, this log
+
+---
+
 ## Roadmap
 
 | Version | Planned |
@@ -210,7 +256,7 @@ from the installed package (`ruleset.installed_rules`) and the release-time
 | **0.1.0** | Out-of-process hardened launcher + redaction/guard + AWS ruleset/IAM + container + supply-chain posture |
 | **0.2.0** | Azure & GCP curated baselines + least-privilege roles; **rule-name validation** against the pinned ScoutSuite (offline manifest in CI, installed-source drift gate at release) ✓ |
 | **0.3.0** | Deeper report guard (SRI, offline viewer), signed report manifests ✓ |
-| **0.4.0** | SLSA provenance verification on install; reproducible-build attestation |
+| **0.4.0** | SLSA provenance verification on install; reproducible-build attestation ✓ |
 
 ---
 

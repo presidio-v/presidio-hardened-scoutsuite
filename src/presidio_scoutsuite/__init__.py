@@ -10,6 +10,7 @@ from __future__ import annotations
 from .errors import (
     LauncherError,
     PresidioScoutError,
+    ProvenanceVerificationError,
     RedactionError,
     ReportGuardError,
     ReportVerificationError,
@@ -17,6 +18,7 @@ from .errors import (
 )
 from .launcher import LaunchPlan, build_plan, run, scrub_env, validate_passthrough
 from .manifest import build_manifest
+from .provenance import Provenance, ProvenancePolicy, load_statement
 from .redact import assert_clean, redact_report_dir, redact_text, scan
 from .report_guard import GuardResult, guard_report
 from .ruleset import (
@@ -36,6 +38,7 @@ __all__ = [
     "RedactionError",
     "ReportGuardError",
     "ReportVerificationError",
+    "ProvenanceVerificationError",
     "RulesetValidationError",
     "LaunchPlan",
     "build_plan",
@@ -51,6 +54,9 @@ __all__ = [
     "build_manifest",
     "VerifyResult",
     "verify_report",
+    "Provenance",
+    "ProvenancePolicy",
+    "load_statement",
     "referenced_rules",
     "available_rules",
     "missing_rules",
