@@ -234,6 +234,74 @@ def test_fail_on_finding_under_threshold_returns_0(tmp_path, monkeypatch, capsys
     assert rc == 0
 
 
+def test_asff_export_written(tmp_path, monkeypatch, capsys):
+    import json
+
+    report_dir = tmp_path / "out"
+    _verify_ok(monkeypatch)
+    out = tmp_path / "asff.json"
+
+    def fake_run(plan, timeout=None):
+        (plan.report_dir / "report.html").write_text("<html><head></head><body>ok</body></html>")
+        _write_results(
+            plan.report_dir,
+            {
+                "provider_code": "aws",
+                "services": {
+                    "s3": {
+                        "findings": {
+                            "s3-bucket-world-acl.json": {"level": "danger", "flagged_items": 1}
+                        }
+                    }
+                },
+            },
+        )
+        return subprocess.CompletedProcess(plan.argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(launcher, "run", fake_run)
+    rc = cli.main(
+        [
+            "aws",
+            "--report-dir",
+            str(report_dir),
+            "--asff",
+            str(out),
+            "--aws-account-id",
+            "123456789012",
+            "--aws-region",
+            "us-east-1",
+        ]
+    )
+    assert rc == 0
+    assert "ASFF written" in capsys.readouterr().out
+    doc = json.loads(out.read_text())
+    assert doc[0]["AwsAccountId"] == "123456789012"
+    assert "CIS 2.1.5" in doc[0]["Compliance"]["RelatedRequirements"]
+
+
+def test_asff_requires_account_and_region(tmp_path, monkeypatch, capsys):
+    report_dir = tmp_path / "out"
+    _verify_ok(monkeypatch)
+
+    def fake_run(plan, timeout=None):
+        (plan.report_dir / "report.html").write_text("<html><head></head><body>ok</body></html>")
+        _write_results(
+            plan.report_dir,
+            {
+                "provider_code": "aws",
+                "services": {
+                    "s3": {"findings": {"world.json": {"level": "danger", "flagged_items": 1}}}
+                },
+            },
+        )
+        return subprocess.CompletedProcess(plan.argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(launcher, "run", fake_run)
+    rc = cli.main(["aws", "--report-dir", str(report_dir), "--asff", str(tmp_path / "a.json")])
+    assert rc == 2
+    assert "requires --aws-account-id and --aws-region" in capsys.readouterr().err
+
+
 def test_fail_on_finding_no_results_fails_closed(tmp_path, monkeypatch, capsys):
     report_dir = tmp_path / "out"
     _verify_ok(monkeypatch)

@@ -118,6 +118,24 @@ class ProvenanceVerificationError(PresidioScoutError):
     """
 
 
+class ComplianceError(PresidioScoutError):
+    """A compliance control mapping is missing, malformed, or invalid.
+
+    Raised when a rule→control mapping can't be read/parsed, declares an unknown
+    framework, or references a finding rule the pinned ScoutSuite's inventory does
+    not provide — so a typo or upstream rename can't silently drop a control from
+    the compliance view, and a gate can't pass on a mapping it couldn't evaluate.
+    """
+
+
+class AsffError(PresidioScoutError):
+    """An AWS Security Hub (ASFF) export could not be produced.
+
+    Raised when required identifiers (account id, region) are missing or
+    malformed — so a malformed batch can't be silently emitted to Security Hub.
+    """
+
+
 class UpgradeError(PresidioScoutError):
     """The pinned ScoutSuite version is incoherent, or an upgrade is invalid.
 
