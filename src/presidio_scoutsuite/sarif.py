@@ -29,7 +29,7 @@ import json
 import sys
 from pathlib import Path
 
-from .errors import FindingsError
+from .errors import PresidioScoutError
 from .findings import FindingsReport, load_report
 from .version import __version__
 
@@ -144,11 +144,23 @@ def _main(argv: list[str] | None = None) -> int:
         "--output",
         help="write to this file instead of stdout",
     )
+    parser.add_argument(
+        "--waivers",
+        metavar="PATH",
+        help="JSON waiver file; waived findings are excluded from the SARIF output",
+    )
     args = parser.parse_args(argv)
 
     try:
         report = load_report(args.report_dir)
-    except FindingsError as exc:
+        if args.waivers:
+            from . import waivers as waivers_mod
+
+            outcome = waivers_mod.apply_waivers(report, waivers_mod.load_waivers(args.waivers))
+            for message in waivers_mod.summarize_outcome(outcome):
+                print(message, file=sys.stderr)
+            report = outcome.kept
+    except PresidioScoutError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 

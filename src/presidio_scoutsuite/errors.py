@@ -38,6 +38,16 @@ class ReportVerificationError(PresidioScoutError):
     """
 
 
+class WaiverError(PresidioScoutError):
+    """A findings waiver file is missing, malformed, or incomplete.
+
+    Raised when the waivers file can't be read/parsed or a waiver omits a
+    required field (rule, justification, owner, expiry). Fail-closed: a bad
+    waiver file errors rather than silently suppressing nothing — or, worse,
+    being misread as suppressing everything.
+    """
+
+
 class FindingsError(PresidioScoutError):
     """The ScoutSuite results data could not be located or parsed.
 

@@ -368,9 +368,46 @@ from the installed package (`ruleset.installed_rules`) and the release-time
 
 ---
 
+## v0.8.0 — Waivers / exceptions framework (2026-06-16)
+
+**Design decisions:**
+
+- **Exceptions as expiring, attributable data — not ruleset edits.** Hiding an
+  accepted finding by weakening the curated baseline is dangerous and invisible;
+  `waivers.py` instead takes a checked-in JSON file where every entry carries a
+  **justification**, an **owner**, and a mandatory **expiry**. A waived finding
+  is documented and time-boxed.
+- **Whole-finding *and* per-resource granularity.** A waiver with no `resource`
+  (or `"*"`) suppresses the finding; a resource pattern (`fnmatch`) waives only
+  matching flagged resources, and the finding survives with a *reduced* count if
+  any resource is left unwaived (built on 0.7.0's `Finding.items`). Count-only
+  findings (no item list) are only ever suppressed finding-level.
+- **Fail-closed in every direction.** A missing/malformed waiver file, or one
+  missing a required field, **errors** (never silently "waive nothing" — or,
+  worse, be misread as "waive everything"). An **expired** waiver does not
+  suppress; the finding resurfaces and the expired waiver is reported, so risk
+  can't be hidden past its review date. Stale waivers (matching nothing) are
+  surfaced too.
+- **One model, applied everywhere findings are consumed.** `apply_waivers`
+  returns the kept `FindingsReport` plus bookkeeping (suppressed/expired/unused);
+  `--waivers` is wired into the severity gate, `presidio-scout-findings`, and the
+  SARIF export, so waived findings never reach a gate *or* a code-scanning alert.
+  Rule ids match the SARIF/`service/key` forms for consistency.
+
+**Delivered:**
+- `waivers.py` (`Waiver`, `load_waivers`, `apply_waivers`, `summarize_outcome`) +
+  `WaiverError`; `--waivers` on `presidio-scout`, `presidio-scout-findings`,
+  `presidio-scout-export`
+- Public API exports (`Waiver`, `load_waivers`, `apply_waivers`)
+- `test_waivers.py` + CLI tests (suppression, resource reduction, expired
+  resurfacing, malformed→exit 2); coverage 96% (≥90% gate); ruff clean
+- README *Waiving accepted findings* section, SECURITY.md, this log
+
+---
+
 ## Roadmap
 
-Delivered (0.1.0–0.7.0) and planned (0.8.0–0.15.0). The arc: **0.5** hardens
+Delivered (0.1.0–0.8.0) and planned (0.9.0–0.15.0). The arc: **0.5** hardens
 *what runs*; **0.6–0.8** turn findings into an enforceable, waiver-aware policy
 gate; **0.9–0.10** make every run attested and comparable over time; **0.11–0.14**
 harden how it's built and deployed; **0.15** makes it configurable for an org.
@@ -386,7 +423,7 @@ ScoutSuite, MIT wrapper, stdlib runtime, fail-closed, offline-testable.
 | **0.5.0** | **ScoutSuite install-integrity gate** — fail-closed preflight that the `scout` on PATH is the pinned, vetted version before running (`--allow-unverified-scout` to override); real hash-pinned `requirements.lock`; pinned `hatchling` build backend. ✓ | supply-chain + runtime trust · lockfile |
 | **0.6.0** | **Findings model + severity gate** — parse the `scoutsuite-results` data off disk into a deterministic findings summary; `--fail-on-finding danger\|warning` + standalone `presidio-scout-findings` (fail-closed, exit 4). ✓ | secure-by-default policy |
 | **0.7.0** | **SARIF export + code-scanning** — `presidio-scout-export` + `presidio-scout --sarif PATH` emit SARIF 2.1.0 (severity-mapped, per-resource, stable fingerprints); documented `upload-sarif` Action. ✓ | policy / integration · 0.6 |
-| **0.8.0** | **Waivers / exceptions framework** — checked-in waivers (rule + resource + justification + owner + **expiry**); waived findings suppressed in the gate but recorded; **expired waivers fail closed**. | policy · 0.6 |
+| **0.8.0** | **Waivers / exceptions framework** — checked-in JSON waivers (rule + resource + justification + owner + **expiry**); applied to the gate/SARIF via `--waivers`; **expired/malformed waivers fail closed**. ✓ | policy · 0.6 |
 | **0.9.0** | **Signed run attestation** — an in-toto statement binding inputs (provider, ruleset digest, verified ScoutSuite version) → outputs (report-manifest digest), verifiable with the existing tooling. | supply-chain integrity · 0.3, 0.4, 0.5 |
 | **0.10.0** | **Drift detection / run diff** — `presidio-scout-diff` over two report manifests / finding sets; surfaces newly-introduced vs resolved findings; `--fail-on-new-finding`. | policy / operational · 0.6, 0.9 |
 | **0.11.0** | **Reproducible, multi-arch container + image provenance E2E** — reproducible + arm64 image; release gate running `cosign verify-attestation` + `presidio-scout-verify-provenance` on the freshly pushed image before promotion; documented pre-`docker run` verification. | supply-chain + deployment · 0.4 |

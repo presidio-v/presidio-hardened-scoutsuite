@@ -91,6 +91,7 @@ presidio-scout aws --fail-on-secret         # non-zero exit if a secret survives
 presidio-scout aws --fail-on-remote-ref     # non-zero exit if the report references a remote resource
 presidio-scout aws --fail-on-finding danger # exit 4 if any flagged finding is danger (gate a pipeline)
 presidio-scout aws --sarif results.sarif    # also emit SARIF for GitHub code scanning
+presidio-scout aws --waivers waivers.json --fail-on-finding danger  # suppress accepted findings
 presidio-scout aws --no-baseline            # use ScoutSuite's default ruleset instead
 presidio-scout aws --allow-unverified-scout # run even if scout isn't the pinned version (warns)
 presidio-scout aws --dry-run                # print the hardened command, run nothing
@@ -179,6 +180,31 @@ presidio-scout-findings ./scoutsuite-report --fail-on warning --format json
 Levels rank `danger > warning`; `--fail-on <level>` trips on anything **at or
 above** it. The gate is **fail-closed**: if the results data is missing or
 unparseable it errors (exit 2) rather than passing a report it never evaluated.
+
+### Waiving accepted findings
+
+Findings an org has reviewed and consciously accepted are checked in as data —
+each with a **justification**, an **owner**, and a mandatory **expiry** — instead
+of being hidden by weakening the ruleset:
+
+```json
+{
+  "waivers": [
+    { "rule": "s3/s3-bucket-world-acl", "resource": "s3.buckets.public-assets",
+      "justification": "Public static-site bucket, reviewed in TICKET-123",
+      "owner": "web-platform@example.com", "expires": "2026-12-31" }
+  ]
+}
+```
+
+`presidio-scout aws --waivers waivers.json` (also on `presidio-scout-findings`
+and `presidio-scout-export`) suppresses matching findings before the gate and
+SARIF output. Omit `resource` (or use `"*"`) to waive the whole finding; a
+resource pattern (`fnmatch`) waives only those resources and the finding
+survives with a reduced count if any flagged resource is left unwaived.
+**Fail-closed:** a malformed/missing waiver file errors, and an **expired**
+waiver stops suppressing — the finding resurfaces (and is reported) — so risk
+can't be hidden indefinitely.
 
 ### GitHub code scanning (SARIF)
 
@@ -300,7 +326,7 @@ upstream unnoticed. Regenerate a manifest with
 | **0.5.0** | ScoutSuite install-integrity gate — fail-closed preflight that the `scout` you run is the pinned, vetted version (`--allow-unverified-scout` to override); real hash-pinned `requirements.lock`; pinned build backend |
 | **0.6.0** | Findings model + severity gate — `presidio-scout --fail-on-finding danger\|warning` and the standalone `presidio-scout-findings`, parsed from the report data (fail-closed; exit 4) |
 | **0.7.0** | SARIF export + GitHub code-scanning — `presidio-scout-export` and `presidio-scout --sarif PATH` emit SARIF 2.1.0 (severity-mapped, per-resource, stable fingerprints) |
-| **0.8.0** _(planned)_ | Waivers / exceptions framework with justification + owner + expiry (expired waivers fail closed) |
+| **0.8.0** | Waivers / exceptions framework — checked-in JSON waivers (justification + owner + expiry; resource-level globs), applied to the gate/SARIF via `--waivers`; expired/malformed waivers fail closed |
 | **0.9.0** _(planned)_ | Signed run attestation — in-toto statement binding run inputs to the report-manifest digest |
 | **0.10.0** _(planned)_ | Drift detection / run diff (`presidio-scout-diff`, `--fail-on-new-finding`) |
 | **0.11.0** _(planned)_ | Reproducible, multi-arch container + end-to-end image provenance verification at release |
@@ -340,6 +366,7 @@ presidio-hardened-scoutsuite/
 │   ├── scout_integrity.py # pinned-ScoutSuite preflight gate
 │   ├── findings.py        # findings model + severity gate (presidio-scout-findings)
 │   ├── sarif.py           # SARIF 2.1.0 export for code scanning (presidio-scout-export)
+│   ├── waivers.py         # expiring findings waivers / exceptions (--waivers)
 │   ├── ruleset.py         # baseline rule-name validation (presidio-scout-validate)
 │   ├── cli.py             # presidio-scout entrypoint
 │   ├── errors.py          # exception hierarchy

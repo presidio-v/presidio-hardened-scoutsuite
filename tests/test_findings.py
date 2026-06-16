@@ -213,3 +213,33 @@ def test_cli_no_results_returns_2(tmp_path, capsys):
     rc = F._main([str(tmp_path)])
     assert rc == 2
     assert "no ScoutSuite results data" in capsys.readouterr().err
+
+
+def test_cli_waivers_suppress(tmp_path, capsys):
+    _write_results(tmp_path)
+    waivers = tmp_path / "w.json"
+    waivers.write_text(
+        json.dumps(
+            {
+                "waivers": [
+                    {
+                        "rule": "s3/s3-world-acl",
+                        "justification": "accepted",
+                        "owner": "o@x",
+                        "expires": "2099-01-01",
+                    }
+                ]
+            }
+        )
+    )
+    # danger finding waived -> gate at danger passes (rc 0)
+    rc = F._main([str(tmp_path), "--fail-on", "danger", "--waivers", str(waivers)])
+    assert rc == 0
+    assert "suppressed 1" in capsys.readouterr().err
+
+
+def test_cli_waivers_bad_file_returns_2(tmp_path, capsys):
+    _write_results(tmp_path)
+    rc = F._main([str(tmp_path), "--waivers", str(tmp_path / "nope.json")])
+    assert rc == 2
+    assert "cannot read" in capsys.readouterr().err
