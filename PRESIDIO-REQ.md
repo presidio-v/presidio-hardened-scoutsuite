@@ -866,6 +866,40 @@ real release. Version is now bumped in **both** `pyproject.toml` and `version.py
 
 ---
 
+## v0.20.0 — Notification / finding sinks (2026-06-16)
+
+Make a gate result reach where the team looks, without leaking anything.
+
+**Design decisions:**
+
+- **Redaction-aware, fail-closed.** Before any payload leaves the process,
+  `deliver` runs it through `redact.assert_clean` (the same scanner the report
+  redaction uses). A secret that survived into the summary (e.g. echoed in a
+  resource name) **stops the send** — a notification must never be the thing that
+  leaks a credential to Slack/a webhook.
+- **No new dependency.** Webhooks use stdlib `urllib`; non-HTTP(S) url schemes are
+  refused, and a non-2xx response fails the command. The transport is injectable,
+  so the module is fully offline-testable without a network.
+- **Sinks: file / webhook / slack.** Slack is a webhook with a `{"text": …}`
+  body; the file sink honours `--format json|text`. Driven by flags or a
+  `[sinks.<name>]` table in `.presidio-scout.toml` (`--sink-name` + `--config`),
+  validated fail-closed. `--only-if danger|warning` suppresses noise when nothing
+  is at/above, so it can run on every pipeline without spamming.
+- **Summary, not the raw report.** The payload is provider(s) + per-level counts
+  + total + the top-N findings (severity-sorted), so it's compact and safe to
+  route — the full report stays in its 0700 dir.
+
+**Delivered:**
+- `notify.py` (`build_summary`, `render_json`/`render_text`, `resolve_sink`,
+  `deliver`, `_http_post`) + `presidio-scout-notify`; `NotificationError`
+- Public API exports; version 0.20.0 (bumped in pyproject.toml + version.py)
+- `test_notify.py` (incl. the fail-closed secret-in-payload guard); coverage 95%
+  (≥90% gate); ruff clean
+- README *Notify a sink* section + roadmap row + structure entry; SECURITY.md
+  feature bullet + supported-version bump; this log
+
+---
+
 ## Roadmap
 
 Delivered (0.1.0–0.15.0) — the planned arc is complete. The arc: **0.5** hardens
@@ -917,7 +951,7 @@ stdlib-only runtime, fail-closed, offline-testable).
 | **0.17.0** | **Compliance mapping + ASFF export** — `presidio-scout-compliance` maps findings to CIS / NIST 800-53 / SOC 2 controls (curated mappings validated fail-closed against the manifest; `--fail-on-unmapped`); `presidio-scout-asff` / `--asff` export AWS Security Hub findings enriched with the mapped controls. ✓ | policy / integration · 0.6, 0.7 |
 | **0.18.0** | **Verified & extended provider baselines** — reconciled every AWS/Azure/GCP baseline, manifest, and compliance-map rule name against the real ScoutSuite 5.14.0 source (correcting names that never existed upstream — Azure/GCP were almost entirely invalid) and extended them (AWS 34 / Azure 26 / GCP 27 curated rules, incl. GKE). ✓ | secure-by-default policy · 0.2 |
 | **0.19.0** | **Org-wide orchestration** — `presidio-scout-orchestrate` fans the audit across a `.presidio-scout-targets.toml` matrix (one out-of-process run + report per account; identity selected via per-target env, no credential brokering) with a fail-closed aggregated severity gate; pass-through flags enable per-target attest/diff. ✓ | operational scale · 0.10, 0.12, 0.13 |
-| **0.20.0** | **Notification / finding sinks** — fail-closed push of gate results to sinks (issue tracker, Slack/webhook, S3/GCS), driven by `.presidio-scout.toml` profiles; redaction-aware, no secret leakage. | integration · 0.15, 0.17 |
+| **0.20.0** | **Notification / finding sinks** — `presidio-scout-notify` pushes an audit summary to a file / webhook / Slack sink (flag- or `[sinks.<name>]`-config-driven); redaction-aware and fail-closed (a secret in the payload stops the send); stdlib-only transport, `--only-if` to suppress noise. ✓ | integration · 0.15, 0.17 |
 | **0.21.0** (stretch) | **Config-driven redaction & baseline composition** — let an org extend redaction patterns and compose/layer baselines from config, validated fail-closed by `presidio-scout-policy`. | usability / policy · 0.15 |
 
 **Recommendation:** start with **0.16.0** — keeping the pinned ScoutSuite current

@@ -488,6 +488,35 @@ push so the pin sites can never silently drift.
 
 ---
 
+## Notify a sink
+
+A gate result is only useful if someone sees it. `presidio-scout-notify`
+summarizes a finished report (provider, per-level counts, top findings) and pushes
+it to a sink — a local file, a generic JSON webhook, or a Slack incoming webhook:
+
+```bash
+presidio-scout-notify ./report --sink slack --url "$SLACK_WEBHOOK_URL"
+presidio-scout-notify ./report --sink file --path summary.json
+presidio-scout-notify ./report --sink webhook --url https://hooks/x --only-if danger
+# or resolve a named sink from .presidio-scout.toml:
+presidio-scout-notify ./report --sink-name prod-slack --config .presidio-scout.toml
+```
+
+```toml
+# .presidio-scout.toml
+[sinks.prod-slack]
+type = "slack"
+url = "https://hooks.slack.com/services/…"
+```
+
+**Redaction-aware, fail-closed:** the outgoing payload is scanned by the same
+secret detector the report redaction uses — if a secret survives into the message
+(e.g. echoed in a resource name), delivery is **refused** rather than leaked.
+Webhooks use stdlib `urllib` (no new dependency); a non-2xx response fails the
+command. `--only-if danger|warning` suppresses noise when nothing is at/above.
+
+---
+
 ## Audit a fleet of accounts
 
 Most orgs have many accounts, not one. `presidio-scout-orchestrate` fans the
@@ -598,6 +627,7 @@ does this automatically on a version bump).
 | **0.17.0** | Compliance mapping + ASFF export — `presidio-scout-compliance` maps findings to CIS / NIST 800-53 / SOC 2 controls (validated fail-closed against the manifest); `presidio-scout-asff` / `--asff` emit AWS Security Hub findings enriched with the mapped controls |
 | **0.18.0** | Verified & extended provider baselines — every AWS/Azure/GCP baseline, manifest, and compliance-map rule name reconciled against the real ScoutSuite 5.14.0 source (correcting names that never existed upstream) and expanded (AWS 34 / Azure 26 / GCP 27 curated rules, incl. GKE) |
 | **0.19.0** | Org-wide orchestration — `presidio-scout-orchestrate` fans the audit across a `.presidio-scout-targets.toml` matrix (one out-of-process run + report per account, no credential brokering) with an aggregated, fail-closed severity gate |
+| **0.20.0** | Notification sinks — `presidio-scout-notify` pushes an audit summary to a file / webhook / Slack sink (config- or flag-driven), redaction-aware and fail-closed so a secret can't leak to an external sink |
 
 See [`PRESIDIO-REQ.md`](./PRESIDIO-REQ.md) for the per-version rationale,
 dependencies, and open design questions.
@@ -641,6 +671,7 @@ presidio-hardened-scoutsuite/
 │   ├── ruleset.py         # baseline rule-name validation (presidio-scout-validate)
 │   ├── upgrade.py         # ScoutSuite pin-coherence gate + bump tooling (presidio-scout-upgrade)
 │   ├── orchestrate.py     # multi-account fleet fan-out + aggregated gate (presidio-scout-orchestrate)
+│   ├── notify.py          # redaction-aware notification sinks (presidio-scout-notify)
 │   ├── cli.py             # presidio-scout entrypoint
 │   ├── errors.py          # exception hierarchy
 │   └── policy/            # curated baselines + rule manifests + provenance-policy.json
