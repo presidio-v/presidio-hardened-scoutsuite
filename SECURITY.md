@@ -4,8 +4,8 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 0.26.x  | ✅ Yes (current) |
-| <0.26   | Best-effort security fixes only |
+| 0.27.x  | ✅ Yes (current) |
+| <0.27   | Best-effort security fixes only |
 
 ## Reporting a Vulnerability
 
@@ -117,6 +117,13 @@ redaction, supply-chain controls, and a least-privilege deployment model.
   signature *and* the provenance (cryptographically, then against this
   distribution's `presidio-scout-verify-provenance` policy) — before the release
   run is allowed to succeed.
+- **Stable, fail-closed extension API** — orgs add their own redactors /
+  exporters / sinks as MIT-safe plugins (Python entry points) without forking;
+  `presidio-scout-ext list` inspects what's installed. Loading is **fail-closed**:
+  a malformed reference, an import failure, a plugin that errors on load, or a
+  redactor yielding a malformed pattern errors rather than being silently
+  skipped — and an installed **redactor** plugin feeds the redaction step, so a
+  broken one fails the run rather than quietly letting a secret through.
 - **Self-contained, escaped executive reporting** — `presidio-scout-summary`
   renders a report (or a `--fleet` rollup) as Markdown, CSV, JSON, or a
   **self-contained HTML** page with inline styles and **no scripts**; every

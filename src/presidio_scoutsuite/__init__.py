@@ -27,6 +27,7 @@ from .errors import (
     ComplianceError,
     ConfigError,
     CredentialError,
+    ExtensionError,
     FindingsError,
     LauncherError,
     NotificationError,
@@ -44,6 +45,14 @@ from .errors import (
     UpgradeError,
     VulnerabilityError,
     WaiverError,
+)
+from .extensions import (
+    Exporter,
+    Redactor,
+    Sink,
+    discover,
+    installed_redactor_patterns,
+    load_object,
 )
 from .findings import Finding, FindingsReport, load_report
 from .launcher import LaunchPlan, build_plan, run, scrub_env, validate_passthrough
@@ -95,6 +104,7 @@ __all__ = [
     "LauncherError",
     "CredentialError",
     "ConfigError",
+    "ExtensionError",
     "RedactionError",
     "ReportGuardError",
     "ReportVerificationError",
@@ -128,6 +138,12 @@ __all__ = [
     "compare",
     "record",
     "load_history",
+    "Redactor",
+    "Exporter",
+    "Sink",
+    "discover",
+    "load_object",
+    "installed_redactor_patterns",
     "build_summary_report",
     "build_fleet",
     "render_markdown",

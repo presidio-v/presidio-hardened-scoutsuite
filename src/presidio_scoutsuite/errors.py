@@ -136,6 +136,16 @@ class AsffError(PresidioScoutError):
     """
 
 
+class ExtensionError(PresidioScoutError):
+    """A third-party extension could not be resolved, loaded, or validated.
+
+    Raised when an extension reference is malformed, its module/attribute can't be
+    imported, an installed entry-point fails to load, or a redactor plugin yields
+    a malformed pattern — fail-closed, because a broken redactor extension could
+    otherwise silently let a secret through.
+    """
+
+
 class PolicyError(PresidioScoutError):
     """A policy-as-code assertion file is missing, malformed, or invalid.
 

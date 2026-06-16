@@ -1108,6 +1108,47 @@ Give a security lead / auditor a one-page rollup, and summarize a whole fleet.
 
 ---
 
+## v0.27.0 — Stable extension API (2026-06-16)
+
+The third-arc stretch item: let orgs extend the distribution without forking it,
+on a stable, fail-closed contract.
+
+**Design decisions:**
+
+- **Two discovery paths, one contract.** Plugins are found via Python entry points
+  under stable groups (`presidio_scoutsuite.redactors` / `.exporters` / `.sinks`),
+  or referenced explicitly as `"module:attr"` (`load_object`). Each implements a
+  tiny `Protocol` (`Redactor.patterns()`, `Exporter.export()`, `Sink.send()`).
+- **Fail-closed loading.** A malformed reference, an import failure, a plugin that
+  raises on load, or a redactor yielding a malformed pattern raises
+  `ExtensionError` — never a silent skip, because a broken **redactor** could
+  otherwise let a secret through.
+- **Real integration, safe default.** The main `presidio-scout` run now folds
+  installed redactor-plugin patterns into the redaction step (alongside the config
+  `[redaction]` extras). With no plugin installed, discovery returns empty — zero
+  added surface — but a broken installed redactor fails the run (exit 2).
+- **`presidio-scout-ext list`** inspects what's installed per group.
+
+**Delivered:**
+- `extensions.py` (`load_object`, `discover`, `redactor_patterns`,
+  `installed_redactor_patterns`, `Redactor`/`Exporter`/`Sink` protocols) +
+  `presidio-scout-ext`; `ExtensionError`; cli wires installed redactor patterns
+- Public API exports; version 0.27.0 (both files)
+- `test_extensions.py` (load/discover/validation, all fail-closed paths); coverage
+  95% (≥90% gate); ruff clean
+- README roadmap row + structure entry; SECURITY.md feature bullet +
+  supported-version bump; this log
+
+**Third arc (0.22.0–0.27.0) complete.** Continuous assurance & remediation:
+posture trend + regression gate (0.22), remediation guidance + ASFF (0.23),
+policy-as-code assertions (0.24), Alibaba/Oracle baselines (0.25), executive &
+multi-format reporting (0.26), and a stable extension API (0.27) — all keeping the
+invariants (out-of-process, no GPL import, MIT, stdlib runtime, fail-closed,
+offline-testable). Next: the fourth arc (0.28.0+, evidence substrate / consortium
+interop).
+
+---
+
 ## Roadmap
 
 Delivered (0.1.0–0.15.0) — the planned arc is complete. The arc: **0.5** hardens
@@ -1187,7 +1228,7 @@ offline-testable).
 | **0.24.0** | **Policy-as-code assertions** — `presidio-scout-assert`: a declarative `[[assert]]` policy of named rules (service / rule-glob / `min_level` selectors + a `max` count) richer than a single severity threshold; fail-closed, exit 4 on any violation. ✓ | policy · 0.6, 0.8, 0.15 |
 | **0.25.0** | **Alibaba Cloud & Oracle Cloud baselines** — curated, manifest-verified baselines + compliance maps for ScoutSuite's remaining providers, rule names reconciled against the real 5.14.0 source (the 0.18 method); all five providers now ship a hardened default. ✓ | secure-by-default policy · 0.2, 0.18 |
 | **0.26.0** | **Executive & multi-format reporting** — `presidio-scout-summary` renders a report (or a `--fleet` rollup) as Markdown / self-contained escaped HTML / CSV / JSON, with failing-control counts from the compliance map. ✓ | reporting · 0.17, 0.19 |
-| **0.27.0** (stretch) | **Stable extension API** — a documented, MIT-safe plugin entry point for custom exporters / sinks / redactors so orgs extend without forking. | extensibility · 0.20, 0.21 |
+| **0.27.0** (stretch) | **Stable extension API** — `presidio-scout-ext` discovers MIT-safe plugins (redactors / exporters / sinks) via entry points; installed redactor plugins feed the redaction step, fail-closed; documented `Protocol` contract. ✓ | extensibility · 0.20, 0.21 |
 
 **Recommendation:** start with **0.22.0** — a trend store + regression gate turns
 the existing diff (0.10) and orchestration (0.19) into ongoing assurance, and is
