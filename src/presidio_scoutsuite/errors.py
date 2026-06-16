@@ -38,6 +38,26 @@ class ReportVerificationError(PresidioScoutError):
     """
 
 
+class FindingsError(PresidioScoutError):
+    """The ScoutSuite results data could not be located or parsed.
+
+    Raised when no ``scoutsuite_results*.js`` data file is found under a report
+    directory, or its embedded JSON can't be decoded — so a ``--fail-on-finding``
+    gate can never silently pass on a report it couldn't actually evaluate.
+    """
+
+
+class ScoutIntegrityError(PresidioScoutError):
+    """The ScoutSuite about to be run is not the pinned, vetted version.
+
+    Raised by the fail-closed preflight when the ``scout`` executable can't be
+    found, its version can't be determined, or its version does not match the
+    one this distribution pins — so an unvetted or modified ScoutSuite (which
+    could ship different rules or behaviour) can't silently weaken an audit.
+    Bypass with ``--allow-unverified-scout``.
+    """
+
+
 class ProvenanceVerificationError(PresidioScoutError):
     """A build-provenance attestation failed policy verification.
 
