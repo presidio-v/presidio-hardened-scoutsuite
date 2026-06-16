@@ -64,7 +64,7 @@ def build_summary(report_dir: str | Path, *, top: int = _DEFAULT_TOP) -> dict:
             {
                 "level": f.level,
                 "service": f.service,
-                "key": f.key[:-5] if f.key.endswith(".json") else f.key,
+                "rule": f.key[:-5] if f.key.endswith(".json") else f.key,
                 "flagged_items": f.flagged_items,
             }
             for f in ranked[: max(0, top)]
@@ -90,7 +90,7 @@ def render_text(summary: dict) -> str:
     if top:
         lines.append("Top findings:")
         lines.extend(
-            f"• {f['level']} {f['service']}/{f['key']} ({f['flagged_items']} flagged)" for f in top
+            f"• {f['level']} {f['service']}/{f['rule']} ({f['flagged_items']} flagged)" for f in top
         )
     return "\n".join(lines)
 

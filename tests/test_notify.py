@@ -38,9 +38,9 @@ def test_build_summary(tmp_path):
     # counts are findings *per level* (one danger finding, one warning finding)
     assert s["totals"] == {"warning": 1, "danger": 1}
     assert s["total_flagged"] == 2
-    # top sorted by severity: danger first, key has .json stripped
+    # top sorted by severity: danger first, rule name has .json stripped
     assert s["top"][0]["level"] == "danger"
-    assert s["top"][0]["key"] == "s3-bucket-world-acl"
+    assert s["top"][0]["rule"] == "s3-bucket-world-acl"
 
 
 def test_summary_top_cap(tmp_path):
