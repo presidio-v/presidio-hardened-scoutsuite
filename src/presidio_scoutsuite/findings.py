@@ -51,6 +51,7 @@ class Finding:
     flagged_items: int
     description: str = ""
     checked_items: int | None = None
+    items: tuple[str, ...] = ()
 
 
 def _parse_results_js(text: str) -> dict:
@@ -100,6 +101,8 @@ def extract_findings(results: dict) -> list[Finding]:
             if flagged <= 0:
                 continue
             checked = finding.get("checked_items")
+            raw_items = finding.get("items")
+            items = tuple(str(i) for i in raw_items) if isinstance(raw_items, list) else ()
             out.append(
                 Finding(
                     service=str(service_name),
@@ -108,6 +111,7 @@ def extract_findings(results: dict) -> list[Finding]:
                     flagged_items=flagged,
                     description=str(finding.get("description", "")),
                     checked_items=int(checked) if isinstance(checked, (int, float)) else None,
+                    items=items,
                 )
             )
     return out

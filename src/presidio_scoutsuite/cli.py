@@ -7,12 +7,13 @@ and applies the report guard before anything is surfaced.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from importlib import resources
 from pathlib import Path
 
 from . import findings as findings_mod
-from . import launcher, redact, report_guard, scout_integrity
+from . import launcher, redact, report_guard, sarif, scout_integrity
 from .errors import PresidioScoutError
 from .version import __version__
 
@@ -84,6 +85,11 @@ def build_parser() -> argparse.ArgumentParser:
         choices=findings_mod.LEVELS,
         help="exit non-zero (4) if any flagged finding is at or above this severity "
         "(warning|danger) — use to gate a pipeline on the audit result",
+    )
+    parser.add_argument(
+        "--sarif",
+        metavar="PATH",
+        help="also write the findings as SARIF 2.1.0 to PATH (for GitHub code scanning)",
     )
     parser.add_argument(
         "--scout-bin",
@@ -228,25 +234,33 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
 
-    if args.fail_on_finding:
+    if args.fail_on_finding or args.sarif:
         try:
             findings_report = findings_mod.load_report(plan.report_dir)
         except PresidioScoutError as exc:
-            # Fail-closed: a gate that can't read the results must not pass.
-            print(f"error: cannot evaluate findings gate: {exc}", file=sys.stderr)
+            # Fail-closed: if we can't read the results we can't gate or export.
+            print(f"error: cannot read findings: {exc}", file=sys.stderr)
             return 2
-        counts = findings_report.counts
-        print(
-            f"findings: {len(findings_report.findings)} flagged "
-            f"(danger={counts['danger']}, warning={counts['warning']})"
-        )
-        offending = findings_report.at_or_above(args.fail_on_finding)
-        if offending:
+
+        if args.sarif:
+            document = sarif.to_sarif(findings_report)
+            Path(args.sarif).write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
+            print(f"SARIF written: {args.sarif} ({len(findings_report.findings)} finding(s))")
+
+        if args.fail_on_finding:
+            counts = findings_report.counts
             print(
-                f"error: {len(offending)} finding(s) at or above {args.fail_on_finding!r} severity",
-                file=sys.stderr,
+                f"findings: {len(findings_report.findings)} flagged "
+                f"(danger={counts['danger']}, warning={counts['warning']})"
             )
-            return 4
+            offending = findings_report.at_or_above(args.fail_on_finding)
+            if offending:
+                print(
+                    f"error: {len(offending)} finding(s) at or above "
+                    f"{args.fail_on_finding!r} severity",
+                    file=sys.stderr,
+                )
+                return 4
 
     return completed.returncode
 

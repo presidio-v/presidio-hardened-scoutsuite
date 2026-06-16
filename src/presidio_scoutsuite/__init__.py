@@ -31,6 +31,7 @@ from .ruleset import (
     validate_all,
     validate_provider,
 )
+from .sarif import to_sarif
 from .scout_integrity import ScoutIntegrityResult, pinned_version, verify_scout
 from .verify import VerifyResult, verify_report
 from .version import __version__
@@ -69,6 +70,7 @@ __all__ = [
     "Finding",
     "FindingsReport",
     "load_report",
+    "to_sarif",
     "referenced_rules",
     "available_rules",
     "missing_rules",
