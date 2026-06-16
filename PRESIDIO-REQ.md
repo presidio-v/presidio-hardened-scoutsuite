@@ -253,14 +253,154 @@ from the installed package (`ruleset.installed_rules`) and the release-time
 
 ---
 
+## v0.5.0 — ScoutSuite install-integrity gate + real lockfile (2026-06-16)
+
+**Design decisions:**
+
+- **Verify *what runs*, out of process.** The wrapper drives `scout` as a
+  subprocess and never imports it, so it can't assume the `scout` on PATH is the
+  version we pinned and vetted — a newer/older/modified ScoutSuite can ship
+  different rules and silently weaken an audit. `scout_integrity` runs a
+  fail-closed preflight before any credentials are handed over: resolve the
+  executable, read `scout --version` out of process, and require it to equal the
+  pinned version. Mismatch / not-found / undeterminable → exit 2, unless
+  `--allow-unverified-scout` downgrades it to a warning.
+- **Two complementary integrity layers, at the right layers.** Artifact-hash
+  integrity (the *installed files* are the exact PyPI artifacts) belongs at
+  install time — `pip install --require-hashes -r requirements.lock`. The
+  runtime gate confirms the *executed* scout is that pinned version, which also
+  covers the case where ScoutSuite lives in a separate env or is supplied via
+  `--scout-bin`. We deliberately did **not** try to re-hash installed files at
+  runtime (fragile, and meaningless when scout is a separate install).
+- **Single source of truth for the pinned version.** `pinned_version()` reads
+  the `ScoutSuite==` pin from our *own* package metadata (the `scoutsuite`
+  extra), so the gate can't drift from what the extra/lockfile install; a
+  constant is the fallback for odd installs.
+- **Real hash-pinned `requirements.lock`.** Replaced the un-hashed placeholder
+  with the full transitive tree (130 packages) pinned + SHA-256-hashed via
+  `pip-compile --generate-hashes --allow-unsafe --extra scoutsuite`. Validated
+  with `pip install --require-hashes --dry-run` (129 packages resolve + verify,
+  incl. ScoutSuite 5.14.0). This satisfies the release `verify-lock` hard gate
+  for the first time.
+- **Pinned build backend + Python alignment.** `requires = ["hatchling==1.27.0"]`
+  so the wheel/sdist build is deterministic across environments (the
+  reproducible-build gate depends on it). Pinned to 1.27.0 — the last hatchling
+  that still supports Python 3.9 (1.28+ requires ≥3.10); 1.30.1 broke the 3.9 CI
+  job's editable install and was rolled back. The lock is resolved under Python 3.11
+  to match the distroless runtime (`python3-debian12` = 3.11); the Dockerfile
+  builder was moved from 3.12 to **3.11** so the venv matches both the runtime
+  and the lock (it was a latent mismatch).
+
+**Delivered:**
+- `scout_integrity.py` + `ScoutIntegrityError`; CLI preflight + `--allow-unverified-scout`
+- Real hash-pinned `requirements.lock` (130 pkgs); pinned `hatchling`; Dockerfile → py3.11
+- Public API exports (`verify_scout`, `ScoutIntegrityResult`, `pinned_version`)
+- `test_scout_integrity.py` + CLI gate tests; coverage 95% (≥90% gate); ruff clean
+- README (preflight in the flow, CLI flag, exit codes), SECURITY.md, this log
+
+---
+
+## v0.6.0 — Findings model + severity gate (2026-06-16)
+
+**Design decisions:**
+
+- **Read results as *data*, never import ScoutSuite.** ScoutSuite writes
+  `scoutsuite_results*.js` (a `scoutsuite_results = {…}` JS wrapper around a JSON
+  object) next to the report. `findings.py` strips the wrapper (`raw_decode` from
+  the first `{`, tolerant of trailing JS) and flattens
+  `services.<svc>.findings.<rule>` into a model — staying out-of-process and
+  GPL-clean.
+- **Only *flagged* findings count.** A finding exists for every rule in the
+  ruleset; it "fires" only when `flagged_items > 0`. The model excludes the rest,
+  so counts reflect real problems. Parsing is defensive about malformed shapes
+  (non-dict services/findings, bad `flagged_items`) — a weird results file
+  yields fewer findings, never a crash.
+- **Severity gate, fail-closed.** Levels rank `danger > warning`; `--fail-on
+  <level>` trips on anything at or above it (exit **4**, a new code distinct from
+  guard failure). If the results data is missing or unparseable the gate
+  **errors (exit 2)** rather than passing — a gate that can't read the audit must
+  not green-light it.
+- **Inline gate + standalone tool.** `presidio-scout --fail-on-finding` evaluates
+  after redaction/guard during a run; `presidio-scout-findings` summarizes/gates
+  an existing report offline (text or JSON), for use after the fact or in a
+  separate CI step. Same model and exit codes behind both.
+
+**Delivered:**
+- `findings.py` (`Finding`, `FindingsReport`, `load_report`) + `FindingsError`;
+  `presidio-scout-findings` console script; `--fail-on-finding` on the main CLI
+- Public API exports (`Finding`, `FindingsReport`, `load_report`)
+- `test_findings.py` + CLI gate tests (danger trips, under-threshold passes,
+  missing results fails closed); coverage 96% (≥90% gate); ruff clean
+- README *Gating a pipeline on findings* section, exit-code 4, SECURITY.md, this log
+
+---
+
+## v0.7.0 — SARIF export + GitHub code scanning (2026-06-16)
+
+**Design decisions:**
+
+- **Reuse the 0.6.0 findings model; add SARIF as a pure projection.** `sarif.py`
+  builds a SARIF 2.1.0 document straight from the in-memory `FindingsReport` — no
+  re-parsing, no ScoutSuite import. `Finding` gained an `items` tuple (the flagged
+  resource paths ScoutSuite lists) so results can be **per-resource**.
+- **Documented, auditable mapping.** rule id = `<service>/<key without .json>`;
+  ScoutSuite `danger`→SARIF `error` + `security-severity` 8.0 (high), `warning`→
+  `warning` + 4.0 (medium); unknown levels → `note`/0.0. Rules carry the
+  `security` tag so GitHub classifies them as security alerts.
+- **Cloud findings have no source file — be honest about it.** Each result gets a
+  *synthetic* physical location (`<provider>/<service>`, line 1) so GitHub
+  accepts it, plus a `logicalLocations` entry naming the actual resource, and a
+  deterministic `partialFingerprints` (sha256 of rule+resource) so the same alert
+  is tracked across runs rather than churning.
+- **Two entry points + CI-friendly inline emit.** `presidio-scout-export`
+  converts an existing report (stdout or `-o`); `presidio-scout --sarif PATH`
+  emits during a run. SARIF is written **even when `--fail-on-finding` trips**, so
+  a gated pipeline still uploads the alerts.
+
+**Delivered:**
+- `sarif.py` (`to_sarif`) + `presidio-scout-export` console script; `--sarif PATH`
+  on the main CLI; `Finding.items`
+- Public API export (`to_sarif`)
+- `test_sarif.py` + findings/CLI tests (per-resource results, severity mapping,
+  fingerprints, inline emit + gate); coverage 96% (≥90% gate); ruff clean
+- README *GitHub code scanning (SARIF)* section with an upload-sarif Action
+  snippet, SECURITY.md, this log
+
+---
+
 ## Roadmap
 
-| Version | Planned |
-|---|---|
-| **0.1.0** | Out-of-process hardened launcher + redaction/guard + AWS ruleset/IAM + container + supply-chain posture |
-| **0.2.0** | Azure & GCP curated baselines + least-privilege roles; **rule-name validation** against the pinned ScoutSuite (offline manifest in CI, installed-source drift gate at release) ✓ |
-| **0.3.0** | Deeper report guard (SRI, offline viewer), signed report manifests ✓ |
-| **0.4.0** | SLSA provenance verification on install; reproducible-build attestation ✓ |
+Delivered (0.1.0–0.7.0) and planned (0.8.0–0.15.0). The arc: **0.5** hardens
+*what runs*; **0.6–0.8** turn findings into an enforceable, waiver-aware policy
+gate; **0.9–0.10** make every run attested and comparable over time; **0.11–0.14**
+harden how it's built and deployed; **0.15** makes it configurable for an org.
+Every item keeps the project's invariants — out-of-process, never import GPL
+ScoutSuite, MIT wrapper, stdlib runtime, fail-closed, offline-testable.
+
+| Version | Planned | Axis · depends on |
+|---|---|---|
+| **0.1.0** | Out-of-process hardened launcher + redaction/guard + AWS ruleset/IAM + container + supply-chain posture | all ✓ |
+| **0.2.0** | Azure & GCP curated baselines + least-privilege roles; **rule-name validation** against the pinned ScoutSuite (offline manifest in CI, installed-source drift gate at release) | policy ✓ |
+| **0.3.0** | Deeper report guard (SRI, offline viewer), signed report manifests | report integrity ✓ |
+| **0.4.0** | SLSA provenance verification on pull; reproducible-build attestation | supply-chain ✓ |
+| **0.5.0** | **ScoutSuite install-integrity gate** — fail-closed preflight that the `scout` on PATH is the pinned, vetted version before running (`--allow-unverified-scout` to override); real hash-pinned `requirements.lock`; pinned `hatchling` build backend. ✓ | supply-chain + runtime trust · lockfile |
+| **0.6.0** | **Findings model + severity gate** — parse the `scoutsuite-results` data off disk into a deterministic findings summary; `--fail-on-finding danger\|warning` + standalone `presidio-scout-findings` (fail-closed, exit 4). ✓ | secure-by-default policy |
+| **0.7.0** | **SARIF export + code-scanning** — `presidio-scout-export` + `presidio-scout --sarif PATH` emit SARIF 2.1.0 (severity-mapped, per-resource, stable fingerprints); documented `upload-sarif` Action. ✓ | policy / integration · 0.6 |
+| **0.8.0** | **Waivers / exceptions framework** — checked-in waivers (rule + resource + justification + owner + **expiry**); waived findings suppressed in the gate but recorded; **expired waivers fail closed**. | policy · 0.6 |
+| **0.9.0** | **Signed run attestation** — an in-toto statement binding inputs (provider, ruleset digest, verified ScoutSuite version) → outputs (report-manifest digest), verifiable with the existing tooling. | supply-chain integrity · 0.3, 0.4, 0.5 |
+| **0.10.0** | **Drift detection / run diff** — `presidio-scout-diff` over two report manifests / finding sets; surfaces newly-introduced vs resolved findings; `--fail-on-new-finding`. | policy / operational · 0.6, 0.9 |
+| **0.11.0** | **Reproducible, multi-arch container + image provenance E2E** — reproducible + arm64 image; release gate running `cosign verify-attestation` + `presidio-scout-verify-provenance` on the freshly pushed image before promotion; documented pre-`docker run` verification. | supply-chain + deployment · 0.4 |
+| **0.12.0** | **Credential brokering / keyless auth** — auto-assume the bundled least-privilege audit role (AWS STS + ExternalId/MFA; GCP SA impersonation; Azure Reader) via the cloud CLI as a subprocess, and OIDC in CI, so operators never pass long-lived keys. | runtime credential safety · iam/ |
+| **0.13.0** | **Kubernetes deployment** — least-privilege `Job`/`CronJob` manifests + optional Helm chart using IRSA / Workload Identity; read-only rootfs, seccomp, dropped caps, egress `NetworkPolicy`. | hardened deployment · 0.11, 0.12 |
+| **0.14.0** | **Vulnerability-scan gate + SBOM/vuln attestations** — Grype/Trivy gate on fixable criticals; SBOM and vuln report attached as **signed attestations** and verified alongside provenance. | supply-chain · 0.11 |
+| **0.15.0** | **Org policy profiles / config** — `.presidio-scout.toml` for org defaults (provider, ruleset, gates, waiver/redaction paths, named profiles) + `presidio-scout-policy` to validate it. | usability / policy · most prior |
+
+**Open design questions (revisit when the version lands):**
+
+- **0.12.0** leans on cloud CLIs via subprocess to stay dependency-free; if owning
+  auth flows is undesirable it can narrow to docs + thin helpers only.
+- **0.15.0** needs `tomllib` (stdlib ≥3.11) or a small `tomli` backport for 3.9/3.10
+  — the one place a runtime dependency would creep in.
 
 ---
 

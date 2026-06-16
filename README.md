@@ -25,7 +25,7 @@ NCC Group's multi-cloud security auditing tool.
 | **Runtime credential & data safety** | Env scrubbed to cloud creds only; 0700 report dir + `umask 0077`; secrets redacted out of the report and ScoutSuite's logs; `--fail-on-secret` gate |
 | **Report integrity & isolation** | Strict CSP + **Subresource Integrity** on local report assets; remote-reference detection (`--fail-on-remote-ref`); a signed-able **SHA-256 integrity manifest** verified offline with `presidio-scout-verify` |
 | **Secure-by-default policy** | Curated, CIS-aligned **AWS baseline ruleset** applied by default (high-impact IAM/logging/network controls forced to `danger`) |
-| **Supply-chain & build integrity** | Hash-pinned `requirements.lock`, CycloneDX SBOM, CodeQL, Dependabot, **cosign-signed** images + SLSA build provenance, **reproducible** wheel/sdist, and a `presidio-scout-verify-provenance` policy gate for what you pull; release blocked if the lock isn't pinned |
+| **Supply-chain & build integrity** | Hash-pinned `requirements.lock`, pinned build backend, CycloneDX SBOM, CodeQL, Dependabot, **cosign-signed** images + SLSA build provenance, **reproducible** wheel/sdist, a `presidio-scout-verify-provenance` policy gate for what you pull, and a **fail-closed preflight that the `scout` you run is the pinned, vetted ScoutSuite version** |
 | **Hardened deployment** | Distroless, non-root, `--read-only` container; bundled **least-privilege AWS audit role** (read-only + explicit `Deny`, MFA + `ExternalId` trust) |
 
 ---
@@ -41,11 +41,14 @@ presidio-scout aws ──▶ launcher ──▶ [ scout aws … ] ──▶ reda
 1. **launcher** — validates the provider + pass-through flags (fail-closed
    allowlist), forces `--no-browser` and a locked-down `--report-dir`, wires in
    the curated ruleset, and scrubs the environment.
-2. **subprocess** — stock ScoutSuite runs with only the cloud credentials it
+2. **preflight** — before any credentials are handed over, a fail-closed gate
+   confirms the `scout` on PATH is the **pinned, vetted ScoutSuite version**; an
+   unexpected/modified ScoutSuite is refused (override: `--allow-unverified-scout`).
+3. **subprocess** — stock ScoutSuite runs with only the cloud credentials it
    needs.
-3. **redact** — credentials are scrubbed out of the report files and ScoutSuite's
+4. **redact** — credentials are scrubbed out of the report files and ScoutSuite's
    own output.
-4. **report_guard** — a strict CSP and per-asset Subresource Integrity hashes
+5. **report_guard** — a strict CSP and per-asset Subresource Integrity hashes
    are injected into the HTML report, network-reaching references are flagged,
    and a SHA-256 integrity manifest (`presidio-report-manifest.json`,
    optionally HMAC-signed) is written so the report can be verified later with
@@ -86,7 +89,10 @@ presidio-scout aws --report-dir ./out       # choose the (0700) report directory
 presidio-scout aws -- --profile auditor     # pass-through flags after '--' (allowlisted)
 presidio-scout aws --fail-on-secret         # non-zero exit if a secret survives redaction
 presidio-scout aws --fail-on-remote-ref     # non-zero exit if the report references a remote resource
+presidio-scout aws --fail-on-finding danger # exit 4 if any flagged finding is danger (gate a pipeline)
+presidio-scout aws --sarif results.sarif    # also emit SARIF for GitHub code scanning
 presidio-scout aws --no-baseline            # use ScoutSuite's default ruleset instead
+presidio-scout aws --allow-unverified-scout # run even if scout isn't the pinned version (warns)
 presidio-scout aws --dry-run                # print the hardened command, run nothing
 presidio-scout azure                        # Azure audit with the hardened Azure baseline
 presidio-scout gcp                          # GCP audit with the hardened GCP baseline
@@ -101,8 +107,9 @@ pass-through allowlist** (`--profile`, `--region(s)`, `--services`, `--skip`,
 `--no-browser`) and unknown flags are rejected with exit code 2 — a new upstream
 flag can't silently weaken a run until it's vetted and added.
 
-Exit codes: `0` ok · `2` invalid invocation / `scout` not found · `3` report
-guard failure (e.g. `--fail-on-secret`).
+Exit codes: `0` ok · `2` invalid invocation / `scout` not found / unverified
+ScoutSuite · `3` report guard failure (e.g. `--fail-on-secret`) · `4` findings
+severity threshold exceeded (`--fail-on-finding`).
 
 ---
 
@@ -152,6 +159,44 @@ offline**: a strict CSP (`default-src 'none'`, no remote/inline script),
 Subresource Integrity on every local `<script>`/stylesheet (the browser refuses
 a tampered local asset), and detection of any network-reaching reference
 (`--fail-on-remote-ref` turns one into a non-zero exit).
+
+---
+
+## Gating a pipeline on findings
+
+ScoutSuite writes machine-readable results next to the report; the wrapper reads
+that data (it's data, not ScoutSuite code) and turns the **flagged** findings
+(`flagged_items > 0`) into a severity-ranked model. Use it to fail a pipeline on
+the audit result — inline during a run, or after the fact:
+
+```bash
+presidio-scout aws --fail-on-finding danger      # exit 4 if any danger-level finding fired
+presidio-scout-findings ./scoutsuite-report      # summarize an existing report
+presidio-scout-findings ./scoutsuite-report --fail-on warning --format json
+# findings [aws]: 7 flagged (danger=2, warning=5)
+```
+
+Levels rank `danger > warning`; `--fail-on <level>` trips on anything **at or
+above** it. The gate is **fail-closed**: if the results data is missing or
+unparseable it errors (exit 2) rather than passing a report it never evaluated.
+
+### GitHub code scanning (SARIF)
+
+Export the flagged findings as **SARIF 2.1.0** so they surface as code-scanning
+**alerts** (tracked and triageable in the Security tab) — inline during a run
+(`--sarif PATH`) or from an existing report (`presidio-scout-export`):
+
+```yaml
+# .github/workflows/cloud-audit.yml (excerpt)
+- run: presidio-scout aws --report-dir ./report --sarif results.sarif
+- uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: results.sarif
+```
+
+`danger` maps to SARIF `error` (`security-severity` 8.0 / high), `warning` to
+`warning` (4.0 / medium); each flagged resource becomes a result with a stable
+fingerprint so GitHub tracks the same alert across runs.
 
 ---
 
@@ -252,6 +297,20 @@ upstream unnoticed. Regenerate a manifest with
 | **0.2.0** | Azure + GCP curated baselines & least-privilege IAM; ruleset rule-name validation against the pinned ScoutSuite (offline manifest in CI, installed-source drift check at release) |
 | **0.3.0** | Deeper report guard — Subresource Integrity on local assets, offline-viewer (remote-reference) enforcement, and a signed-able, offline-verifiable report manifest (`presidio-scout-verify`) |
 | **0.4.0** | SLSA build-provenance policy verification (`presidio-scout-verify-provenance`, v0.2 + v1) and a reproducible wheel/sdist with a `reproducible-build` CI gate |
+| **0.5.0** | ScoutSuite install-integrity gate — fail-closed preflight that the `scout` you run is the pinned, vetted version (`--allow-unverified-scout` to override); real hash-pinned `requirements.lock`; pinned build backend |
+| **0.6.0** | Findings model + severity gate — `presidio-scout --fail-on-finding danger\|warning` and the standalone `presidio-scout-findings`, parsed from the report data (fail-closed; exit 4) |
+| **0.7.0** | SARIF export + GitHub code-scanning — `presidio-scout-export` and `presidio-scout --sarif PATH` emit SARIF 2.1.0 (severity-mapped, per-resource, stable fingerprints) |
+| **0.8.0** _(planned)_ | Waivers / exceptions framework with justification + owner + expiry (expired waivers fail closed) |
+| **0.9.0** _(planned)_ | Signed run attestation — in-toto statement binding run inputs to the report-manifest digest |
+| **0.10.0** _(planned)_ | Drift detection / run diff (`presidio-scout-diff`, `--fail-on-new-finding`) |
+| **0.11.0** _(planned)_ | Reproducible, multi-arch container + end-to-end image provenance verification at release |
+| **0.12.0** _(planned)_ | Credential brokering / keyless auth — auto-assume the bundled least-privilege audit role; OIDC in CI |
+| **0.13.0** _(planned)_ | Kubernetes deployment — least-privilege Job/CronJob + Helm (IRSA / Workload Identity), seccomp, egress policy |
+| **0.14.0** _(planned)_ | Vulnerability-scan gate + signed SBOM/vuln attestations verified alongside provenance |
+| **0.15.0** _(planned)_ | Org policy profiles / config (`.presidio-scout.toml`, `presidio-scout-policy`) |
+
+See [`PRESIDIO-REQ.md`](./PRESIDIO-REQ.md) for the per-version rationale,
+dependencies, and open design questions.
 
 ---
 
@@ -278,6 +337,9 @@ presidio-hardened-scoutsuite/
 │   ├── manifest.py        # integrity-manifest shape, self-digest, HMAC signing
 │   ├── verify.py          # offline report verification (presidio-scout-verify)
 │   ├── provenance.py      # SLSA provenance policy gate (presidio-scout-verify-provenance)
+│   ├── scout_integrity.py # pinned-ScoutSuite preflight gate
+│   ├── findings.py        # findings model + severity gate (presidio-scout-findings)
+│   ├── sarif.py           # SARIF 2.1.0 export for code scanning (presidio-scout-export)
 │   ├── ruleset.py         # baseline rule-name validation (presidio-scout-validate)
 │   ├── cli.py             # presidio-scout entrypoint
 │   ├── errors.py          # exception hierarchy
