@@ -768,6 +768,60 @@ as control failures, and feed it to Security Hub.
 
 ---
 
+## v0.18.0 — Verified & extended provider baselines (2026-06-16)
+
+Chosen direction: **correct first, then extend** (the curated baselines).
+
+**Finding (significant).** Starting the planned "deeper baselines" work, a check
+of our rule names against the real ScoutSuite 5.14.0 source (its
+`providers/<p>/rules/findings/*.json`) showed our **Azure and GCP baselines were
+almost entirely invalid** — names like `cloudstorage-bucket-world-readable.json`,
+`network-security-group-allowing-ssh-from-all.json`, or
+`aad-no-mfa-for-privileged-users.json` simply do not exist upstream (real names:
+`cloudstorage-bucket-no-public-access-prevention.json`,
+`network-security-groups-rule-inbound-internet-all.json`, `aad-guest-users.json`,
+…). AWS was mostly right but referenced a handful of non-existent rules
+(`ec2-security-group-opens-ssh-port-to-all.json`/`…-rdp-…` — upstream uses the
+parameterized `…-opens-known-port-to-all.json`; `iam-password-policy-reuse.json`
+— upstream is `…-reuse-enabled.json`; `vpc-default-security-group-with-rules.json`
+— upstream `ec2-default-security-group-with-rules.json`;
+`iam-mfa-with-active-accesskeys.json`).
+
+**Why it slipped through.** The offline CI gate only checks *baseline ⊆ manifest*,
+and both were authored together (so a wrong-but-consistent name passes). The
+authoritative gate — release `verify-rulesets`, which installs ScoutSuite and
+checks `--source installed` — has **never run**, because the only release attempt
+was the `v0.15.0` tag push the environment's git proxy blocked (403). So the
+drift shipped unvalidated since 0.1/0.2.
+
+**How it was corrected.** With no ScoutSuite installable here, the upstream
+5.14.0 source was consulted directly via the source tree (raw-file 404s give a
+precise per-rule existence check; directory listings give correct names). Every
+rule name in all three baselines, manifests, and compliance maps was reconciled
+to verified-real 5.14.0 names, then the curated set was **extended** with
+additional high-impact, verified rules (incl. EBS encryption on AWS, Security
+Center / PostgreSQL-MySQL SSL on Azure, and GKE controls on GCP).
+
+**Design decisions:**
+
+- **One coherent set per provider.** manifest == baseline keys == compliance-map
+  keys, so `presidio-scout-validate` (baseline ⊆ manifest) and
+  `compliance.validate_mapping` (map ⊆ manifest) both stay green and every shipped
+  rule is mapped to controls.
+- **Verified, not guessed.** Names are taken from the upstream 5.14.0 tree; the
+  release `verify-rulesets --source installed` gate remains the backstop that will
+  confirm them against an actual install (and is now expected to pass).
+- Counts: AWS 22→**34**, Azure 14→**26**, GCP 15→**27** curated baseline rules.
+
+**Delivered:**
+- Rebuilt `policy/{aws,azure,gcp}.rules.txt`, `*-cis.json`, `*.controls.json`
+  with verified-real, extended rule sets; version 0.18.0
+- Tests updated for the corrected names; baselines + manifests + compliance maps
+  all validate; coverage 96% (≥90% gate); ruff clean
+- README roadmap row; SECURITY.md supported-version bump; this log
+
+---
+
 ## Roadmap
 
 Delivered (0.1.0–0.15.0) — the planned arc is complete. The arc: **0.5** hardens
@@ -817,7 +871,7 @@ stdlib-only runtime, fail-closed, offline-testable).
 |---|---|---|
 | **0.16.0** | **ScoutSuite upgrade automation** — `presidio-scout-upgrade` (fail-closed pin-coherence gate + reviewable bump planner/applier), `--regenerate` for the rule manifests, a `pin-coherence` CI gate, and a scheduled workflow that regenerates the hash-pinned `requirements.lock` + manifests and opens a PR (never auto-merged). ✓ | supply-chain / maintenance · 0.5, 0.14 |
 | **0.17.0** | **Compliance mapping + ASFF export** — `presidio-scout-compliance` maps findings to CIS / NIST 800-53 / SOC 2 controls (curated mappings validated fail-closed against the manifest; `--fail-on-unmapped`); `presidio-scout-asff` / `--asff` export AWS Security Hub findings enriched with the mapped controls. ✓ | policy / integration · 0.6, 0.7 |
-| **0.18.0** | **Deeper / additional provider baselines** — extend curated CIS-aligned baselines (more AWS/Azure/GCP services; consider OCI/Alibaba/K8s if ScoutSuite supports), each behind the rule-name validation gate. | secure-by-default policy · 0.2 |
+| **0.18.0** | **Verified & extended provider baselines** — reconciled every AWS/Azure/GCP baseline, manifest, and compliance-map rule name against the real ScoutSuite 5.14.0 source (correcting names that never existed upstream — Azure/GCP were almost entirely invalid) and extended them (AWS 34 / Azure 26 / GCP 27 curated rules, incl. GKE). ✓ | secure-by-default policy · 0.2 |
 | **0.19.0** | **Org-wide orchestration** — drive a fan-out across many accounts/subscriptions/projects (assume-role / impersonation matrix), one attested report + diff per target, aggregated gate — still out-of-process per account. | operational scale · 0.10, 0.12, 0.13 |
 | **0.20.0** | **Notification / finding sinks** — fail-closed push of gate results to sinks (issue tracker, Slack/webhook, S3/GCS), driven by `.presidio-scout.toml` profiles; redaction-aware, no secret leakage. | integration · 0.15, 0.17 |
 | **0.21.0** (stretch) | **Config-driven redaction & baseline composition** — let an org extend redaction patterns and compose/layer baselines from config, validated fail-closed by `presidio-scout-policy`. | usability / policy · 0.15 |

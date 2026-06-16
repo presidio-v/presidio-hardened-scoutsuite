@@ -560,6 +560,7 @@ does this automatically on a version bump).
 | **0.15.0** | Org policy profiles / config — `.presidio-scout.toml` defaults + named profiles applied as CLI defaults, validated by `presidio-scout-policy` |
 | **0.16.0** | ScoutSuite upgrade automation — `presidio-scout-upgrade` (fail-closed pin-coherence gate + reviewable bump planner/applier), `--regenerate` for the rule manifests, a `pin-coherence` CI gate, and a scheduled workflow that bumps the lockfile + manifests and opens a PR |
 | **0.17.0** | Compliance mapping + ASFF export — `presidio-scout-compliance` maps findings to CIS / NIST 800-53 / SOC 2 controls (validated fail-closed against the manifest); `presidio-scout-asff` / `--asff` emit AWS Security Hub findings enriched with the mapped controls |
+| **0.18.0** | Verified & extended provider baselines — every AWS/Azure/GCP baseline, manifest, and compliance-map rule name reconciled against the real ScoutSuite 5.14.0 source (correcting names that never existed upstream) and expanded (AWS 34 / Azure 26 / GCP 27 curated rules, incl. GKE) |
 
 See [`PRESIDIO-REQ.md`](./PRESIDIO-REQ.md) for the per-version rationale,
 dependencies, and open design questions.

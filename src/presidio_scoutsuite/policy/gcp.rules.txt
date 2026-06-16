@@ -7,32 +7,35 @@
 # Regenerate against the actually-pinned ScoutSuite (run inside an env with the
 # '[scoutsuite]' extra installed):
 #
-#     python - <<'PY'
-#     from presidio_scoutsuite import ruleset
-#     print("\n".join(sorted(ruleset.installed_rules("gcp"))))
-#     PY
+#     presidio-scout-validate --regenerate --source installed
 #
 # 'presidio-scout-validate --source installed' flags any drift between this
 # inventory and the installed ScoutSuite.
 
-cloudstorage-bucket-world-readable.json
-cloudstorage-bucket-uniform-access-disabled.json
+cloudstorage-bucket-no-public-access-prevention.json
+cloudstorage-uniform-bucket-level-access-disabled.json
 cloudstorage-bucket-no-versioning.json
-cloudsql-instance-public-ip.json
-cloudsql-instance-not-requiring-ssl.json
-cloudsql-instance-no-automated-backup.json
-gce-instance-with-public-ip.json
-gce-default-service-account-full-access.json
-gce-instance-without-os-login.json
-gce-instance-with-serial-port-enabled.json
-gce-instance-with-ip-forwarding-enabled.json
-firewall-rule-allowing-ssh-from-all.json
-firewall-rule-allowing-rdp-from-all.json
-firewall-default-rule-in-use.json
-kms-cryptokey-anonymously-or-publicly-accessible.json
-kms-cryptokey-no-rotation.json
+cloudstorage-bucket-no-logging.json
+cloudsql-instances-public-ips.json
+cloudsql-instance-ssl-not-required.json
+cloudsql-instance-backups-disabled.json
+cloudsql-instance-is-open-to-the-world.json
+computeengine-instance-public-ip-adresses.json
+computeengine-instance-default-service-account.json
+computeengine-instance-full-api-access.json
+computeengine-instance-os-login-disabled.json
+computeengine-instance-connecting-serial-ports-enabled.json
+computeengine-instance-ip-forwarding-enabled.json
+computeengine-instance-shielded-vm-disabled.json
+computeengine-firewall-rule-opens-sensitive-port-to-all.json
+computeengine-firewall-rule-opens-all-ports-to-all.json
+computeengine-firewall-default-rule-in-use.json
+computeengine-vpc-flow-logs-disabled.json
+kms-cryptokeys-anonymously-publicly-accessible.json
+kms-encryption-keys-not-rotated.json
 iam-primitive-role-in-use.json
-iam-service-account-with-admin-privileges.json
-iam-service-account-with-user-managed-key.json
-logging-no-export-sink.json
-logging-bucket-no-retention-policy.json
+iam-sa-has-admin-privileges.json
+iam-service-account-with-user-managed-keys.json
+iam-lack-of-service-account-key-rotation.json
+kubernetesengine-cluster-logging-disabled.json
+kubernetesengine-legacy-abac-enabled.json
