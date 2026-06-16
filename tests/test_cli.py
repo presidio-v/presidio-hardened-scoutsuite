@@ -76,6 +76,40 @@ def test_fail_on_secret_when_redaction_disabled(tmp_path, monkeypatch):
     assert rc == 3
 
 
+def test_full_run_writes_verifiable_manifest(tmp_path, monkeypatch, capsys):
+    from presidio_scoutsuite import manifest, verify
+
+    report_dir = tmp_path / "out"
+
+    def fake_run(plan, timeout=None):
+        (plan.report_dir / "report.html").write_text("<html><head></head><body>clean</body></html>")
+        return subprocess.CompletedProcess(plan.argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(launcher, "run", fake_run)
+    rc = cli.main(["aws", "--report-dir", str(report_dir)])
+    assert rc == 0
+    assert "integrity manifest" in capsys.readouterr().out
+    assert (report_dir / manifest.MANIFEST_FILENAME).exists()
+    # the freshly written report verifies against its own manifest
+    assert verify.verify_report(report_dir).ok
+
+
+def test_fail_on_remote_ref(tmp_path, monkeypatch, capsys):
+    report_dir = tmp_path / "out"
+
+    def fake_run(plan, timeout=None):
+        (plan.report_dir / "report.html").write_text(
+            '<html><head></head><body><script src="https://cdn.example/x.js"></script>'
+            "</body></html>"
+        )
+        return subprocess.CompletedProcess(plan.argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(launcher, "run", fake_run)
+    rc = cli.main(["aws", "--report-dir", str(report_dir), "--fail-on-remote-ref"])
+    assert rc == 3
+    assert "remote resources" in capsys.readouterr().err
+
+
 def test_missing_scout_binary_returns_2(tmp_path, monkeypatch, capsys):
     def boom(plan, timeout=None):
         raise FileNotFoundError("scout")

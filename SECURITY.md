@@ -43,8 +43,14 @@ redaction, supply-chain controls, and a least-privilege deployment model.
   private-key blocks, bearer/`Authorization` tokens, etc., and redacted in
   place. `--fail-on-secret` makes a surviving secret a non-zero exit.
 - **Report guard (`report_guard`)** — a strict **Content-Security-Policy** is
-  injected into every HTML report file (no remote/inline scripts), and a
-  SHA-256 **integrity manifest** is recorded for the rendered report.
+  injected into every HTML report file (no remote/inline scripts), each local
+  `<script>`/stylesheet gets a **Subresource Integrity** (`sha384`) hash so the
+  browser refuses a tampered local asset, and any network-reaching reference is
+  flagged (`--fail-on-remote-ref` makes one a non-zero exit). A SHA-256
+  **integrity manifest** (`presidio-report-manifest.json`) is written for the
+  rendered report — self-digested, optionally HMAC-signed
+  (`PRESIDIO_MANIFEST_HMAC_KEY`) — and verified offline with
+  **`presidio-scout-verify`**, which flags any modified/missing/added file.
 - **Secure-by-default rulesets** — curated, CIS-aligned **AWS, Azure, and GCP**
   baselines are applied by default (`--ruleset`), forcing high-impact
   identity/logging/network/storage controls to `danger`. Opt out with
