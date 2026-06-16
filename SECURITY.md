@@ -4,8 +4,8 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 0.18.x  | ✅ Yes (current) |
-| <0.18   | Best-effort security fixes only |
+| 0.19.x  | ✅ Yes (current) |
+| <0.19   | Best-effort security fixes only |
 
 ## Reporting a Vulnerability
 
@@ -117,6 +117,14 @@ redaction, supply-chain controls, and a least-privilege deployment model.
   signature *and* the provenance (cryptographically, then against this
   distribution's `presidio-scout-verify-provenance` policy) — before the release
   run is allowed to succeed.
+- **Org-wide fleet orchestration** — `presidio-scout-orchestrate` fans the audit
+  across a declared `.presidio-scout-targets.toml` matrix, running each account as
+  a **separate out-of-process `presidio-scout`** invocation with its own scrubbed
+  environment (no ScoutSuite state shared between accounts). It **does not broker
+  credentials** (the 0.12.0 decision) — it only selects each target's read-only
+  identity via that target's credential-resolution env. **Fail-closed:** a target
+  that can't be audited, or whose results can't be read for the aggregated gate,
+  fails the fleet run rather than being silently skipped.
 - **Compliance mapping (CIS / NIST 800-53 / SOC 2)** — `presidio-scout-compliance`
   expresses flagged findings as **control** failures using curated, checked-in
   rule→control mappings (`policy/<provider>.controls.json`). The mappings are
