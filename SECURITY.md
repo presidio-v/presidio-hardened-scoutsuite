@@ -75,6 +75,11 @@ redaction, supply-chain controls, and a least-privilege deployment model.
   hash-pinned. The wheel/sdist build is **reproducible** (pinned
   `SOURCE_DATE_EPOCH`), enforced by a `reproducible-build` CI gate that builds
   twice and requires byte-identical digests.
+- **Findings severity gate** — `presidio-scout --fail-on-finding danger|warning`
+  (and the standalone `presidio-scout-findings`) reads ScoutSuite's results data
+  off disk and exits non-zero (4) when any *flagged* finding is at or above the
+  chosen severity, so an audit can block a CI pipeline. Fail-closed: missing or
+  unparseable results error out rather than passing a report never evaluated.
 - **ScoutSuite install-integrity gate** — before any cloud credentials are
   handed to ScoutSuite, a fail-closed preflight (`scout_integrity`) confirms the
   `scout` on PATH is the **pinned, vetted version** this distribution ships;

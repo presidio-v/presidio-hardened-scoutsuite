@@ -300,9 +300,44 @@ from the installed package (`ruleset.installed_rules`) and the release-time
 
 ---
 
+## v0.6.0 — Findings model + severity gate (2026-06-16)
+
+**Design decisions:**
+
+- **Read results as *data*, never import ScoutSuite.** ScoutSuite writes
+  `scoutsuite_results*.js` (a `scoutsuite_results = {…}` JS wrapper around a JSON
+  object) next to the report. `findings.py` strips the wrapper (`raw_decode` from
+  the first `{`, tolerant of trailing JS) and flattens
+  `services.<svc>.findings.<rule>` into a model — staying out-of-process and
+  GPL-clean.
+- **Only *flagged* findings count.** A finding exists for every rule in the
+  ruleset; it "fires" only when `flagged_items > 0`. The model excludes the rest,
+  so counts reflect real problems. Parsing is defensive about malformed shapes
+  (non-dict services/findings, bad `flagged_items`) — a weird results file
+  yields fewer findings, never a crash.
+- **Severity gate, fail-closed.** Levels rank `danger > warning`; `--fail-on
+  <level>` trips on anything at or above it (exit **4**, a new code distinct from
+  guard failure). If the results data is missing or unparseable the gate
+  **errors (exit 2)** rather than passing — a gate that can't read the audit must
+  not green-light it.
+- **Inline gate + standalone tool.** `presidio-scout --fail-on-finding` evaluates
+  after redaction/guard during a run; `presidio-scout-findings` summarizes/gates
+  an existing report offline (text or JSON), for use after the fact or in a
+  separate CI step. Same model and exit codes behind both.
+
+**Delivered:**
+- `findings.py` (`Finding`, `FindingsReport`, `load_report`) + `FindingsError`;
+  `presidio-scout-findings` console script; `--fail-on-finding` on the main CLI
+- Public API exports (`Finding`, `FindingsReport`, `load_report`)
+- `test_findings.py` + CLI gate tests (danger trips, under-threshold passes,
+  missing results fails closed); coverage 96% (≥90% gate); ruff clean
+- README *Gating a pipeline on findings* section, exit-code 4, SECURITY.md, this log
+
+---
+
 ## Roadmap
 
-Delivered (0.1.0–0.5.0) and planned (0.6.0–0.15.0). The arc: **0.5** hardens
+Delivered (0.1.0–0.6.0) and planned (0.7.0–0.15.0). The arc: **0.5** hardens
 *what runs*; **0.6–0.8** turn findings into an enforceable, waiver-aware policy
 gate; **0.9–0.10** make every run attested and comparable over time; **0.11–0.14**
 harden how it's built and deployed; **0.15** makes it configurable for an org.
@@ -316,7 +351,7 @@ ScoutSuite, MIT wrapper, stdlib runtime, fail-closed, offline-testable.
 | **0.3.0** | Deeper report guard (SRI, offline viewer), signed report manifests | report integrity ✓ |
 | **0.4.0** | SLSA provenance verification on pull; reproducible-build attestation | supply-chain ✓ |
 | **0.5.0** | **ScoutSuite install-integrity gate** — fail-closed preflight that the `scout` on PATH is the pinned, vetted version before running (`--allow-unverified-scout` to override); real hash-pinned `requirements.lock`; pinned `hatchling` build backend. ✓ | supply-chain + runtime trust · lockfile |
-| **0.6.0** | **Findings model + severity gate** — parse the `scoutsuite-results` data off disk into a deterministic findings summary; `--fail-on-finding danger\|warning` to gate a pipeline. | secure-by-default policy |
+| **0.6.0** | **Findings model + severity gate** — parse the `scoutsuite-results` data off disk into a deterministic findings summary; `--fail-on-finding danger\|warning` + standalone `presidio-scout-findings` (fail-closed, exit 4). ✓ | secure-by-default policy |
 | **0.7.0** | **SARIF export + code-scanning** — `presidio-scout-export --format sarif`; documented GitHub Action to upload to code scanning; findings mapped to rule IDs/severities. | policy / integration · 0.6 |
 | **0.8.0** | **Waivers / exceptions framework** — checked-in waivers (rule + resource + justification + owner + **expiry**); waived findings suppressed in the gate but recorded; **expired waivers fail closed**. | policy · 0.6 |
 | **0.9.0** | **Signed run attestation** — an in-toto statement binding inputs (provider, ruleset digest, verified ScoutSuite version) → outputs (report-manifest digest), verifiable with the existing tooling. | supply-chain integrity · 0.3, 0.4, 0.5 |
