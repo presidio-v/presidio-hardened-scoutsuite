@@ -136,6 +136,15 @@ class AsffError(PresidioScoutError):
     """
 
 
+class TrendError(PresidioScoutError):
+    """A posture-history store could not be read, appended, or compared.
+
+    Raised when the history store is missing/malformed, a snapshot can't be built
+    from a report (fail-closed: a regression gate must not pass on a run it never
+    recorded), or a regression threshold is unknown.
+    """
+
+
 class NotificationError(PresidioScoutError):
     """A finding-notification could not be delivered to a sink.
 

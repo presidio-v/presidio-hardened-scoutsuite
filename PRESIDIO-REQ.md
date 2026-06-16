@@ -957,6 +957,38 @@ routed to sinks (0.20), and org-tailorable (0.21).
 
 ---
 
+## v0.22.0 — Posture history & trend (2026-06-16)
+
+First version of the third arc (continuous assurance): turn point-in-time audits
+into a tracked trend with a regression gate.
+
+**Design decisions:**
+
+- **Append-only JSONL history.** `trend.record` snapshots a finished report
+  (timestamp, providers, per-level counts, and the `{service/rule: level}` map of
+  flagged findings) and appends one JSON object per line — durable, diff-friendly,
+  and no DB dependency. The clock is injectable for deterministic tests.
+- **Regression, not absolute count.** `compare` yields *new* (flagged now, not
+  before) and *resolved* (flagged before, not now) findings vs the previous
+  snapshot; `--fail-on-regression danger|warning` (exit 4) blocks only when a
+  *new* finding at/above that severity appears. This catches a regression even
+  when the total is within an existing waiver budget — complementary to the
+  absolute `--fail-on-finding` gate and to `presidio-scout-diff` (which needs two
+  report dirs; trend persists across runs instead).
+- **Fail-closed.** A run whose results can't be read is never recorded as clean
+  (`load_report` raises); a malformed history line errors with its line number
+  rather than silently resetting the baseline.
+
+**Delivered:**
+- `trend.py` (`snapshot`, `load_history`/`append`, `compare`/`Comparison`,
+  `record`) + `TrendError`; `presidio-scout-trend record|show` console script
+- Public API exports; version 0.22.0 (both files)
+- `test_trend.py`; coverage 95% (≥90% gate); ruff clean
+- README roadmap row; SECURITY.md regression-gate bullet + supported-version bump;
+  this log
+
+---
+
 ## Roadmap
 
 Delivered (0.1.0–0.15.0) — the planned arc is complete. The arc: **0.5** hardens
@@ -1031,7 +1063,7 @@ offline-testable).
 
 | Version | Planned | Axis · depends on |
 |---|---|---|
-| **0.22.0** | **Posture history & trend** — `presidio-scout-trend`: append each run's summary to an append-only JSONL store; report new/resolved findings and per-control movement over time; fail-closed **regression gate** (block when posture worsens). | operational / continuous · 0.10, 0.17, 0.19 |
+| **0.22.0** | **Posture history & trend** — `presidio-scout-trend record|show`: append each run to an append-only JSONL history; report new/resolved findings vs the previous run; fail-closed `--fail-on-regression` gate (block when a new finding appears). ✓ | operational / continuous · 0.10, 0.17, 0.19 |
 | **0.23.0** | **Remediation guidance** — curated per-rule remediation steps + doc links (bundled like the control maps, validated against the manifest); `presidio-scout-remediate` emits fix guidance per finding and fills the ASFF `Remediation` field + notify summaries. | policy / integration · 0.17, 0.20 |
 | **0.24.0** | **Policy-as-code assertions** — `presidio-scout-assert`: a declarative policy file of named assertions (provider/service/rule/resource predicates) richer than a single severity threshold (e.g. "no public storage in prod", "MFA on all admins"); fail-closed. | policy · 0.6, 0.8, 0.15 |
 | **0.25.0** | **Aliyun & OCI baselines** — curated, manifest-verified baselines + least-privilege IAM for ScoutSuite's remaining providers, reconciled against the real upstream source (the 0.18 method). | secure-by-default policy · 0.2, 0.18 |

@@ -37,6 +37,7 @@ from .errors import (
     ReportVerificationError,
     RulesetValidationError,
     ScoutIntegrityError,
+    TrendError,
     UpgradeError,
     VulnerabilityError,
     WaiverError,
@@ -67,6 +68,7 @@ from .ruleset import (
 )
 from .sarif import to_sarif
 from .scout_integrity import ScoutIntegrityResult, pinned_version, verify_scout
+from .trend import Comparison, Snapshot, compare, load_history, record, snapshot
 from .upgrade import (
     CoherenceReport,
     Pin,
@@ -101,7 +103,14 @@ __all__ = [
     "AsffError",
     "OrchestrationError",
     "NotificationError",
+    "TrendError",
     "UpgradeError",
+    "Snapshot",
+    "Comparison",
+    "snapshot",
+    "compare",
+    "record",
+    "load_history",
     "build_summary",
     "render_text",
     "resolve_sink",

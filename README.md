@@ -665,12 +665,12 @@ planned (see the tables at the end).
 | **0.19.0** | Org-wide orchestration — `presidio-scout-orchestrate` fans the audit across a `.presidio-scout-targets.toml` matrix (one out-of-process run + report per account, no credential brokering) with an aggregated, fail-closed severity gate |
 | **0.20.0** | Notification sinks — `presidio-scout-notify` pushes an audit summary to a file / webhook / Slack sink (config- or flag-driven), redaction-aware and fail-closed so a secret can't leak to an external sink |
 | **0.21.0** | Config-driven redaction & baseline composition — `[redaction].extra-patterns` add org secret redactors; `[baseline]` composes a ruleset from a bundled baseline (set-level / disable), both validated fail-closed by `presidio-scout-policy` |
+| **0.22.0** | Posture history & trend — `presidio-scout-trend` records each run to an append-only history and gates on **regression** (a new finding vs the previous run); persists across runs without keeping old reports |
 
 ### Planned — third arc: continuous assurance & remediation (0.22.0+)
 
 | Version | Planned |
 |---|---|
-| **0.22.0** | Posture history & trend — `presidio-scout-trend` appends each run to an append-only store and gates on regression (posture worsening over time) |
 | **0.23.0** | Remediation guidance — curated per-rule fix steps; `presidio-scout-remediate` emits them and fills ASFF `Remediation` + notify summaries |
 | **0.24.0** | Policy-as-code assertions — `presidio-scout-assert` evaluates a declarative policy (richer than a severity threshold), fail-closed |
 | **0.25.0** | Aliyun & OCI baselines — curated, manifest-verified baselines + least-privilege IAM for the remaining providers |

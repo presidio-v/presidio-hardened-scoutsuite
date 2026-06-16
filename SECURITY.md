@@ -4,8 +4,8 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 0.21.x  | ✅ Yes (current) |
-| <0.21   | Best-effort security fixes only |
+| 0.22.x  | ✅ Yes (current) |
+| <0.22   | Best-effort security fixes only |
 
 ## Reporting a Vulnerability
 
@@ -117,6 +117,13 @@ redaction, supply-chain controls, and a least-privilege deployment model.
   signature *and* the provenance (cryptographically, then against this
   distribution's `presidio-scout-verify-provenance` policy) — before the release
   run is allowed to succeed.
+- **Posture-regression gate** — `presidio-scout-trend` records each run's flagged
+  findings to an append-only history and compares the latest run to the previous
+  one; `--fail-on-regression danger|warning` exits non-zero when a *new* finding
+  at or above that severity appears, so a pipeline blocks when posture worsens
+  even if the absolute count is within an existing waiver budget. Fail-closed: a
+  run whose results can't be read is never recorded as clean, and a malformed
+  history store errors rather than silently resetting the baseline.
 - **Config-driven redaction & baseline composition** — `[redaction].extra-patterns`
   in `.presidio-scout.toml` add org-specific secret redactors that run *alongside*
   the built-ins during report redaction; `[baseline]` composes the ruleset from a
