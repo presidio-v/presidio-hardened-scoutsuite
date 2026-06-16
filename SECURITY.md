@@ -4,8 +4,8 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 0.20.x  | ✅ Yes (current) |
-| <0.20   | Best-effort security fixes only |
+| 0.21.x  | ✅ Yes (current) |
+| <0.21   | Best-effort security fixes only |
 
 ## Reporting a Vulnerability
 
@@ -117,6 +117,14 @@ redaction, supply-chain controls, and a least-privilege deployment model.
   signature *and* the provenance (cryptographically, then against this
   distribution's `presidio-scout-verify-provenance` policy) — before the release
   run is allowed to succeed.
+- **Config-driven redaction & baseline composition** — `[redaction].extra-patterns`
+  in `.presidio-scout.toml` add org-specific secret redactors that run *alongside*
+  the built-ins during report redaction; `[baseline]` composes the ruleset from a
+  bundled baseline (raise/lower/add a rule's severity, disable rules). Both are
+  **fail-closed**: an uncompilable regex, an unknown baseline rule (not in the
+  pinned ScoutSuite's manifest), or a bad severity is rejected by
+  `presidio-scout-policy` (and again when a run applies them), so a typo can't
+  silently weaken redaction or drop a control.
 - **Redaction-aware notification sinks** — `presidio-scout-notify` pushes an
   audit summary to a file, a generic JSON webhook, or Slack. Before anything
   leaves the process the payload is run through the **same secret scanner the

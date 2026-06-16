@@ -79,10 +79,20 @@ def _read(path: Path) -> dict:
         data = tomllib.loads(path.read_text(encoding="utf-8"))
     except (OSError, tomllib.TOMLDecodeError) as exc:
         raise ConfigError(f"cannot read config {path}: {exc}") from exc
-    extra = set(data) - {"defaults", "profiles"}
+    extra = set(data) - {"defaults", "profiles", "redaction", "baseline", "sinks"}
     if extra:
         raise ConfigError(f"{path}: unknown top-level section(s): {', '.join(sorted(extra))}")
     return data
+
+
+def read_raw(path: str | Path) -> dict:
+    """Parse and top-level-validate the config file, returning the raw TOML dict.
+
+    Used by callers that need the structured ``[redaction]`` / ``[baseline]``
+    sections (see :mod:`presidio_scoutsuite.compose`), not just scalar settings.
+    """
+
+    return _read(Path(path))
 
 
 def validate_file(path: str | Path) -> list[str]:
@@ -95,6 +105,10 @@ def validate_file(path: str | Path) -> list[str]:
         raise ConfigError("[profiles] must be a table")
     for name, table in profiles.items():
         _validate_table(table, where=f"[profiles.{name}]")
+    # Fail-closed validation of the optional [redaction] / [baseline] extensions.
+    from . import compose
+
+    compose.validate_extensions(data)
     return sorted(profiles)
 
 

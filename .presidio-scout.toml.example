@@ -20,3 +20,29 @@ attest = "scoutsuite-report/run.intoto.json"
 [profiles.dev]
 require-short-lived-creds = false
 fail-on-finding = "warning"
+
+# Extra secret patterns, applied in addition to the built-in redactors during
+# report redaction. Each entry is a regex string or a { name, pattern } table.
+# An uncompilable regex fails `presidio-scout-policy validate`.
+[redaction]
+extra-patterns = [
+  { name = "internal_token", pattern = "INT-[A-Z0-9]{20}" },
+  "GHX-[a-z0-9]{16}",
+]
+
+# Compose the ruleset from a bundled provider baseline instead of hand-writing
+# one. Used automatically (unless you pass --ruleset / --no-baseline). Every rule
+# named here must exist in the pinned ScoutSuite's manifest, or validation fails.
+[baseline]
+base = "aws"
+
+[baseline.set-level]            # raise/lower (or add) a rule's severity
+"s3-bucket-no-versioning.json" = "danger"
+
+[baseline.disable]              # drop rules from the base baseline
+rules = ["ec2-default-security-group-with-rules.json"]
+
+# Notification sink for presidio-scout-notify (see the README).
+[sinks.prod-slack]
+type = "slack"
+url = "https://hooks.slack.com/services/REPLACE/ME"

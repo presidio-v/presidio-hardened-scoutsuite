@@ -16,7 +16,8 @@ from .compliance import (
     load_mapping,
     validate_mapping,
 )
-from .config import load_settings, resolve, validate_file
+from .compose import compose_baseline, parse_redaction_patterns, validate_extensions
+from .config import load_settings, read_raw, resolve, validate_file
 from .credentials import CredentialCheck, assert_short_lived, inspect_credentials
 from .diff import DiffResult, diff_reports, load_and_diff
 from .errors import (
@@ -166,6 +167,10 @@ __all__ = [
     "load_settings",
     "resolve",
     "validate_file",
+    "read_raw",
+    "parse_redaction_patterns",
+    "compose_baseline",
+    "validate_extensions",
     "referenced_rules",
     "available_rules",
     "missing_rules",
