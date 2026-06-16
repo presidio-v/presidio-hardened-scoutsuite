@@ -1011,9 +1011,56 @@ stdlib-only runtime, fail-closed, offline-testable).
 | **0.20.0** | **Notification / finding sinks** — `presidio-scout-notify` pushes an audit summary to a file / webhook / Slack sink (flag- or `[sinks.<name>]`-config-driven); redaction-aware and fail-closed (a secret in the payload stops the send); stdlib-only transport, `--only-if` to suppress noise. ✓ | integration · 0.15, 0.17 |
 | **0.21.0** (stretch) | **Config-driven redaction & baseline composition** — `[redaction].extra-patterns` add org secret redactors (applied during redaction); `[baseline]` composes a ruleset from a bundled baseline (set-level / disable), validated against the manifest; both fail-closed via `presidio-scout-policy`. ✓ | usability / policy · 0.15 |
 
-**Recommendation:** start with **0.16.0** — keeping the pinned ScoutSuite current
-underpins every gate (rules, vuln scan, integrity preflight) and is the highest
-maintenance risk now that the arc is feature-complete.
+**Outcome:** the whole 0.16.0–0.21.0 arc is **delivered ✓**. The single-run
+auditor is now a fleet tool — kept current (0.16), control-mapped &
+Security-Hub-exportable (0.17), validated against real upstream rules (0.18),
+fanned out across accounts (0.19), routed to sinks (0.20), and org-tailorable
+(0.21).
+
+---
+
+## Third arc — 0.22.0+ (sketch)
+
+The first two arcs built a hardened single-run auditor (0.1–0.15) and turned it
+into a fleet tool with integrations (0.16–0.21). The third arc turns point-in-time
+audits into a **continuous, actionable assurance program**: track posture over
+time, tell operators *how* to fix findings, express richer pass/fail policy, cover
+the remaining providers, and report for humans — keeping every invariant
+(out-of-process, no GPL import, MIT, stdlib-only runtime, fail-closed,
+offline-testable).
+
+| Version | Planned | Axis · depends on |
+|---|---|---|
+| **0.22.0** | **Posture history & trend** — `presidio-scout-trend`: append each run's summary to an append-only JSONL store; report new/resolved findings and per-control movement over time; fail-closed **regression gate** (block when posture worsens). | operational / continuous · 0.10, 0.17, 0.19 |
+| **0.23.0** | **Remediation guidance** — curated per-rule remediation steps + doc links (bundled like the control maps, validated against the manifest); `presidio-scout-remediate` emits fix guidance per finding and fills the ASFF `Remediation` field + notify summaries. | policy / integration · 0.17, 0.20 |
+| **0.24.0** | **Policy-as-code assertions** — `presidio-scout-assert`: a declarative policy file of named assertions (provider/service/rule/resource predicates) richer than a single severity threshold (e.g. "no public storage in prod", "MFA on all admins"); fail-closed. | policy · 0.6, 0.8, 0.15 |
+| **0.25.0** | **Aliyun & OCI baselines** — curated, manifest-verified baselines + least-privilege IAM for ScoutSuite's remaining providers, reconciled against the real upstream source (the 0.18 method). | secure-by-default policy · 0.2, 0.18 |
+| **0.26.0** | **Executive & multi-format reporting** — a self-contained Markdown/HTML executive summary + CSV export, and fleet rollups aggregating many targets into one view. | reporting · 0.17, 0.19 |
+| **0.27.0** (stretch) | **Stable extension API** — a documented, MIT-safe plugin entry point for custom exporters / sinks / redactors so orgs extend without forking. | extensibility · 0.20, 0.21 |
+
+**Recommendation:** start with **0.22.0** — a trend store + regression gate turns
+the existing diff (0.10) and orchestration (0.19) into ongoing assurance, and is
+the natural next capability now that single runs are fully featured.
+
+---
+
+## Delivery status
+
+Everything planned to date is **delivered and merged to `main`**; the project is
+at **v0.21.0**. Both arcs shipped in full, each version as its own babysat,
+squash-merged PR:
+
+- **Arc 1 — single-run hardened auditor (0.1.0–0.15.0):** ✓ delivered
+- **Arc 2 — fleet tooling & integrations (0.16.0–0.21.0):** ✓ delivered
+- **Arc 3 — continuous assurance & remediation (0.22.0+):** planned (sketch above)
+
+**Release status.** The release pipeline has been exercised once end-to-end at
+**v0.18.0** — `verify-rulesets` validated the corrected baselines against a real
+ScoutSuite install, and the MIT wrapper published to PyPI with a cosign-signed,
+provenance+SBOM-attested image. (The earlier `v0.15.0` tag could not be pushed
+from the development environment — the git proxy rejects any ref other than the
+dev branch.) The post-0.18 work (**0.19.0–0.21.0**) is on `main` but **not yet
+tagged**; a fresh `v0.21.0` tag would release it through the same pipeline.
 
 ---
 
