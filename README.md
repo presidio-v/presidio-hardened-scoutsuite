@@ -462,6 +462,34 @@ presidio-scout-policy show --profile nightly   # print the resolved settings
 out-of-range values (an unknown provider or severity), so a typo in org policy
 fails loudly. See [`.presidio-scout.toml.example`](./.presidio-scout.toml.example).
 
+### Extending redaction & composing a baseline (from config)
+
+The same config can tailor two hardened behaviours without forking the
+distribution — both validated fail-closed by `presidio-scout-policy`:
+
+```toml
+# Scrub your own credential shapes in addition to the built-in redactors.
+[redaction]
+extra-patterns = [
+  { name = "internal_token", pattern = "INT-[A-Z0-9]{20}" },
+  "GHX-[a-z0-9]{16}",
+]
+
+# Compose the ruleset from a bundled baseline instead of hand-writing one.
+[baseline]
+base = "aws"
+[baseline.set-level]            # raise/lower (or add) a rule's severity
+"s3-bucket-no-versioning.json" = "danger"
+[baseline.disable]              # drop rules from the base baseline
+rules = ["ec2-default-security-group-with-rules.json"]
+```
+
+`[redaction].extra-patterns` are applied during report redaction (a
+custom-secret survives into nothing). `[baseline]` is used automatically as the
+ruleset (unless you pass `--ruleset`/`--no-baseline`); every rule it names must
+exist in the pinned ScoutSuite's manifest, and an uncompilable regex or unknown
+rule fails validation rather than silently doing nothing.
+
 ---
 
 ## Keep ScoutSuite current (upgrade automation)
@@ -628,6 +656,7 @@ does this automatically on a version bump).
 | **0.18.0** | Verified & extended provider baselines — every AWS/Azure/GCP baseline, manifest, and compliance-map rule name reconciled against the real ScoutSuite 5.14.0 source (correcting names that never existed upstream) and expanded (AWS 34 / Azure 26 / GCP 27 curated rules, incl. GKE) |
 | **0.19.0** | Org-wide orchestration — `presidio-scout-orchestrate` fans the audit across a `.presidio-scout-targets.toml` matrix (one out-of-process run + report per account, no credential brokering) with an aggregated, fail-closed severity gate |
 | **0.20.0** | Notification sinks — `presidio-scout-notify` pushes an audit summary to a file / webhook / Slack sink (config- or flag-driven), redaction-aware and fail-closed so a secret can't leak to an external sink |
+| **0.21.0** | Config-driven redaction & baseline composition — `[redaction].extra-patterns` add org secret redactors; `[baseline]` composes a ruleset from a bundled baseline (set-level / disable), both validated fail-closed by `presidio-scout-policy` |
 
 See [`PRESIDIO-REQ.md`](./PRESIDIO-REQ.md) for the per-version rationale,
 dependencies, and open design questions.
@@ -669,6 +698,7 @@ presidio-hardened-scoutsuite/
 │   ├── vuln.py            # Trivy/Grype vulnerability gate (presidio-scout-vuln-gate)
 │   ├── config.py          # .presidio-scout.toml org config (presidio-scout-policy)
 │   ├── ruleset.py         # baseline rule-name validation (presidio-scout-validate)
+│   ├── compose.py         # config-driven redaction patterns + baseline composition
 │   ├── upgrade.py         # ScoutSuite pin-coherence gate + bump tooling (presidio-scout-upgrade)
 │   ├── orchestrate.py     # multi-account fleet fan-out + aggregated gate (presidio-scout-orchestrate)
 │   ├── notify.py          # redaction-aware notification sinks (presidio-scout-notify)

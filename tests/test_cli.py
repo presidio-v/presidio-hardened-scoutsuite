@@ -32,6 +32,48 @@ def test_no_baseline_omits_ruleset(tmp_path, capsys):
     assert "--ruleset" not in capsys.readouterr().out
 
 
+def test_config_composed_baseline_used(tmp_path, capsys):
+
+    cfg = tmp_path / ".presidio-scout.toml"
+    cfg.write_text(
+        '[baseline]\nbase = "aws"\n'
+        '[baseline.set-level]\n"s3-bucket-no-versioning.json" = "danger"\n'
+    )
+    rc = cli.main(["aws", "--report-dir", str(tmp_path / "out"), "--config", str(cfg), "--dry-run"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "using composed baseline" in out
+    # the composed ruleset file is referenced on the hardened command line
+    assert "--ruleset" in out
+
+
+def test_config_extra_redaction_applied(tmp_path, monkeypatch, capsys):
+    cfg = tmp_path / ".presidio-scout.toml"
+    cfg.write_text('[redaction]\nextra-patterns = ["INT-[0-9]{4}"]\n')
+    report_dir = tmp_path / "out"
+    _verify_ok(monkeypatch)
+
+    def fake_run(plan, timeout=None):
+        (plan.report_dir / "report.html").write_text(
+            "<html><head></head><body>token INT-1234 here</body></html>"
+        )
+        return subprocess.CompletedProcess(plan.argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(launcher, "run", fake_run)
+    rc = cli.main(["aws", "--report-dir", str(report_dir), "--config", str(cfg)])
+    assert rc == 0
+    body = (report_dir / "report.html").read_text()
+    assert "INT-1234" not in body  # org-defined secret redacted
+
+
+def test_config_bad_extension_fails_closed(tmp_path, capsys):
+    cfg = tmp_path / ".presidio-scout.toml"
+    cfg.write_text('[redaction]\nextra-patterns = ["("]\n')
+    rc = cli.main(["aws", "--report-dir", str(tmp_path / "out"), "--config", str(cfg), "--dry-run"])
+    assert rc == 2
+    assert "invalid regex" in capsys.readouterr().err
+
+
 def test_invalid_passthrough_returns_2(tmp_path, capsys):
     rc = cli.main(["aws", "--report-dir", str(tmp_path / "out"), "--", "--evil-flag"])
     assert rc == 2

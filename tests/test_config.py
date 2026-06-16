@@ -163,5 +163,32 @@ def test_cli_show(tmp_path, capsys):
     assert json.loads(capsys.readouterr().out)["fail_on_finding"] == "danger"
 
 
+def test_validate_accepts_extensions(tmp_path):
+    text = _GOOD + (
+        '\n[redaction]\nextra-patterns = ["A-[0-9]{3}"]\n'
+        '\n[baseline]\nbase = "aws"\n'
+        '[baseline.set-level]\n"s3-bucket-no-logging.json" = "danger"\n'
+    )
+    assert C.validate_file(_write(tmp_path, text)) == ["nightly"]
+
+
+def test_validate_rejects_bad_redaction(tmp_path):
+    text = _GOOD + '\n[redaction]\nextra-patterns = ["("]\n'
+    with pytest.raises(ConfigError, match="invalid regex"):
+        C.validate_file(_write(tmp_path, text))
+
+
+def test_validate_rejects_unknown_baseline_rule(tmp_path):
+    text = _GOOD + '\n[baseline]\nbase = "aws"\n[baseline.set-level]\n"nope.json" = "danger"\n'
+    with pytest.raises(ConfigError, match="not in the aws manifest"):
+        C.validate_file(_write(tmp_path, text))
+
+
+def test_sinks_section_is_allowed(tmp_path):
+    # a [sinks.*] table must not trip the unknown-top-level-section guard
+    text = _GOOD + '\n[sinks.prod]\ntype = "file"\npath = "x.json"\n'
+    assert C.validate_file(_write(tmp_path, text)) == ["nightly"]
+
+
 def test_cli_no_config(tmp_path, capsys):
     assert C._main(["validate", "--config", str(tmp_path / "nope.toml")]) == 2

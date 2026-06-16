@@ -9,12 +9,14 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import tempfile
 from importlib import resources
 from pathlib import Path
 
 from . import (
     asff,
     attestation,
+    compose,
     config,
     credentials,
     launcher,
@@ -235,6 +237,27 @@ def main(argv: list[str] | None = None) -> int:
     if args.scout_bin is None:
         args.scout_bin = "scout"
 
+    # Org config extensions (fail-closed): extra redaction patterns applied during
+    # redaction, and a composed baseline used as the ruleset unless the operator
+    # passed --ruleset or --no-baseline.
+    extra_redaction: list = []
+    cfg_path = Path(args.config) if args.config else config.find_config()
+    if cfg_path is not None:
+        try:
+            raw_config = config.read_raw(cfg_path)
+            extra_redaction = compose.parse_redaction_patterns(raw_config)
+            composed = compose.compose_baseline(raw_config)
+        except PresidioScoutError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+        if composed is not None and not args.ruleset and not args.no_baseline:
+            with tempfile.NamedTemporaryFile(
+                "w", suffix=".presidio-ruleset.json", delete=False, encoding="utf-8"
+            ) as tmp:
+                json.dump(composed, tmp)
+            args.ruleset = tmp.name
+            print(f"using composed baseline from {cfg_path} ({len(composed['rules'])} rules)")
+
     resolved_ruleset = _resolve_ruleset(args)
     try:
         plan = launcher.build_plan(
@@ -300,10 +323,12 @@ def main(argv: list[str] | None = None) -> int:
 
     # ScoutSuite's own stdout/stderr may echo identifiers; redact before showing.
     if completed.stderr:
-        print(redact.redact_text(completed.stderr)[0], file=sys.stderr, end="")
+        print(
+            redact.redact_text(completed.stderr, extra=extra_redaction)[0], file=sys.stderr, end=""
+        )
 
     if not args.no_redact:
-        redacted = redact.redact_report_dir(plan.report_dir)
+        redacted = redact.redact_report_dir(plan.report_dir, extra=extra_redaction)
         for rel, findings in redacted.items():
             print(f"redacted {len(findings)} secret(s) in {rel}", file=sys.stderr)
 

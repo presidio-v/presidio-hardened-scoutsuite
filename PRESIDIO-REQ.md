@@ -911,6 +911,52 @@ removes the heuristic source and reads better (it is a rule). Note: the
 
 ---
 
+## v0.21.0 — Config-driven redaction & baseline composition (2026-06-16)
+
+The stretch item that closes the next arc: let an org tailor two hardened
+behaviours from `.presidio-scout.toml` without forking the distribution.
+
+**Design decisions:**
+
+- **Extra redaction patterns, applied during redaction.** `[redaction].extra-patterns`
+  (regex strings or `{name, pattern}` tables) are compiled fail-closed and threaded
+  through `redact.scan/redact_text/redact_file/redact_report_dir` (new optional
+  `extra=` arg) so a team's own credential shapes are scrubbed alongside the
+  built-ins. Because redaction runs before the report guard, the guard's
+  fail-on-secret scan sees them already redacted — no change needed there.
+- **Composed baselines.** `[baseline]` starts from a bundled provider baseline and
+  applies `set-level` (raise/lower/add a rule's severity) and `disable` (drop
+  rules); `compose_baseline` validates every named rule against that provider's
+  manifest (reusing the rule-name inventory) and rejects bad severities. The CLI
+  writes the composed ruleset to a temp file and uses it unless `--ruleset` /
+  `--no-baseline` was passed.
+- **Validated by presidio-scout-policy.** `config.validate_file` now calls
+  `compose.validate_extensions`, so `presidio-scout-policy validate` fails closed on
+  an uncompilable regex, an unknown base/rule, or a bad severity — a typo can't
+  silently weaken redaction or drop a control. `config._read` now also allows the
+  `[redaction]`, `[baseline]`, and `[sinks]` top-level sections (the last fixing a
+  latent gap where a 0.20.0 `[sinks]` table would have tripped the section guard).
+
+**Also:** the `Finding.key`→`Finding.rule` rename and the version-coherence guard
+from the prior versions remain; version 0.21.0 bumped in both files.
+
+**Delivered:**
+- `compose.py` (`parse_redaction_patterns`, `compose_baseline`,
+  `validate_extensions`); `redact` gains `extra=`; `config.read_raw` +
+  extension validation + new allowed sections; cli wires both
+- `.presidio-scout.toml.example` extended (`[redaction]`/`[baseline]`/`[sinks]`)
+- Public API exports; `test_compose.py` + config/cli integration tests; coverage
+  95% (≥90% gate); ruff clean
+- README *Extending redaction & composing a baseline* subsection + roadmap row +
+  structure entry; SECURITY.md feature bullet + supported-version bump; this log
+
+**Next arc (0.16.0–0.21.0) complete.** The single-run hardened auditor is now a
+fleet tool: kept current (0.16), control-mapped & Security-Hub-exportable (0.17),
+validated against real upstream rules (0.18), fanned out across accounts (0.19),
+routed to sinks (0.20), and org-tailorable (0.21).
+
+---
+
 ## Roadmap
 
 Delivered (0.1.0–0.15.0) — the planned arc is complete. The arc: **0.5** hardens
@@ -963,7 +1009,7 @@ stdlib-only runtime, fail-closed, offline-testable).
 | **0.18.0** | **Verified & extended provider baselines** — reconciled every AWS/Azure/GCP baseline, manifest, and compliance-map rule name against the real ScoutSuite 5.14.0 source (correcting names that never existed upstream — Azure/GCP were almost entirely invalid) and extended them (AWS 34 / Azure 26 / GCP 27 curated rules, incl. GKE). ✓ | secure-by-default policy · 0.2 |
 | **0.19.0** | **Org-wide orchestration** — `presidio-scout-orchestrate` fans the audit across a `.presidio-scout-targets.toml` matrix (one out-of-process run + report per account; identity selected via per-target env, no credential brokering) with a fail-closed aggregated severity gate; pass-through flags enable per-target attest/diff. ✓ | operational scale · 0.10, 0.12, 0.13 |
 | **0.20.0** | **Notification / finding sinks** — `presidio-scout-notify` pushes an audit summary to a file / webhook / Slack sink (flag- or `[sinks.<name>]`-config-driven); redaction-aware and fail-closed (a secret in the payload stops the send); stdlib-only transport, `--only-if` to suppress noise. ✓ | integration · 0.15, 0.17 |
-| **0.21.0** (stretch) | **Config-driven redaction & baseline composition** — let an org extend redaction patterns and compose/layer baselines from config, validated fail-closed by `presidio-scout-policy`. | usability / policy · 0.15 |
+| **0.21.0** (stretch) | **Config-driven redaction & baseline composition** — `[redaction].extra-patterns` add org secret redactors (applied during redaction); `[baseline]` composes a ruleset from a bundled baseline (set-level / disable), validated against the manifest; both fail-closed via `presidio-scout-policy`. ✓ | usability / policy · 0.15 |
 
 **Recommendation:** start with **0.16.0** — keeping the pinned ScoutSuite current
 underpins every gate (rules, vuln scan, integrity preflight) and is the highest
