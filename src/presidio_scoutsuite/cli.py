@@ -11,7 +11,7 @@ import sys
 from importlib import resources
 from pathlib import Path
 
-from . import launcher, redact, report_guard
+from . import launcher, redact, report_guard, scout_integrity
 from .errors import PresidioScoutError
 from .version import __version__
 
@@ -84,6 +84,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="path to the upstream ScoutSuite executable (default: 'scout' on PATH)",
     )
     parser.add_argument(
+        "--allow-unverified-scout",
+        action="store_true",
+        help="run even if the scout version doesn't match the pinned, vetted one "
+        "(downgrades the integrity gate to a warning; NOT recommended)",
+    )
+    parser.add_argument(
         "--timeout",
         type=float,
         default=None,
@@ -149,6 +155,23 @@ def main(argv: list[str] | None = None) -> int:
     if args.dry_run:
         print(plan.redacted_command())
         return 0
+
+    # Integrity preflight: confirm the scout we're about to run is the pinned,
+    # vetted ScoutSuite before handing it cloud credentials.
+    if args.allow_unverified_scout:
+        check = scout_integrity.verify_scout(args.scout_bin, require=False)
+        if not check.ok:
+            print(f"warning: running unverified ScoutSuite: {check.reason}", file=sys.stderr)
+    else:
+        try:
+            scout_integrity.verify_scout(args.scout_bin)
+        except PresidioScoutError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            print(
+                "       pass --allow-unverified-scout to run anyway (not recommended)",
+                file=sys.stderr,
+            )
+            return 2
 
     try:
         completed = launcher.run(plan, timeout=args.timeout)

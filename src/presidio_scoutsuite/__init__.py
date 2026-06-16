@@ -15,6 +15,7 @@ from .errors import (
     ReportGuardError,
     ReportVerificationError,
     RulesetValidationError,
+    ScoutIntegrityError,
 )
 from .launcher import LaunchPlan, build_plan, run, scrub_env, validate_passthrough
 from .manifest import build_manifest
@@ -28,6 +29,7 @@ from .ruleset import (
     validate_all,
     validate_provider,
 )
+from .scout_integrity import ScoutIntegrityResult, pinned_version, verify_scout
 from .verify import VerifyResult, verify_report
 from .version import __version__
 
@@ -39,6 +41,7 @@ __all__ = [
     "ReportGuardError",
     "ReportVerificationError",
     "ProvenanceVerificationError",
+    "ScoutIntegrityError",
     "RulesetValidationError",
     "LaunchPlan",
     "build_plan",
@@ -57,6 +60,9 @@ __all__ = [
     "Provenance",
     "ProvenancePolicy",
     "load_statement",
+    "ScoutIntegrityResult",
+    "verify_scout",
+    "pinned_version",
     "referenced_rules",
     "available_rules",
     "missing_rules",

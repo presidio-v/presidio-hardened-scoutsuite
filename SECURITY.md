@@ -75,6 +75,13 @@ redaction, supply-chain controls, and a least-privilege deployment model.
   hash-pinned. The wheel/sdist build is **reproducible** (pinned
   `SOURCE_DATE_EPOCH`), enforced by a `reproducible-build` CI gate that builds
   twice and requires byte-identical digests.
+- **ScoutSuite install-integrity gate** — before any cloud credentials are
+  handed to ScoutSuite, a fail-closed preflight (`scout_integrity`) confirms the
+  `scout` on PATH is the **pinned, vetted version** this distribution ships;
+  an unexpected, newer, or modified ScoutSuite (which could carry different
+  rules or behaviour) is refused (exit 2) unless `--allow-unverified-scout` is
+  given. Complements the install-time artifact-hash guarantee from
+  `pip install --require-hashes -r requirements.lock`.
 - **Provenance policy verification** — `presidio-scout-verify-provenance` checks
   a *cryptographically verified* SLSA provenance statement (from `cosign
   verify-attestation`) against this distribution's policy: the expected builder
