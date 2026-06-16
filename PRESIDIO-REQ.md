@@ -708,6 +708,30 @@ ScoutSuite, MIT wrapper, stdlib runtime, fail-closed, offline-testable.
 
 ---
 
+## Next arc — 0.16.0+ (sketch)
+
+The 0.1.0–0.15.0 arc built the *single-run* hardened auditor: hardened invocation,
+attested/comparable output, hardened build & deploy, org-configurable policy. The
+next arc turns it into a *fleet* tool — keep the pinned ScoutSuite current safely,
+make findings consumable by GRC/cloud-native sinks, and scale a run across many
+accounts — without breaking any invariant (out-of-process, no GPL import, MIT,
+stdlib-only runtime, fail-closed, offline-testable).
+
+| Version | Planned | Axis · depends on |
+|---|---|---|
+| **0.16.0** | **ScoutSuite upgrade automation** — tooling to bump the pinned ScoutSuite, regenerate the hash-pinned `requirements.lock` + the checked-in rule-name manifest, and run the `verify-rulesets` drift gate, so staying current is a reviewed, fail-closed bump rather than manual drift. | supply-chain / maintenance · 0.5, 0.14 |
+| **0.17.0** | **Compliance mapping + ASFF export** — map findings to control frameworks (CIS / NIST 800-53 / SOC 2) and export AWS Security Hub ASFF alongside SARIF, so the gate feeds GRC and cloud-native finding stores. | policy / integration · 0.6, 0.7 |
+| **0.18.0** | **Deeper / additional provider baselines** — extend curated CIS-aligned baselines (more AWS/Azure/GCP services; consider OCI/Alibaba/K8s if ScoutSuite supports), each behind the rule-name validation gate. | secure-by-default policy · 0.2 |
+| **0.19.0** | **Org-wide orchestration** — drive a fan-out across many accounts/subscriptions/projects (assume-role / impersonation matrix), one attested report + diff per target, aggregated gate — still out-of-process per account. | operational scale · 0.10, 0.12, 0.13 |
+| **0.20.0** | **Notification / finding sinks** — fail-closed push of gate results to sinks (issue tracker, Slack/webhook, S3/GCS), driven by `.presidio-scout.toml` profiles; redaction-aware, no secret leakage. | integration · 0.15, 0.17 |
+| **0.21.0** (stretch) | **Config-driven redaction & baseline composition** — let an org extend redaction patterns and compose/layer baselines from config, validated fail-closed by `presidio-scout-policy`. | usability / policy · 0.15 |
+
+**Recommendation:** start with **0.16.0** — keeping the pinned ScoutSuite current
+underpins every gate (rules, vuln scan, integrity preflight) and is the highest
+maintenance risk now that the arc is feature-complete.
+
+---
+
 ## SDLC
 
 Delivered under the family-wide Presidio SDLC:
