@@ -19,6 +19,7 @@ from . import (
     compose,
     config,
     credentials,
+    extensions,
     launcher,
     redact,
     report_guard,
@@ -36,6 +37,8 @@ _BUNDLED_RULESETS = {
     "aws": "aws-cis.json",
     "azure": "azure-cis.json",
     "gcp": "gcp-cis.json",
+    "aliyun": "aliyun-cis.json",
+    "oci": "oci-cis.json",
 }
 
 
@@ -257,6 +260,14 @@ def main(argv: list[str] | None = None) -> int:
                 json.dump(composed, tmp)
             args.ruleset = tmp.name
             print(f"using composed baseline from {cfg_path} ({len(composed['rules'])} rules)")
+
+    # Installed redactor extensions add their patterns to the redaction step.
+    # Fail-closed: a broken redactor plugin must not silently let a secret through.
+    try:
+        extra_redaction += extensions.installed_redactor_patterns()
+    except PresidioScoutError as exc:
+        print(f"error: redactor extension: {exc}", file=sys.stderr)
+        return 2
 
     resolved_ruleset = _resolve_ruleset(args)
     try:

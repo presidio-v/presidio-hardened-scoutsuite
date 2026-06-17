@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "presidio-hardened-scoutsuite"
-version = "0.21.0"
+version = "0.27.0"
 description = "Presidio security-hardened distribution of ScoutSuite — runs the multi-cloud auditor out of process with hardened defaults, report redaction, and a least-privilege deployment model."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -56,6 +56,11 @@ presidio-scout-compliance = "presidio_scoutsuite.compliance:_main"
 presidio-scout-asff = "presidio_scoutsuite.asff:_main"
 presidio-scout-orchestrate = "presidio_scoutsuite.orchestrate:_main"
 presidio-scout-notify = "presidio_scoutsuite.notify:_main"
+presidio-scout-trend = "presidio_scoutsuite.trend:_main"
+presidio-scout-remediate = "presidio_scoutsuite.remediation:_main"
+presidio-scout-assert = "presidio_scoutsuite.assertions:_main"
+presidio-scout-summary = "presidio_scoutsuite.summary:_main"
+presidio-scout-ext = "presidio_scoutsuite.extensions:_main"
 
 [project.urls]
 Homepage = "https://github.com/presidio-v/presidio-hardened-scoutsuite"

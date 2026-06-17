@@ -30,7 +30,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import compliance
+from . import compliance, remediation
 from .errors import AsffError, PresidioScoutError
 from .findings import FindingsReport, load_report
 from .version import __version__
@@ -78,13 +78,16 @@ def to_asff(
     stamp = _timestamp(when or datetime.now(timezone.utc))
     product_arn = _product_arn(account_id, region, partition)
     provider = report.providers[0] if report.providers else "cloud"
-    lookup = compliance.merged_controls(report.providers or list(compliance.MAPPED_PROVIDERS))
+    providers = report.providers or list(compliance.MAPPED_PROVIDERS)
+    lookup = compliance.merged_controls(providers)
+    rem_lookup = remediation.merged_remediation(providers)
 
     findings: list[dict] = []
     for finding in report.findings:
         rule = _rule_id(finding.rule)
         label, normalized = _SEVERITY.get(finding.level, ("INFORMATIONAL", 0))
         requirements = compliance.related_requirements(lookup.get(finding.rule, {}))
+        rem = remediation.remediation_for(finding.rule, rem_lookup)
         title = (finding.description or f"{finding.service}/{rule}")[:256]
 
         targets = finding.items or (None,)
@@ -125,6 +128,14 @@ def to_asff(
             }
             if requirements:
                 entry["Compliance"]["RelatedRequirements"] = requirements
+            if rem is not None:
+                text = rem.summary
+                if rem.steps:
+                    text = f"{text} {' '.join(rem.steps)}"
+                recommendation = {"Text": text[:512]}
+                if rem.references:
+                    recommendation["Url"] = rem.references[0]
+                entry["Remediation"] = {"Recommendation": recommendation}
             findings.append(entry)
     return findings
 

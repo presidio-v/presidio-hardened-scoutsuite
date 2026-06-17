@@ -24,7 +24,7 @@ NCC Group's multi-cloud security auditing tool.
 |---|---|
 | **Runtime credential & data safety** | Env scrubbed to cloud creds only; 0700 report dir + `umask 0077`; secrets redacted out of the report and ScoutSuite's logs; `--fail-on-secret` gate |
 | **Report integrity & isolation** | Strict CSP + **Subresource Integrity** on local report assets; remote-reference detection (`--fail-on-remote-ref`); a signed-able **SHA-256 integrity manifest** verified offline with `presidio-scout-verify` |
-| **Secure-by-default policy** | Curated, CIS-aligned **AWS baseline ruleset** applied by default (high-impact IAM/logging/network controls forced to `danger`) |
+| **Secure-by-default policy** | Curated, CIS-aligned baselines for **AWS, Azure, GCP, Alibaba Cloud, and Oracle Cloud** applied by default (high-impact IAM/logging/network/storage controls forced to `danger`) |
 | **Supply-chain & build integrity** | Hash-pinned `requirements.lock`, pinned build backend, CycloneDX SBOM, CodeQL, Dependabot, **cosign-signed** images + SLSA build provenance, **reproducible** wheel/sdist, a `presidio-scout-verify-provenance` policy gate for what you pull, a **fail-closed preflight that the `scout` you run is the pinned, vetted ScoutSuite version**, and a release **vulnerability-scan gate** (`pip-audit` + Trivy + `presidio-scout-vuln-gate`) with **signed SBOM/provenance attestations** |
 | **Hardened deployment** | Distroless, non-root, `--read-only` container; bundled **least-privilege AWS audit role** (read-only + explicit `Deny`, MFA + `ExternalId` trust); hardened Kubernetes `Job`/`CronJob` + Helm chart (workload identity, read-only rootfs, dropped caps, seccomp, default-deny `NetworkPolicy`) |
 
@@ -102,10 +102,13 @@ presidio-scout aws --allow-unverified-scout # run even if scout isn't the pinned
 presidio-scout aws --dry-run                # print the hardened command, run nothing
 presidio-scout azure                        # Azure audit with the hardened Azure baseline
 presidio-scout gcp                          # GCP audit with the hardened GCP baseline
+presidio-scout aliyun                       # Alibaba Cloud audit with the hardened aliyun baseline
+presidio-scout oci                          # Oracle Cloud audit with the hardened oci baseline
 ```
 
-AWS, Azure, and GCP each ship a curated baseline; other providers fall back to
-ScoutSuite's default ruleset (with a warning) until their baselines land.
+AWS, Azure, GCP, Alibaba Cloud (`aliyun`), and Oracle Cloud (`oci`) each ship a
+curated, manifest-verified baseline applied by default; the launcher falls back to
+ScoutSuite's default ruleset (with a warning) for any provider without one.
 
 Anything after `--` is forwarded to ScoutSuite **only if it's on the
 pass-through allowlist** (`--profile`, `--region(s)`, `--services`, `--skip`,
@@ -665,17 +668,12 @@ planned (see the tables at the end).
 | **0.19.0** | Org-wide orchestration — `presidio-scout-orchestrate` fans the audit across a `.presidio-scout-targets.toml` matrix (one out-of-process run + report per account, no credential brokering) with an aggregated, fail-closed severity gate |
 | **0.20.0** | Notification sinks — `presidio-scout-notify` pushes an audit summary to a file / webhook / Slack sink (config- or flag-driven), redaction-aware and fail-closed so a secret can't leak to an external sink |
 | **0.21.0** | Config-driven redaction & baseline composition — `[redaction].extra-patterns` add org secret redactors; `[baseline]` composes a ruleset from a bundled baseline (set-level / disable), both validated fail-closed by `presidio-scout-policy` |
-
-### Planned — third arc: continuous assurance & remediation (0.22.0+)
-
-| Version | Planned |
-|---|---|
-| **0.22.0** | Posture history & trend — `presidio-scout-trend` appends each run to an append-only store and gates on regression (posture worsening over time) |
-| **0.23.0** | Remediation guidance — curated per-rule fix steps; `presidio-scout-remediate` emits them and fills ASFF `Remediation` + notify summaries |
-| **0.24.0** | Policy-as-code assertions — `presidio-scout-assert` evaluates a declarative policy (richer than a severity threshold), fail-closed |
-| **0.25.0** | Aliyun & OCI baselines — curated, manifest-verified baselines + least-privilege IAM for the remaining providers |
-| **0.26.0** | Executive & multi-format reporting — Markdown/HTML exec summary, CSV export, fleet rollups |
-| **0.27.0** (stretch) | Stable extension API — MIT-safe plugin point for custom exporters / sinks / redactors |
+| **0.22.0** | Posture history & trend — `presidio-scout-trend` records each run to an append-only history and gates on **regression** (a new finding vs the previous run); persists across runs without keeping old reports |
+| **0.23.0** | Remediation guidance — curated per-rule fix steps + doc references (AWS/Azure/GCP, validated against the manifest); `presidio-scout-remediate` emits them and they fill the AWS Security Hub ASFF `Remediation` field |
+| **0.24.0** | Policy-as-code assertions — `presidio-scout-assert` evaluates a declarative `[[assert]]` policy (named rules over service / rule-glob / severity with a `max` count) richer than a single threshold; fail-closed, exit 4 on any violation |
+| **0.25.0** | Alibaba Cloud (`aliyun`) & Oracle Cloud (`oci`) baselines — curated, **manifest-verified** baselines + compliance maps for ScoutSuite's remaining providers (rule names reconciled against the real 5.14.0 source); all five providers now ship a hardened default |
+| **0.26.0** | Executive & multi-format reporting — `presidio-scout-summary` renders a report (or a `--fleet` rollup) as Markdown, **self-contained HTML** (escaped, no scripts), CSV, or JSON |
+| **0.27.0** | Stable extension API — `presidio-scout-ext` discovers MIT-safe plugins (redactors / exporters / sinks) via entry points; installed redactor plugins feed the redaction step, fail-closed (a broken redactor errors rather than letting a secret through) |
 
 ### Planned — fourth arc: consortium interop & the evidence substrate (0.28.0+)
 
@@ -739,6 +737,8 @@ presidio-hardened-scoutsuite/
 │   ├── config.py          # .presidio-scout.toml org config (presidio-scout-policy)
 │   ├── ruleset.py         # baseline rule-name validation (presidio-scout-validate)
 │   ├── compose.py         # config-driven redaction patterns + baseline composition
+│   ├── summary.py         # executive / multi-format reporting (presidio-scout-summary)
+│   ├── extensions.py      # stable plugin API: redactors/exporters/sinks (presidio-scout-ext)
 │   ├── upgrade.py         # ScoutSuite pin-coherence gate + bump tooling (presidio-scout-upgrade)
 │   ├── orchestrate.py     # multi-account fleet fan-out + aggregated gate (presidio-scout-orchestrate)
 │   ├── notify.py          # redaction-aware notification sinks (presidio-scout-notify)

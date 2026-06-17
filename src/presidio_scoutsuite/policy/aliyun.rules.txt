@@ -1,0 +1,32 @@
+# Finding-rule inventory for the pinned ScoutSuite (see requirements.lock).
+#
+# One finding-rule filename per line; '#' starts a comment. This is the offline
+# source of truth the curated aliyun-cis.json baseline is validated against in CI,
+# so the wrapper can be checked without installing GPL ScoutSuite.
+#
+# Regenerate against the actually-pinned ScoutSuite (run inside an env with the
+# '[scoutsuite]' extra installed):
+#
+#     presidio-scout-validate --regenerate --source installed
+#
+# 'presidio-scout-validate --source installed' flags any drift between this
+# inventory and the installed ScoutSuite.
+
+actiontrail-not-configured.json
+actiontrail-not-enabled.json
+ecs-instance-with-deletion-protection-disabled.json
+ecs-instance-with-public-ip.json
+kms-no-key-rotation.json
+ram-password-policy-minimum-length.json
+ram-password-policy-no-expiration.json
+ram-password-policy-expiration-threshold.json
+ram-password-policy-no-lowercase-required.json
+ram-password-policy-no-number-required.json
+ram-password-policy-no-symbol-required.json
+ram-password-policy-no-uppercase-required.json
+ram-password-policy-reuse-enabled.json
+ram-user-lacking-mfa.json
+ram-user-unused-api-key.json
+ram-user-unused-console-password.json
+ram-user-with-multiple-api-keys.json
+ram-user-with-old-api-key.json

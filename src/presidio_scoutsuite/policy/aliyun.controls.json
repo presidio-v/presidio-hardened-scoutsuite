@@ -1,0 +1,25 @@
+{
+  "provider": "aliyun",
+  "frameworks": ["cis", "nist-800-53", "soc2"],
+  "_note": "Curated mapping from ScoutSuite finding rules to compliance controls. nist-800-53 = NIST SP 800-53 Rev. 5; soc2 = AICPA Trust Services Criteria. (Alibaba Cloud CIS control numbers are left empty pending a verified mapping.) Rule names verified against the pinned ScoutSuite; validated fail-closed against aliyun.rules.txt.",
+  "controls": {
+    "actiontrail-not-configured.json": {"cis": [], "nist-800-53": ["AU-2", "AU-12"], "soc2": ["CC7.2"]},
+    "actiontrail-not-enabled.json": {"cis": [], "nist-800-53": ["AU-2"], "soc2": ["CC7.2"]},
+    "ecs-instance-with-deletion-protection-disabled.json": {"cis": [], "nist-800-53": ["CP-9"], "soc2": ["A1.2"]},
+    "ecs-instance-with-public-ip.json": {"cis": [], "nist-800-53": ["SC-7", "AC-4"], "soc2": ["CC6.6"]},
+    "kms-no-key-rotation.json": {"cis": [], "nist-800-53": ["SC-12"], "soc2": ["CC6.1"]},
+    "ram-password-policy-minimum-length.json": {"cis": [], "nist-800-53": ["IA-5"], "soc2": ["CC6.1"]},
+    "ram-password-policy-no-expiration.json": {"cis": [], "nist-800-53": ["IA-5"], "soc2": ["CC6.1"]},
+    "ram-password-policy-expiration-threshold.json": {"cis": [], "nist-800-53": ["IA-5"], "soc2": ["CC6.1"]},
+    "ram-password-policy-no-lowercase-required.json": {"cis": [], "nist-800-53": ["IA-5"], "soc2": ["CC6.1"]},
+    "ram-password-policy-no-number-required.json": {"cis": [], "nist-800-53": ["IA-5"], "soc2": ["CC6.1"]},
+    "ram-password-policy-no-symbol-required.json": {"cis": [], "nist-800-53": ["IA-5"], "soc2": ["CC6.1"]},
+    "ram-password-policy-no-uppercase-required.json": {"cis": [], "nist-800-53": ["IA-5"], "soc2": ["CC6.1"]},
+    "ram-password-policy-reuse-enabled.json": {"cis": [], "nist-800-53": ["IA-5"], "soc2": ["CC6.1"]},
+    "ram-user-lacking-mfa.json": {"cis": [], "nist-800-53": ["IA-2"], "soc2": ["CC6.1"]},
+    "ram-user-unused-api-key.json": {"cis": [], "nist-800-53": ["AC-2"], "soc2": ["CC6.1"]},
+    "ram-user-unused-console-password.json": {"cis": [], "nist-800-53": ["AC-2"], "soc2": ["CC6.1"]},
+    "ram-user-with-multiple-api-keys.json": {"cis": [], "nist-800-53": ["AC-6", "IA-5"], "soc2": ["CC6.1"]},
+    "ram-user-with-old-api-key.json": {"cis": [], "nist-800-53": ["IA-5"], "soc2": ["CC6.1"]}
+  }
+}

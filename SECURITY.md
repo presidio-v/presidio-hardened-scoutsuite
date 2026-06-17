@@ -4,8 +4,8 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 0.21.x  | ✅ Yes (current) |
-| <0.21   | Best-effort security fixes only |
+| 0.27.x  | ✅ Yes (current) |
+| <0.27   | Best-effort security fixes only |
 
 ## Reporting a Vulnerability
 
@@ -51,8 +51,8 @@ redaction, supply-chain controls, and a least-privilege deployment model.
   rendered report — self-digested, optionally HMAC-signed
   (`PRESIDIO_MANIFEST_HMAC_KEY`) — and verified offline with
   **`presidio-scout-verify`**, which flags any modified/missing/added file.
-- **Secure-by-default rulesets** — curated, CIS-aligned **AWS, Azure, and GCP**
-  baselines are applied by default (`--ruleset`), forcing high-impact
+- **Secure-by-default rulesets** — curated, CIS-aligned **AWS, Azure, GCP,
+  Alibaba Cloud, and Oracle Cloud** baselines are applied by default (`--ruleset`), forcing high-impact
   identity/logging/network/storage controls to `danger`. Opt out with
   `--no-baseline`.
 - **Ruleset rule-name validation (`ruleset`)** — a baseline references finding
@@ -117,6 +117,38 @@ redaction, supply-chain controls, and a least-privilege deployment model.
   signature *and* the provenance (cryptographically, then against this
   distribution's `presidio-scout-verify-provenance` policy) — before the release
   run is allowed to succeed.
+- **Stable, fail-closed extension API** — orgs add their own redactors /
+  exporters / sinks as MIT-safe plugins (Python entry points) without forking;
+  `presidio-scout-ext list` inspects what's installed. Loading is **fail-closed**:
+  a malformed reference, an import failure, a plugin that errors on load, or a
+  redactor yielding a malformed pattern errors rather than being silently
+  skipped — and an installed **redactor** plugin feeds the redaction step, so a
+  broken one fails the run rather than quietly letting a secret through.
+- **Self-contained, escaped executive reporting** — `presidio-scout-summary`
+  renders a report (or a `--fleet` rollup) as Markdown, CSV, JSON, or a
+  **self-contained HTML** page with inline styles and **no scripts**; every
+  dynamic value (resource names/tags, which can echo attacker-influenced input)
+  is HTML-escaped — the same untrusted-output stance as the report guard, so a
+  shared summary can't carry injected markup.
+- **Policy-as-code assertions** — `presidio-scout-assert` evaluates a declarative
+  `[[assert]]` policy (named rules selecting findings by service / rule-glob /
+  severity, each capped by a `max` count) — far more specific than a single
+  severity threshold (e.g. "no public object storage", "no danger findings in
+  identity"). Fail-closed: a malformed policy, unknown key, bad severity, or
+  unreadable report errors; any violated assertion exits 4.
+- **Remediation guidance (fail-closed)** — `presidio-scout-remediate` attaches
+  curated per-rule fix steps + documentation references to a report's flagged
+  findings, and the same data fills the AWS Security Hub ASFF `Remediation` field.
+  The guidance is validated against the rule manifest, so a fix step can't point
+  at a rule the pinned ScoutSuite no longer ships; `--fail-on-unmapped` flags any
+  finding lacking guidance.
+- **Posture-regression gate** — `presidio-scout-trend` records each run's flagged
+  findings to an append-only history and compares the latest run to the previous
+  one; `--fail-on-regression danger|warning` exits non-zero when a *new* finding
+  at or above that severity appears, so a pipeline blocks when posture worsens
+  even if the absolute count is within an existing waiver budget. Fail-closed: a
+  run whose results can't be read is never recorded as clean, and a malformed
+  history store errors rather than silently resetting the baseline.
 - **Config-driven redaction & baseline composition** — `[redaction].extra-patterns`
   in `.presidio-scout.toml` add org-specific secret redactors that run *alongside*
   the built-ins during report redaction; `[baseline]` composes the ruleset from a

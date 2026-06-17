@@ -136,6 +136,45 @@ class AsffError(PresidioScoutError):
     """
 
 
+class ExtensionError(PresidioScoutError):
+    """A third-party extension could not be resolved, loaded, or validated.
+
+    Raised when an extension reference is malformed, its module/attribute can't be
+    imported, an installed entry-point fails to load, or a redactor plugin yields
+    a malformed pattern — fail-closed, because a broken redactor extension could
+    otherwise silently let a secret through.
+    """
+
+
+class PolicyError(PresidioScoutError):
+    """A policy-as-code assertion file is missing, malformed, or invalid.
+
+    Raised when the policy file can't be read/parsed, an assertion omits a name,
+    uses an unknown key, or has a bad selector/threshold (e.g. an unknown
+    severity or a negative max) — so a typo can't silently disable an assertion
+    and let a violating posture pass.
+    """
+
+
+class RemediationError(PresidioScoutError):
+    """A remediation guidance mapping is missing, malformed, or invalid.
+
+    Raised when a per-rule remediation file can't be read/parsed, an entry omits
+    a required field (summary/steps/references), or it references a finding rule
+    the pinned ScoutSuite's manifest doesn't provide — so guidance can't silently
+    drift from the rules it claims to fix.
+    """
+
+
+class TrendError(PresidioScoutError):
+    """A posture-history store could not be read, appended, or compared.
+
+    Raised when the history store is missing/malformed, a snapshot can't be built
+    from a report (fail-closed: a regression gate must not pass on a run it never
+    recorded), or a regression threshold is unknown.
+    """
+
+
 class NotificationError(PresidioScoutError):
     """A finding-notification could not be delivered to a sink.
 

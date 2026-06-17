@@ -957,6 +957,198 @@ routed to sinks (0.20), and org-tailorable (0.21).
 
 ---
 
+## v0.22.0 — Posture history & trend (2026-06-16)
+
+First version of the third arc (continuous assurance): turn point-in-time audits
+into a tracked trend with a regression gate.
+
+**Design decisions:**
+
+- **Append-only JSONL history.** `trend.record` snapshots a finished report
+  (timestamp, providers, per-level counts, and the `{service/rule: level}` map of
+  flagged findings) and appends one JSON object per line — durable, diff-friendly,
+  and no DB dependency. The clock is injectable for deterministic tests.
+- **Regression, not absolute count.** `compare` yields *new* (flagged now, not
+  before) and *resolved* (flagged before, not now) findings vs the previous
+  snapshot; `--fail-on-regression danger|warning` (exit 4) blocks only when a
+  *new* finding at/above that severity appears. This catches a regression even
+  when the total is within an existing waiver budget — complementary to the
+  absolute `--fail-on-finding` gate and to `presidio-scout-diff` (which needs two
+  report dirs; trend persists across runs instead).
+- **Fail-closed.** A run whose results can't be read is never recorded as clean
+  (`load_report` raises); a malformed history line errors with its line number
+  rather than silently resetting the baseline.
+
+**Delivered:**
+- `trend.py` (`snapshot`, `load_history`/`append`, `compare`/`Comparison`,
+  `record`) + `TrendError`; `presidio-scout-trend record|show` console script
+- Public API exports; version 0.22.0 (both files)
+- `test_trend.py`; coverage 95% (≥90% gate); ruff clean
+- README roadmap row; SECURITY.md regression-gate bullet + supported-version bump;
+  this log
+
+---
+
+## v0.23.0 — Remediation guidance (2026-06-16)
+
+Tell operators *how* to fix a finding, not just that it failed.
+
+**Design decisions:**
+
+- **Curated data, validated like the control map.** `policy/<provider>.remediation.json`
+  maps each finding rule to `{summary, steps[], references[]}`. `remediation.validate_remediation`
+  reuses the rule manifest the same way compliance does — guidance that names a
+  rule the pinned ScoutSuite doesn't ship errors, so fix steps can't drift from
+  the rules. Covers all curated rules (AWS 34 / Azure 26 / GCP 27).
+- **Fills the ASFF `Remediation` field.** `asff.to_asff` now attaches
+  `Remediation.Recommendation` (`Text` = summary + steps, capped to ASFF's 512;
+  `Url` = first reference) so Security Hub shows the fix inline — reusing the same
+  data, no second source of truth.
+- **Unmapped findings stay visible.** `presidio-scout-remediate --fail-on-unmapped`
+  (exit 4) lets a pipeline insist every flagged finding has guidance; otherwise a
+  finding with no remediation is shown as such rather than silently omitted.
+
+**Delivered:**
+- `remediation.py` (`load_remediation`, `validate_remediation`, `merged_remediation`,
+  `remediation_for`) + `presidio-scout-remediate`; `RemediationError`
+- `policy/{aws,azure,gcp}.remediation.json`; ASFF `Remediation` integration
+- Public API exports; version 0.23.0 (both files)
+- `test_remediation.py` (incl. real-data validation + ASFF integration); coverage
+  95% (≥90% gate); ruff clean
+- README roadmap row; SECURITY.md feature bullet + supported-version bump; this log
+
+---
+
+## v0.24.0 — Policy-as-code assertions (2026-06-16)
+
+Express richer pass/fail policy than a single severity threshold.
+
+**Design decisions:**
+
+- **Declarative `[[assert]]` policy.** Each assertion has a `name` and optional
+  selectors — `service`, `rules` (globs, with/without `.json`), `min_level` —
+  ANDed, and a `max` matched-count (default 0). It fails when more than `max`
+  flagged findings match. This expresses "no public storage", "no danger in IAM",
+  or "≤25 warnings" precisely, where `--fail-on-finding` could only say "fail on
+  any danger".
+- **Fail-closed validation + evaluation.** `load_policy` rejects unknown
+  top-level keys, unknown assertion keys, a missing name, a duplicate name, a bad
+  severity, or a negative `max`; an unreadable report errors. Any violated
+  assertion exits 4 — a typo can't silently disable a check.
+- **A separate policy file**, not `.presidio-scout.toml` — policy-as-code is its
+  own artifact (`scout-policy.toml`) a team reviews and versions independently.
+
+**Delivered:**
+- `assertions.py` (`Assertion`, `load_policy`, `evaluate`, `PolicyReport`) +
+  `presidio-scout-assert`; `PolicyError`
+- `scout-policy.toml.example`; public API exports; version 0.24.0 (both files)
+- `test_assertions.py`; coverage 95% (≥90% gate); ruff clean
+- README roadmap row; SECURITY.md feature bullet + supported-version bump; this log
+
+---
+
+## v0.25.0 — Alibaba Cloud & Oracle Cloud baselines (2026-06-16)
+
+Extend the curated, hardened defaults to ScoutSuite's two remaining providers so
+every provider the wrapper accepts ships a vetted baseline.
+
+**Design decisions:**
+
+- **Verified against the real 5.14.0 source (the 0.18 method).** The aliyun (18)
+  and oci (10) finding-rule names were taken from the upstream ScoutSuite 5.14.0
+  tree, not guessed — so the release `verify-rulesets --source installed` gate
+  (and the offline manifest gate) pass against an actual install.
+- **First-class, not bolted on.** Added both to `ruleset.VALIDATED_PROVIDERS`
+  (baseline + manifest, validated in CI), `compliance.MAPPED_PROVIDERS` (control
+  maps; NIST 800-53 + SOC 2 populated, CIS left empty pending verified benchmark
+  numbers rather than fabricated), and `cli._BUNDLED_RULESETS` (applied by
+  default). The existing parametrized tests now cover all five providers.
+- **Coherent set per provider** (manifest == baseline keys == compliance keys),
+  matching the AWS/Azure/GCP structure. Remediation guidance for aliyun/oci is a
+  later add — `presidio-scout-remediate` reports their findings as unmapped rather
+  than erroring.
+
+**Delivered:**
+- `policy/{aliyun,oci}.rules.txt`, `*-cis.json`, `*.controls.json`
+- `ruleset`/`compliance`/`cli` extended to five providers; version 0.25.0
+- Updated the cli fallback test (all five providers ship a baseline; the warning
+  branch is tested via monkeypatch); coverage 95% (≥90% gate); ruff clean
+- README *What hardened means* + CLI + roadmap rows; SECURITY.md baseline bullet +
+  supported-version bump; this log
+
+---
+
+## v0.26.0 — Executive & multi-format reporting (2026-06-16)
+
+Give a security lead / auditor a one-page rollup, and summarize a whole fleet.
+
+**Design decisions:**
+
+- **One summary, four renderers.** `summary.build` produces a compact dict
+  (providers, per-level counts, top findings, failing-control counts per
+  framework via the compliance map); `presidio-scout-summary --format md|html|csv|json`
+  renders it. CSV is per-finding (spreadsheets); JSON for piping.
+- **Self-contained, escaped HTML.** The page uses inline styles and **no
+  scripts**, and **HTML-escapes every dynamic value** — finding strings can echo
+  attacker-influenced resource names/tags, so a shared summary must not carry
+  injected markup. Same untrusted-output stance as the report guard.
+- **Fleet rollup reuses the orchestrate layout.** `--fleet <base>` discovers
+  per-target report sub-dirs (the `presidio-scout-orchestrate` directory shape)
+  and aggregates them into one table + totals; fail-closed per target.
+
+**Delivered:**
+- `summary.py` (`build`, `discover_fleet`/`build_fleet`, `render_markdown`/
+  `render_html`/`render_csv`/`render_fleet_markdown`) + `presidio-scout-summary`
+- Public API exports (`build_summary_report`, `build_fleet`, `render_markdown`,
+  `render_html`); version 0.26.0 (both files)
+- `test_summary.py` (incl. the HTML-escaping assertion); coverage 95% (≥90% gate);
+  ruff clean
+- README roadmap row + structure entry; SECURITY.md feature bullet +
+  supported-version bump; this log
+
+---
+
+## v0.27.0 — Stable extension API (2026-06-16)
+
+The third-arc stretch item: let orgs extend the distribution without forking it,
+on a stable, fail-closed contract.
+
+**Design decisions:**
+
+- **Two discovery paths, one contract.** Plugins are found via Python entry points
+  under stable groups (`presidio_scoutsuite.redactors` / `.exporters` / `.sinks`),
+  or referenced explicitly as `"module:attr"` (`load_object`). Each implements a
+  tiny `Protocol` (`Redactor.patterns()`, `Exporter.export()`, `Sink.send()`).
+- **Fail-closed loading.** A malformed reference, an import failure, a plugin that
+  raises on load, or a redactor yielding a malformed pattern raises
+  `ExtensionError` — never a silent skip, because a broken **redactor** could
+  otherwise let a secret through.
+- **Real integration, safe default.** The main `presidio-scout` run now folds
+  installed redactor-plugin patterns into the redaction step (alongside the config
+  `[redaction]` extras). With no plugin installed, discovery returns empty — zero
+  added surface — but a broken installed redactor fails the run (exit 2).
+- **`presidio-scout-ext list`** inspects what's installed per group.
+
+**Delivered:**
+- `extensions.py` (`load_object`, `discover`, `redactor_patterns`,
+  `installed_redactor_patterns`, `Redactor`/`Exporter`/`Sink` protocols) +
+  `presidio-scout-ext`; `ExtensionError`; cli wires installed redactor patterns
+- Public API exports; version 0.27.0 (both files)
+- `test_extensions.py` (load/discover/validation, all fail-closed paths); coverage
+  95% (≥90% gate); ruff clean
+- README roadmap row + structure entry; SECURITY.md feature bullet +
+  supported-version bump; this log
+
+**Third arc (0.22.0–0.27.0) complete.** Continuous assurance & remediation:
+posture trend + regression gate (0.22), remediation guidance + ASFF (0.23),
+policy-as-code assertions (0.24), Alibaba/Oracle baselines (0.25), executive &
+multi-format reporting (0.26), and a stable extension API (0.27) — all keeping the
+invariants (out-of-process, no GPL import, MIT, stdlib runtime, fail-closed,
+offline-testable). Next: the fourth arc (0.28.0+, evidence substrate / consortium
+interop).
+
+---
+
 ## Roadmap
 
 Delivered (0.1.0–0.15.0) — the planned arc is complete. The arc: **0.5** hardens
@@ -1031,12 +1223,12 @@ offline-testable).
 
 | Version | Planned | Axis · depends on |
 |---|---|---|
-| **0.22.0** | **Posture history & trend** — `presidio-scout-trend`: append each run's summary to an append-only JSONL store; report new/resolved findings and per-control movement over time; fail-closed **regression gate** (block when posture worsens). | operational / continuous · 0.10, 0.17, 0.19 |
-| **0.23.0** | **Remediation guidance** — curated per-rule remediation steps + doc links (bundled like the control maps, validated against the manifest); `presidio-scout-remediate` emits fix guidance per finding and fills the ASFF `Remediation` field + notify summaries. | policy / integration · 0.17, 0.20 |
-| **0.24.0** | **Policy-as-code assertions** — `presidio-scout-assert`: a declarative policy file of named assertions (provider/service/rule/resource predicates) richer than a single severity threshold (e.g. "no public storage in prod", "MFA on all admins"); fail-closed. | policy · 0.6, 0.8, 0.15 |
-| **0.25.0** | **Aliyun & OCI baselines** — curated, manifest-verified baselines + least-privilege IAM for ScoutSuite's remaining providers, reconciled against the real upstream source (the 0.18 method). | secure-by-default policy · 0.2, 0.18 |
-| **0.26.0** | **Executive & multi-format reporting** — a self-contained Markdown/HTML executive summary + CSV export, and fleet rollups aggregating many targets into one view. | reporting · 0.17, 0.19 |
-| **0.27.0** (stretch) | **Stable extension API** — a documented, MIT-safe plugin entry point for custom exporters / sinks / redactors so orgs extend without forking. | extensibility · 0.20, 0.21 |
+| **0.22.0** | **Posture history & trend** — `presidio-scout-trend record|show`: append each run to an append-only JSONL history; report new/resolved findings vs the previous run; fail-closed `--fail-on-regression` gate (block when a new finding appears). ✓ | operational / continuous · 0.10, 0.17, 0.19 |
+| **0.23.0** | **Remediation guidance** — curated per-rule remediation steps + doc links (bundled like the control maps, validated against the manifest; AWS 34 / Azure 26 / GCP 27); `presidio-scout-remediate` emits fix guidance per finding and fills the ASFF `Remediation` field. ✓ | policy / integration · 0.17, 0.20 |
+| **0.24.0** | **Policy-as-code assertions** — `presidio-scout-assert`: a declarative `[[assert]]` policy of named rules (service / rule-glob / `min_level` selectors + a `max` count) richer than a single severity threshold; fail-closed, exit 4 on any violation. ✓ | policy · 0.6, 0.8, 0.15 |
+| **0.25.0** | **Alibaba Cloud & Oracle Cloud baselines** — curated, manifest-verified baselines + compliance maps for ScoutSuite's remaining providers, rule names reconciled against the real 5.14.0 source (the 0.18 method); all five providers now ship a hardened default. ✓ | secure-by-default policy · 0.2, 0.18 |
+| **0.26.0** | **Executive & multi-format reporting** — `presidio-scout-summary` renders a report (or a `--fleet` rollup) as Markdown / self-contained escaped HTML / CSV / JSON, with failing-control counts from the compliance map. ✓ | reporting · 0.17, 0.19 |
+| **0.27.0** (stretch) | **Stable extension API** — `presidio-scout-ext` discovers MIT-safe plugins (redactors / exporters / sinks) via entry points; installed redactor plugins feed the redaction step, fail-closed; documented `Protocol` contract. ✓ | extensibility · 0.20, 0.21 |
 
 **Recommendation:** start with **0.22.0** — a trend store + regression gate turns
 the existing diff (0.10) and orchestration (0.19) into ongoing assurance, and is

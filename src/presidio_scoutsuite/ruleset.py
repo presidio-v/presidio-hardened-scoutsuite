@@ -33,13 +33,15 @@ from pathlib import Path
 from .errors import RulesetValidationError
 
 #: Providers that ship a curated baseline + rule manifest as of this version.
-VALIDATED_PROVIDERS: tuple[str, ...] = ("aws", "azure", "gcp")
+VALIDATED_PROVIDERS: tuple[str, ...] = ("aws", "azure", "gcp", "aliyun", "oci")
 
 #: Bundled curated baseline filename per provider.
 _BASELINE_FILES: dict[str, str] = {
     "aws": "aws-cis.json",
     "azure": "azure-cis.json",
     "gcp": "gcp-cis.json",
+    "aliyun": "aliyun-cis.json",
+    "oci": "oci-cis.json",
 }
 
 #: Bundled rule-inventory manifest filename per provider.

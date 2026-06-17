@@ -8,6 +8,7 @@ process (see :mod:`presidio_scoutsuite.launcher`) and is never imported here.
 from __future__ import annotations
 
 from .asff import to_asff
+from .assertions import Assertion, AssertionResult, PolicyReport, evaluate, load_policy
 from .attestation import attest_report, build_attestation, verify_attestation
 from .compliance import (
     ComplianceMapping,
@@ -26,20 +27,32 @@ from .errors import (
     ComplianceError,
     ConfigError,
     CredentialError,
+    ExtensionError,
     FindingsError,
     LauncherError,
     NotificationError,
     OrchestrationError,
+    PolicyError,
     PresidioScoutError,
     ProvenanceVerificationError,
     RedactionError,
+    RemediationError,
     ReportGuardError,
     ReportVerificationError,
     RulesetValidationError,
     ScoutIntegrityError,
+    TrendError,
     UpgradeError,
     VulnerabilityError,
     WaiverError,
+)
+from .extensions import (
+    Exporter,
+    Redactor,
+    Sink,
+    discover,
+    installed_redactor_patterns,
+    load_object,
 )
 from .findings import Finding, FindingsReport, load_report
 from .launcher import LaunchPlan, build_plan, run, scrub_env, validate_passthrough
@@ -55,6 +68,7 @@ from .orchestrate import (
 )
 from .provenance import Provenance, ProvenancePolicy, load_statement
 from .redact import assert_clean, redact_report_dir, redact_text, scan
+from .remediation import Remediation, load_remediation, remediation_for, validate_remediation
 from .report_guard import GuardResult, guard_report
 from .ruleset import (
     available_rules,
@@ -67,6 +81,9 @@ from .ruleset import (
 )
 from .sarif import to_sarif
 from .scout_integrity import ScoutIntegrityResult, pinned_version, verify_scout
+from .summary import build as build_summary_report
+from .summary import build_fleet, render_html, render_markdown
+from .trend import Comparison, Snapshot, compare, load_history, record, snapshot
 from .upgrade import (
     CoherenceReport,
     Pin,
@@ -87,6 +104,7 @@ __all__ = [
     "LauncherError",
     "CredentialError",
     "ConfigError",
+    "ExtensionError",
     "RedactionError",
     "ReportGuardError",
     "ReportVerificationError",
@@ -101,7 +119,35 @@ __all__ = [
     "AsffError",
     "OrchestrationError",
     "NotificationError",
+    "PolicyError",
+    "TrendError",
+    "RemediationError",
     "UpgradeError",
+    "Assertion",
+    "AssertionResult",
+    "PolicyReport",
+    "load_policy",
+    "evaluate",
+    "Remediation",
+    "load_remediation",
+    "validate_remediation",
+    "remediation_for",
+    "Snapshot",
+    "Comparison",
+    "snapshot",
+    "compare",
+    "record",
+    "load_history",
+    "Redactor",
+    "Exporter",
+    "Sink",
+    "discover",
+    "load_object",
+    "installed_redactor_patterns",
+    "build_summary_report",
+    "build_fleet",
+    "render_markdown",
+    "render_html",
     "build_summary",
     "render_text",
     "resolve_sink",

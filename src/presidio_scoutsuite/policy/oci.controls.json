@@ -1,0 +1,17 @@
+{
+  "provider": "oci",
+  "frameworks": ["cis", "nist-800-53", "soc2"],
+  "_note": "Curated mapping from ScoutSuite finding rules to compliance controls. nist-800-53 = NIST SP 800-53 Rev. 5; soc2 = AICPA Trust Services Criteria. (OCI CIS control numbers are left empty pending a verified mapping.) Rule names verified against the pinned ScoutSuite; validated fail-closed against oci.rules.txt.",
+  "controls": {
+    "identity-password-policy-minimum-length.json": {"cis": [], "nist-800-53": ["IA-5"], "soc2": ["CC6.1"]},
+    "identity-password-policy-no-lowercase-required.json": {"cis": [], "nist-800-53": ["IA-5"], "soc2": ["CC6.1"]},
+    "identity-password-policy-no-number-required.json": {"cis": [], "nist-800-53": ["IA-5"], "soc2": ["CC6.1"]},
+    "identity-password-policy-no-symbol-required.json": {"cis": [], "nist-800-53": ["IA-5"], "soc2": ["CC6.1"]},
+    "identity-password-policy-no-uppercase-required.json": {"cis": [], "nist-800-53": ["IA-5"], "soc2": ["CC6.1"]},
+    "identity-policy-affects-user.json": {"cis": [], "nist-800-53": ["AC-6"], "soc2": ["CC6.3"]},
+    "identity-user-with-multiple-api-keys.json": {"cis": [], "nist-800-53": ["AC-6", "IA-5"], "soc2": ["CC6.1"]},
+    "kms-no-key-rotation.json": {"cis": [], "nist-800-53": ["SC-12"], "soc2": ["CC6.1"]},
+    "objectstorage-bucket-lacking-kms-encryption.json": {"cis": [], "nist-800-53": ["SC-28"], "soc2": ["CC6.1"]},
+    "objectstorage-public-bucket.json": {"cis": [], "nist-800-53": ["AC-3", "AC-6"], "soc2": ["CC6.1"]}
+  }
+}

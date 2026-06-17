@@ -89,8 +89,20 @@ def test_azure_and_gcp_apply_bundled_baseline(tmp_path, capsys):
         assert "--ruleset" in out  # bundled baseline applied by default
 
 
-def test_warns_when_no_bundled_ruleset(tmp_path, capsys):
-    # oci ships no curated baseline yet → falls back to ScoutSuite's default.
+def test_aliyun_and_oci_apply_bundled_baseline(tmp_path, capsys):
+    # Every supported provider now ships a curated baseline (verified vs 5.14.0).
+    for provider in ("aliyun", "oci"):
+        rc = cli.main([provider, "--report-dir", str(tmp_path / provider), "--dry-run"])
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert f"scout {provider}" in out
+        assert "--ruleset" in out
+
+
+def test_warns_when_no_bundled_ruleset(tmp_path, capsys, monkeypatch):
+    # If a provider has no bundled baseline, fall back to ScoutSuite's default
+    # (with a warning) rather than silently dropping the hardened ruleset.
+    monkeypatch.delitem(cli._BUNDLED_RULESETS, "oci")
     rc = cli.main(["oci", "--report-dir", str(tmp_path / "out"), "--dry-run"])
     assert rc == 0
     err = capsys.readouterr().err

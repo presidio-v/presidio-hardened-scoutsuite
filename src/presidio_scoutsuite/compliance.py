@@ -31,7 +31,7 @@ from .findings import FindingsReport, load_report
 #: Frameworks this distribution ships curated mappings for.
 FRAMEWORKS: tuple[str, ...] = ("cis", "nist-800-53", "soc2")
 #: Providers that ship a curated control mapping.
-MAPPED_PROVIDERS: tuple[str, ...] = ("aws", "azure", "gcp")
+MAPPED_PROVIDERS: tuple[str, ...] = ("aws", "azure", "gcp", "aliyun", "oci")
 
 _MAPPING_FILES: dict[str, str] = {p: f"{p}.controls.json" for p in MAPPED_PROVIDERS}
 
