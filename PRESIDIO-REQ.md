@@ -55,7 +55,7 @@ rulesets + IAM deferred to 0.2.0.
 
 ## Technical Requirements
 
-- Python 3.9+; `pyproject.toml` + `hatchling`; `src/presidio_scoutsuite/` layout.
+- Python 3.10+; `pyproject.toml` + `hatchling`; `src/presidio_scoutsuite/` layout.
 - **No runtime dependency on ScoutSuite** — invoked as a subprocess. Optional
   `[scoutsuite]` extra pins it for convenience (documented GPL implication).
 - `pytest` + `pytest-cov` (≥ 90% gate); tests run **without ScoutSuite installed**
@@ -284,9 +284,10 @@ from the installed package (`ruleset.installed_rules`) and the release-time
   for the first time.
 - **Pinned build backend + Python alignment.** `requires = ["hatchling==1.27.0"]`
   so the wheel/sdist build is deterministic across environments (the
-  reproducible-build gate depends on it). Pinned to 1.27.0 — the last hatchling
-  that still supports Python 3.9 (1.28+ requires ≥3.10); 1.30.1 broke the 3.9 CI
-  job's editable install and was rolled back. The lock is resolved under Python 3.11
+  reproducible-build gate depends on it; Dependabot bumps it). Pinned to 1.27.0
+  originally because it was the last hatchling that still supported Python 3.9
+  (1.28+ requires ≥3.10) — a constraint since lifted now that the floor is **3.10**;
+  the pin stays for build determinism. The lock is resolved under Python 3.11
   to match the distroless runtime (`python3-debian12` = 3.11); the Dockerfile
   builder was moved from 3.12 to **3.11** so the venv matches both the runtime
   and the lock (it was a latent mismatch).
@@ -654,7 +655,7 @@ A-lite (opt-in CLI brokering) for the reasons above.
   ships as `.presidio-scout.toml.example` (the real name is auto-discovered, and
   deliberately *not* committed so it can't perturb tests/CI).
 - **The one conditional runtime dep.** TOML is read with the stdlib `tomllib`
-  (3.11+); on 3.9/3.10 the tiny `tomli` backport is pulled in via
+  (3.11+); on 3.10 the tiny `tomli` backport is pulled in via
   `tomli; python_version < "3.11"`. This is the single, documented exception to
   the otherwise dependency-free runtime (and unrelated to the no-ScoutSuite-import
   invariant, which still holds).
@@ -1181,7 +1182,7 @@ ScoutSuite, MIT wrapper, stdlib runtime, fail-closed, offline-testable.
 - **0.12.0** — resolved: chose configuration + fail-closed preflight (Direction B)
   over in-wrapper brokering. See the v0.12.0 deliberation above.
 - **0.15.0** — resolved: stdlib `tomllib` on 3.11+, with a conditional `tomli`
-  dependency on 3.9/3.10 (the one documented runtime dep). See the v0.15.0 log.
+  dependency on 3.10 (the one documented runtime dep). See the v0.15.0 log.
 
 ---
 

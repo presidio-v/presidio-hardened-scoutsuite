@@ -7,7 +7,7 @@ pipeline. ``[defaults]`` applies to every run; a ``[profiles.<name>]`` table
 both. ``presidio-scout-policy`` validates the file so a typo in org policy fails
 loudly rather than being silently ignored.
 
-TOML is parsed with the stdlib ``tomllib`` (Python 3.11+); on 3.9/3.10 the tiny
+TOML is parsed with the stdlib ``tomllib`` (Python 3.11+); on 3.10 the tiny
 ``tomli`` backport is used — the single conditional runtime dependency.
 Validation is fail-closed: unknown sections/keys, wrong types, or out-of-range
 values (e.g. an unknown provider or severity) all error.

@@ -26,7 +26,7 @@ from .findings import _RANK, LEVELS, FindingsReport, load_report
 
 try:
     import tomllib
-except ModuleNotFoundError:  # Python 3.9 / 3.10
+except ModuleNotFoundError:  # Python 3.10 (tomllib is stdlib from 3.11)
     import tomli as tomllib  # type: ignore[no-redef]
 
 _ALLOWED = {"name", "service", "rules", "min_level", "min-level", "max"}
