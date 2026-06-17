@@ -47,6 +47,8 @@ from .version import __version__
 
 #: Cross-repo wire-format contract identifiers (mirrors presidio-evidence).
 SCHEMA_ID = "presidio-hardened/evidence-ref@1"
+#: Verifier-side trust-store schema id (the consumer's contract id).
+TRUST_STORE_SCHEMA_ID = "presidio-hardened/trust-store@1"
 #: Signature algorithms, secure default first.
 SIGNING_ALGORITHMS: tuple[str, ...] = ("ed25519", "hmac-sha256")
 #: This producer's identity, recorded as the ref ``source`` and default signer.
@@ -74,6 +76,7 @@ _CONTRACT_FIELDS = (
     "claimed_at",
 )
 _HEX_RE = re.compile(r"^[0-9a-f]{8,128}$")
+_ED25519_PUBKEY_RE = re.compile(r"^[0-9a-f]{64}$")
 _MAX_STR = 512
 
 _MAPPING_FILES: dict[str, str] = {p: f"{p}.evidence.json" for p in MAPPED_PROVIDERS}
@@ -421,6 +424,12 @@ def _normalise_entry(signer: str, value: object) -> dict[str, object]:
             or not all(isinstance(k, str) and k for k in keys)
         ):
             raise EvidenceError(f"trust entry '{signer}': missing or invalid key material")
+        if alg == "ed25519" and not all(_ED25519_PUBKEY_RE.match(k) for k in keys):
+            # Reject a malformed key at load rather than silently failing every
+            # verification later (an operator typo must be loud, not fail-open-ish).
+            raise EvidenceError(
+                f"trust entry '{signer}': Ed25519 public keys must be 64 lowercase hex chars"
+            )
         return {"alg": alg, "keys": list(keys)}
     raise EvidenceError(f"trust entry '{signer}': must be a string or an object")
 

@@ -33,7 +33,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: scout
-          image: ghcr.io/presidio-v/presidio-hardened-scoutsuite:v0.28.0
+          image: ghcr.io/presidio-v/presidio-hardened-scoutsuite:v0.29.0
           args:
             - aws
             - --report-dir

@@ -676,12 +676,13 @@ does this automatically on a version bump).
 ## Roadmap
 
 **Status:** all versions below are **delivered and merged to `main`** (currently
-**v0.28.0**) across three complete arcs — the single-run hardened auditor
+**v0.29.0**) across three complete arcs — the single-run hardened auditor
 (0.1–0.15), fleet tooling & integrations (0.16–0.21), and continuous assurance &
-remediation (0.22–0.27) — plus the opening of a fourth arc, *consortium interop &
-the evidence substrate* (0.28.0+). The release pipeline has shipped **v0.18.0**
-(PyPI + cosign-signed, attested image); 0.19–0.28 are on `main` awaiting a release
-tag. The rest of the fourth arc (0.29.0+) is planned (see the tables at the end).
+remediation (0.22–0.27) — plus the fourth arc, *consortium interop & the evidence
+substrate* (0.28.0+), now through 0.29.0. The release pipeline has shipped
+**v0.18.0** (PyPI + cosign-signed, attested image); 0.19–0.29 are on `main`
+awaiting a release tag. The rest of the fourth arc (0.30.0+) is planned (see the
+tables at the end).
 
 | Version | Highlights |
 |---|---|
@@ -715,7 +716,7 @@ tag. The rest of the fourth arc (0.29.0+) is planned (see the tables at the end)
 
 ### Fourth arc: consortium interop & the evidence substrate (0.28.0+)
 
-**0.28.0 is delivered**; 0.29.0–0.30.0 are planned. This arc makes a ScoutSuite
+**0.28.0–0.29.0 are delivered**; 0.30.0 is planned. This arc makes a ScoutSuite
 audit a **first-class evidence producer** in the
 `presidio-hardened-*` family. A *clean* curated control (no `danger`/`warning`
 finding for its mapped rules) becomes a signed `EvidenceRef`
@@ -732,7 +733,7 @@ ikigov-assess does today.
 | Version | Planned |
 |---|---|
 | **0.28.0** ✓ | Signed finding evidence (presidio-evidence **producer**) — `evidence.py` + `presidio-scout-evidence` (`emit`/`verify`) + `presidio-scout --evidence-out PATH`: emit a signed `EvidenceRef` envelope per clean curated control (content hash over the canonical control subject, `ledger_ref` bound to the report-manifest digest), Ed25519 (optional `[crypto]`) + HMAC (stdlib), fail-closed; a curated rule→checklist-item map (T5/O5) validated against the rule manifest; golden-vector conformance against `presidio-evidence/vectors/` |
-| **0.29.0** | Trust store, rotation & interop hardening — `verify --trust` against `presidio-hardened/trust-store@1` (key rotation, signer-bound signatures, tamper cases fail closed) and a cross-repo interop golden proving ikigov-assess verifies a ScoutSuite-emitted envelope |
+| **0.29.0** ✓ | Trust store, rotation & interop hardening — `verify --trust` against `presidio-hardened/trust-store@1` (key rotation, signer-bound signatures, tamper cases fail closed; malformed Ed25519 keys rejected at load) and a committed cross-repo interop golden, verified byte-for-byte by ikigov-assess's own `verify_ref` |
 | **0.30.0** (stretch) | Library extraction & evidence consumption — migrate the vendored contract to `presidio-evidence>=0.2.0` imports, and optionally ingest peer evidence to annotate findings with provenance (mirror of ikigov-assess's consumer side) |
 
 See [`PRESIDIO-REQ.md`](./PRESIDIO-REQ.md) for the per-version rationale,

@@ -1,14 +1,17 @@
-"""Tests for evidence emission (presidio-evidence producer, 0.28.0).
+"""Tests for evidence emission (presidio-evidence producer, 0.28.0–0.29.0).
 
 The HMAC golden vector is exercised with the stdlib so the wire format is pinned
-without the optional ``[crypto]`` extra; the Ed25519 golden vector is exercised
-only when ``cryptography`` is importable (``pytest.importorskip``).
+without the optional ``[crypto]`` extra; the Ed25519 golden vector and ed25519
+trust-store paths run only when a real Ed25519 operation works (``_needs_ed25519``
+skips an importable-but-broken backend). The cross-repo interop golden under
+``tests/interop/`` is a ScoutSuite-emitted envelope ikigov-assess must verify.
 """
 
 from __future__ import annotations
 
 import json
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -447,3 +450,87 @@ def test_cli_evidence_out_without_key_fails_closed(tmp_path, monkeypatch):
         ["aws", "--report-dir", str(report_dir), "--evidence-out", str(tmp_path / "e.json")]
     )
     assert rc == 3
+
+
+# ── trust-store hardening (0.29.0) ───────────────────────────────────────────
+def test_trust_store_rejects_malformed_ed25519_key():
+    # Wrong length and non-hex Ed25519 public keys must fail at load, not silently
+    # turn into a verify-false later.
+    for bad in ("00", "z" * 64, "AA" * 32):
+        with pytest.raises(EvidenceError):
+            E.load_trust_store(json.dumps({"s": {"alg": "ed25519", "public_key": bad}}))
+
+
+@_needs_ed25519
+def test_trust_store_accepts_well_formed_ed25519_key():
+    # 64 lowercase hex chars normalises fine; loading an ed25519 store needs the
+    # [crypto] extra (fail-fast), so this is gated on it.
+    trust = E.load_trust_store(json.dumps({"s": {"alg": "ed25519", "public_key": ED_PUB}}))
+    assert trust["s"] == {"alg": "ed25519", "keys": [ED_PUB]}
+
+
+def test_trust_store_unknown_alg_rejected():
+    with pytest.raises(EvidenceError):
+        E.load_trust_store(json.dumps({"s": {"alg": "rsa", "key": "x"}}))
+
+
+# ── tamper-case conformance (pins fail-closed behaviour) ─────────────────────
+def test_hmac_tamper_cases_all_fail():
+    ref = E.EvidenceRef(**_ref_dict())
+    # wrong key
+    assert E.verify_ref(ref, E.load_trust_store(json.dumps({GOLDEN_SIGNER: "wrong"}))) is False
+    # malformed signature hex (not lowercase hex) is rejected at parse time
+    with pytest.raises(EvidenceError):
+        E.parse_document({"evidence": [_ref_dict(signature="zz" + GOLDEN_HMAC_SIG[2:])]})
+
+
+@_needs_ed25519
+def test_ed25519_wrong_public_key_fails():
+    ref = E.EvidenceRef(**_ref_dict(signature=ED_SIG))
+    trust = E.load_trust_store(
+        json.dumps({GOLDEN_SIGNER: {"alg": "ed25519", "public_key": "00" * 32}})
+    )
+    assert E.verify_ref(ref, trust) is False
+
+
+# ── cross-repo interop golden (0.29.0) ───────────────────────────────────────
+_INTEROP = Path(__file__).parent / "interop"
+
+
+def _regenerate_interop_envelope():
+    """Rebuild the committed golden from its fixed inputs (see notes.json)."""
+    notes = json.loads((_INTEROP / "scout-evidence-aws.notes.json").read_text())
+    env = E.build_evidence(
+        FindingsReport(findings=[], providers=["aws"]),
+        report_digest=notes["report_digest"],
+        signer=notes["signer"],
+        key=notes["key"],
+        alg=notes["alg"],
+        providers=["aws"],
+        source_version=notes["source_version"],
+        claimed_at=notes["claimed_at"],
+    )
+    return json.dumps(env, indent=2, sort_keys=True) + "\n"
+
+
+def test_interop_golden_is_byte_stable():
+    # Append-only discipline: the committed envelope must reproduce byte-for-byte
+    # from its fixed inputs, so a drift in the map or wire format is caught here.
+    committed = (_INTEROP / "scout-evidence-aws.json").read_text()
+    assert _regenerate_interop_envelope() == committed
+
+
+def test_interop_golden_verifies_and_tamper_fails():
+    refs = E.load_evidence((_INTEROP / "scout-evidence-aws.json").read_text())
+    trust = E.load_trust_store((_INTEROP / "scout-evidence-aws.trust.json").read_text())
+    assert refs and all(E.verify_ref(r, trust) for r in refs)
+    # tampering any field the signature covers breaks verification
+    tampered = E.EvidenceRef(**{**refs[0].to_dict(), "content_hash": "dead" * 16})
+    assert E.verify_ref(tampered, trust) is False
+
+
+def test_interop_golden_items_are_known_checklist_ids():
+    # The envelope only affirms ids the consumer (ikigov-assess) recognises.
+    refs = E.load_evidence((_INTEROP / "scout-evidence-aws.json").read_text())
+    assert {r.item_id for r in refs} == {"T5", "O5"}
+    assert all(r.item_id in E.VALID_ITEM_IDS for r in refs)
