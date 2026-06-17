@@ -137,7 +137,15 @@ def compose_baseline(data: dict) -> dict | None:
         if not isinstance(rules, list) or not all(isinstance(r, str) for r in rules):
             raise ConfigError("[baseline.disable].rules must be a list of rule-filename strings")
         for rule in rules:
-            composed.pop(rule, None)
+            if rule not in manifest:
+                raise ConfigError(
+                    f"[baseline.disable]: rule {rule!r} is not in the {base} manifest inventory"
+                )
+            if rule not in composed:
+                raise ConfigError(
+                    f"[baseline.disable]: rule {rule!r} is not enabled in the composed baseline"
+                )
+            composed.pop(rule)
 
     if not composed:
         raise ConfigError("[baseline]: composition produced an empty ruleset")

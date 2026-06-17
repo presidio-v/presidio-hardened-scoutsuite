@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 
 import pytest
 
@@ -129,6 +130,23 @@ def test_deliver_refuses_leaky_payload():
         )
 
 
+def test_deliver_refuses_extra_redactor_payload():
+    extra = [("internal_token", re.compile(r"INT-[0-9]{4}"))]
+    with pytest.raises(RedactionError, match="internal_token"):
+        N.deliver(
+            sink_type="webhook",
+            text='{"x":"INT-1234"}',
+            url="https://h",
+            extra=extra,
+            sender=lambda u, d: 200,
+        )
+
+
+def test_deliver_rejects_plain_http_even_with_injected_sender():
+    with pytest.raises(NotificationError, match="non-HTTPS"):
+        N.deliver(sink_type="webhook", text="{}", url="http://h", sender=lambda u, d: 200)
+
+
 # --- resolve_sink ------------------------------------------------------------
 
 
@@ -165,8 +183,13 @@ def test_resolve_sink_malformed(tmp_path):
 
 
 def test_http_post_rejects_non_http():
-    with pytest.raises(NotificationError, match="non-HTTP"):
+    with pytest.raises(NotificationError, match="non-HTTPS"):
         N._http_post("file:///etc/passwd", b"{}")
+
+
+def test_http_post_rejects_plain_http():
+    with pytest.raises(NotificationError, match="non-HTTPS"):
+        N._http_post("http://hooks.example/x", b"{}")
 
 
 # --- CLI ---------------------------------------------------------------------

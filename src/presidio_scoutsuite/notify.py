@@ -25,10 +25,11 @@ import argparse
 import json
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
-from . import redact
+from . import compose, config, extensions, redact
 from .errors import NotificationError, PresidioScoutError
 from .findings import _RANK, LEVELS, load_report
 from .version import __version__
@@ -95,6 +96,12 @@ def render_text(summary: dict) -> str:
     return "\n".join(lines)
 
 
+def _require_https_url(url: str) -> None:
+    scheme = urllib.parse.urlsplit(url).scheme.lower()
+    if scheme != "https":
+        raise NotificationError(f"refusing non-HTTPS webhook url scheme: {scheme!r}")
+
+
 def resolve_sink(config_path: str | Path, name: str) -> dict:
     """Resolve a named ``[sinks.<name>]`` table from a TOML config.
 
@@ -119,11 +126,10 @@ def resolve_sink(config_path: str | Path, name: str) -> dict:
 def _http_post(url: str, data: bytes) -> int:
     """POST ``data`` as JSON; return the HTTP status. Stdlib only."""
 
+    _require_https_url(url)
     request = urllib.request.Request(  # noqa: S310 - scheme checked below
         url, data=data, headers={"Content-Type": "application/json"}, method="POST"
     )
-    if request.type not in ("http", "https"):
-        raise NotificationError(f"refusing non-HTTP(S) webhook url scheme: {request.type!r}")
     try:
         with urllib.request.urlopen(request, timeout=30) as resp:  # noqa: S310
             return resp.status
@@ -139,6 +145,7 @@ def deliver(
     text: str,
     url: str | None = None,
     path: str | None = None,
+    extra: redact.ExtraPatterns | None = None,
     sender=None,
 ) -> str:
     """Deliver ``text`` to a sink, fail-closed and redaction-guarded.
@@ -148,7 +155,7 @@ def deliver(
     string; raises :class:`NotificationError` / :class:`RedactionError` otherwise.
     """
 
-    redact.assert_clean(text, where=f"{sink_type} notification")
+    redact.assert_clean(text, where=f"{sink_type} notification", extra=extra)
     if sender is None:
         sender = _http_post
     if sink_type == "file":
@@ -159,6 +166,7 @@ def deliver(
     if sink_type in ("webhook", "slack"):
         if not url:
             raise NotificationError(f"{sink_type} sink requires a url")
+        _require_https_url(url)
         status = sender(url, text.encode("utf-8"))
         if not (200 <= status < 300):
             raise NotificationError(f"{sink_type} POST to {url} returned HTTP {status}")
@@ -212,6 +220,7 @@ def _main(argv: list[str] | None = None) -> int:
     try:
         sink_type = args.sink
         url, path = args.url, args.path
+        extra_redaction = []
         if args.sink_name:
             if not args.config:
                 raise NotificationError("--sink-name requires --config")
@@ -219,6 +228,9 @@ def _main(argv: list[str] | None = None) -> int:
             sink_type = sink["type"]
             url = url or sink.get("url")
             path = path or sink.get("path")
+        if args.config:
+            extra_redaction = compose.parse_redaction_patterns(config.read_raw(args.config))
+        extra_redaction += extensions.installed_redactor_patterns()
         if not sink_type:
             raise NotificationError("a sink is required (--sink or --sink-name)")
 
@@ -240,7 +252,7 @@ def _main(argv: list[str] | None = None) -> int:
 
     try:
         text = _payload_for(sink_type, summary, args.format)
-        status = deliver(sink_type=sink_type, text=text, url=url, path=path)
+        status = deliver(sink_type=sink_type, text=text, url=url, path=path, extra=extra_redaction)
     except PresidioScoutError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

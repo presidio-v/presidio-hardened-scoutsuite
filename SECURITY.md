@@ -253,7 +253,11 @@ separately (or bundled into the container image). See
 - CodeQL (`security-extended`) runs on every push and pull request.
 - The container/runtime lockfile is audited with `pip-audit` before image
   release; new images are not published while known vulnerabilities remain in
-  the bundled ScoutSuite dependency tree.
+  the bundled ScoutSuite dependency tree. Upstream-owned ScoutSuite transitive
+  dependency findings are handled under
+  [`SCOUTSUITE-DEPENDENCY-POLICY.md`](./SCOUTSUITE-DEPENDENCY-POLICY.md): keep
+  the gate, regenerate when upstream fixes are compatible, or carry a reviewed
+  Presidio patch/fork with provenance and compatibility evidence.
 - A checked-in `.presidio-scout.toml` (defaults + named profiles) lets a team
   enforce the hardened gates by default across every pipeline;
   `presidio-scout-policy validate` fail-closed-checks it so a typo in org policy
