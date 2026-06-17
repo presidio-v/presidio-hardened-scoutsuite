@@ -348,6 +348,7 @@ def main(argv: list[str] | None = None) -> int:
             plan.report_dir,
             fail_on_secret=args.fail_on_secret,
             fail_on_remote_ref=args.fail_on_remote_ref,
+            extra=extra_redaction,
         )
     except PresidioScoutError as exc:
         print(f"error: {exc}", file=sys.stderr)

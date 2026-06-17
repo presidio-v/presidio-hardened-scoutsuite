@@ -260,6 +260,7 @@ def guard_report(
     fail_on_remote_ref: bool = False,
     write_manifest: bool = True,
     sign_key: bytes | None = None,
+    extra: redact.ExtraPatterns | None = None,
 ) -> GuardResult:
     """Harden and verify a finished report directory.
 
@@ -270,9 +271,11 @@ def guard_report(
     inventory it records.
 
     ``fail_on_secret`` / ``fail_on_remote_ref`` turn a surviving secret or a
-    remote reference into a :class:`ReportGuardError`. ``sign_key`` (defaulting
-    to the :data:`~presidio_scoutsuite.manifest.HMAC_ENV_VAR` environment key)
-    attaches an HMAC signature to the manifest.
+    remote reference into a :class:`ReportGuardError`. ``extra`` adds the same
+    org/plugin redactors used by report redaction to the final secret scan.
+    ``sign_key`` (defaulting to the
+    :data:`~presidio_scoutsuite.manifest.HMAC_ENV_VAR` environment key) attaches
+    an HMAC signature to the manifest.
     """
 
     root = Path(report_dir)
@@ -316,7 +319,7 @@ def guard_report(
         if rel == manifest.MANIFEST_FILENAME:
             continue
         try:
-            findings = redact.scan(file.read_text(encoding="utf-8"))
+            findings = redact.scan(file.read_text(encoding="utf-8"), extra=extra)
         except (UnicodeDecodeError, OSError):
             findings = []
         if findings:

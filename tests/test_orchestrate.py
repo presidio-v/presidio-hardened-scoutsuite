@@ -69,6 +69,13 @@ def test_bad_env_shape(tmp_path):
         O.load_targets(_write(tmp_path, '[[targets]]\nname="a"\nprovider="aws"\nenv={x=1}'))
 
 
+def test_non_credential_env_rejected(tmp_path):
+    with pytest.raises(OrchestrationError, match="non-credential key"):
+        O.load_targets(
+            _write(tmp_path, '[[targets]]\nname="a"\nprovider="aws"\nenv={PATH="/tmp/bin"}')
+        )
+
+
 def test_bad_args_shape(tmp_path):
     with pytest.raises(OrchestrationError, match="'args' must be a list"):
         O.load_targets(_write(tmp_path, '[[targets]]\nname="a"\nprovider="aws"\nargs="x"'))
@@ -122,7 +129,7 @@ def test_run_target_passes_env_and_args(tmp_path):
     result = O.run_target(
         target,
         base_report_dir=tmp_path / "out",
-        base_env={"PATH": "/usr/bin"},
+        base_env={"PATH": "/usr/bin", "GITHUB_TOKEN": "ghp_secret"},
         extra_args=["--require-short-lived-creds"],
         runner=runner,
     )
@@ -132,6 +139,13 @@ def test_run_target_passes_env_and_args(tmp_path):
     assert "--require-short-lived-creds" in captured["argv"]
     assert captured["env"]["AWS_PROFILE"] == "p"
     assert captured["env"]["PATH"] == "/usr/bin"
+    assert "GITHUB_TOKEN" not in captured["env"]
+
+
+def test_run_target_rejects_non_credential_env(tmp_path):
+    target = O.Target("prod-aws", "aws", {"PYTHONPATH": "/tmp"})
+    with pytest.raises(OrchestrationError, match="non-credential key"):
+        O.run_target(target, base_report_dir=tmp_path / "out", base_env={}, runner=lambda *a: 0)
 
 
 def test_run_target_runner_oserror_fails_closed(tmp_path):

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 
 import pytest
 
@@ -67,6 +68,14 @@ def test_guard_report_fail_on_secret_raises(tmp_path):
     (tmp_path / "leak.js").write_text("AKIAIOSFODNN7EXAMPLE")
     with pytest.raises(ReportGuardError, match="secrets present"):
         report_guard.guard_report(tmp_path, fail_on_secret=True)
+
+
+def test_guard_report_uses_extra_redactors(tmp_path):
+    (tmp_path / "leak.js").write_text("INT-1234")
+    result = report_guard.guard_report(
+        tmp_path, extra=[("internal_token", re.compile(r"INT-[0-9]{4}"))]
+    )
+    assert result.secret_findings["leak.js"] == ["internal_token"]
 
 
 def test_guard_report_missing_dir(tmp_path):

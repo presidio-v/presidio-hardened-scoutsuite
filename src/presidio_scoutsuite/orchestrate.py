@@ -43,6 +43,38 @@ except ModuleNotFoundError:  # Python 3.9 / 3.10
 
 TARGETS_FILENAME = ".presidio-scout-targets.toml"
 _ALLOWED_KEYS = {"name", "provider", "env", "args"}
+_TARGET_ENV_PREFIXES = (
+    "AWS_",
+    "AZURE_",
+    "GOOGLE_",
+    "GCP_",
+    "CLOUDSDK_",
+    "GOOGLE_CLOUD_",
+    "ALIBABA_",
+    "ALICLOUD_",
+    "ALIYUN_",
+    "OCI_",
+)
+_TARGET_ENV_NAMES = frozenset(
+    {
+        # Azure managed identity endpoints are credential selectors but are not
+        # AZURE_ prefixed.
+        "IDENTITY_ENDPOINT",
+        "IDENTITY_HEADER",
+        "MSI_ENDPOINT",
+        "MSI_SECRET",
+    }
+)
+
+
+def _validate_target_env(env: dict[str, str], *, where: str) -> None:
+    bad = sorted(
+        name
+        for name in env
+        if name not in _TARGET_ENV_NAMES and not name.startswith(_TARGET_ENV_PREFIXES)
+    )
+    if bad:
+        raise OrchestrationError(f"{where} env contains non-credential key(s): {', '.join(bad)}")
 
 
 @dataclass(frozen=True)
@@ -103,6 +135,7 @@ def load_targets(path: str | Path) -> list[Target]:
             isinstance(k, str) and isinstance(v, str) for k, v in env.items()
         ):
             raise OrchestrationError(f"{p}: target {name!r} 'env' must be a table of strings")
+        _validate_target_env(env, where=f"{p}: target {name!r}")
         args = entry.get("args", [])
         if not isinstance(args, list) or not all(isinstance(a, str) for a in args):
             raise OrchestrationError(f"{p}: target {name!r} 'args' must be a list of strings")
@@ -163,7 +196,8 @@ def run_target(
     argv = [scout_cmd, target.provider, "--report-dir", str(report_dir)]
     argv += list(target.args)
     argv += list(extra_args or [])
-    env = {**base_env, **target.env}
+    _validate_target_env(target.env, where=f"target {target.name!r}")
+    env = {**launcher.scrub_env(base_env), **target.env}
 
     try:
         code = runner(argv, env, timeout)

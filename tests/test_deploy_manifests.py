@@ -13,6 +13,11 @@ from pathlib import Path
 
 import pytest
 
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.9 / 3.10
+    import tomli as tomllib  # type: ignore[no-redef]
+
 _ROOT = Path(__file__).resolve().parents[1]
 _K8S = _ROOT / "deploy" / "kubernetes"
 _CHART = _ROOT / "deploy" / "helm" / "presidio-scout"
@@ -50,6 +55,17 @@ def test_networkpolicy_default_deny():
 def test_serviceaccount_no_api_token():
     text = (_K8S / "serviceaccount.yaml").read_text()
     assert "automountServiceAccountToken: false" in text
+
+
+def test_deploy_image_tags_match_project_version():
+    version = tomllib.loads((_ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"][
+        "version"
+    ]
+    for name in ("job.yaml", "cronjob.yaml"):
+        assert f"presidio-hardened-scoutsuite:v{version}" in (_K8S / name).read_text()
+    chart = (_CHART / "Chart.yaml").read_text()
+    assert f"version: {version}" in chart
+    assert f'appVersion: "{version}"' in chart
 
 
 def test_helm_values_hardened_by_default():

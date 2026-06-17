@@ -134,6 +134,13 @@ def test_compose_disable_bad_shape():
         compose.compose_baseline({"baseline": {"base": "aws", "disable": {"rules": "x"}}})
 
 
+def test_compose_disable_unknown_rule_fails_closed():
+    with pytest.raises(ConfigError, match="not in the aws manifest"):
+        compose.compose_baseline(
+            {"baseline": {"base": "aws", "disable": {"rules": ["made-up-rule.json"]}}}
+        )
+
+
 def test_validate_extensions_ok():
     data = {
         "redaction": {"extra-patterns": ["A-[0-9]{3}"]},

@@ -144,6 +144,31 @@ def test_fail_on_secret_when_redaction_disabled(tmp_path, monkeypatch):
     assert rc == 3
 
 
+def test_fail_on_secret_uses_extra_redactors_when_redaction_disabled(tmp_path, monkeypatch):
+    report_dir = tmp_path / "out"
+    cfg = tmp_path / ".presidio-scout.toml"
+    cfg.write_text('[redaction]\nextra-patterns = ["INT-[0-9]{4}"]\n')
+    _verify_ok(monkeypatch)
+
+    def fake_run(plan, timeout=None):
+        (plan.report_dir / "leak.js").write_text("INT-1234")
+        return subprocess.CompletedProcess(plan.argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(launcher, "run", fake_run)
+    rc = cli.main(
+        [
+            "aws",
+            "--report-dir",
+            str(report_dir),
+            "--config",
+            str(cfg),
+            "--no-redact",
+            "--fail-on-secret",
+        ]
+    )
+    assert rc == 3
+
+
 def test_full_run_writes_verifiable_manifest(tmp_path, monkeypatch, capsys):
     from presidio_scoutsuite import manifest, verify
 
