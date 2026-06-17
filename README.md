@@ -68,6 +68,9 @@ pip install presidio-hardened-scoutsuite          # wrapper only (MIT)
 
 # Convenience extra that also installs ScoutSuite (GPL-2.0) into your env:
 pip install 'presidio-hardened-scoutsuite[scoutsuite]'
+
+# Optional extra for Ed25519-signed evidence (--evidence-out); HMAC needs no extra:
+pip install 'presidio-hardened-scoutsuite[crypto]'
 ```
 
 Or use the hardened container (bundles a pinned ScoutSuite):
@@ -95,6 +98,7 @@ presidio-scout aws --fail-on-finding danger # exit 4 if any flagged finding is d
 presidio-scout aws --sarif results.sarif    # also emit SARIF for GitHub code scanning
 presidio-scout aws --waivers waivers.json --fail-on-finding danger  # suppress accepted findings
 presidio-scout aws --attest run.intoto.json # emit a signed-able run attestation
+presidio-scout aws --evidence-out evidence.json # emit signed evidence for clean controls (peer-verifiable)
 presidio-scout aws --require-short-lived-creds  # refuse to run with long-lived static keys
 presidio-scout --profile nightly            # apply org defaults from .presidio-scout.toml
 presidio-scout aws --no-baseline            # use ScoutSuite's default ruleset instead
@@ -283,6 +287,40 @@ aws securityhub batch-import-findings --findings file://findings.asff.json
 
 `danger` maps to `HIGH` (Normalized 70), `warning` to `MEDIUM` (40); each flagged
 resource becomes one ASFF finding with a stable `Id`.
+
+### Emitting signed evidence (presidio-evidence producer)
+
+A *clean* control — one with **no** flagged finding for any rule mapped to it — is
+positive evidence that a security property held at audit time. `--evidence-out`
+(or the standalone `presidio-scout-evidence`) emits a **signed evidence envelope**
+(`presidio-hardened/evidence-ref@1`) that a peer `presidio-hardened-*` tool — e.g.
+`presidio-hardened-ikigov-assess` — verifies fail-closed and uses to affirm its
+governance checklist. A clean infrastructure audit evidences IKI-Gov item **T5**
+("a security review of the infrastructure and all dependencies has been conducted
+and findings addressed"); clean logging/audit-trail controls evidence **O5** ("an
+audit log is maintained, stored immutably, and accessible to authorised
+auditors"). A claim is signed only when *every* rule mapped to its item is clean.
+
+```bash
+# Ed25519 (recommended; needs the optional [crypto] extra):
+export PRESIDIO_EVIDENCE_SIGNING_KEY=$(cat ed25519.key)   # 32-byte private key, hex
+presidio-scout aws --report-dir ./report --evidence-out evidence.json
+
+# …or HMAC-SHA256 (stdlib only, shared secret), from an existing report:
+presidio-scout-evidence emit ./report --alg hmac-sha256 -o evidence.json
+
+# the consumer verifies it against a trust store mapping signer -> key:
+presidio-scout-evidence verify --evidence evidence.json --trust trust.json
+```
+
+The signature is detached over `canonical_json({content_hash, signer})` (signer
+bound in, so it can't be replayed under another identity); each ref's
+`content_hash` covers the clean control's subject and its `ledger_ref` is bound to
+the report's integrity-manifest digest, tying the claim to one specific report.
+The rule→item map (`policy/<provider>.evidence.json`) is validated **fail-closed**
+against the rule manifest, and the envelope carries only item ids, rule names,
+digests and signatures — never raw findings. The wire format matches the shared
+`presidio-evidence` golden vectors, so ikigov-assess verifies it byte-for-byte.
 
 ### Tracking drift between runs
 
@@ -638,12 +676,12 @@ does this automatically on a version bump).
 ## Roadmap
 
 **Status:** all versions below are **delivered and merged to `main`** (currently
-**v0.21.0**) across two complete arcs — the single-run hardened auditor (0.1–0.15)
-and fleet tooling & integrations (0.16–0.21). The release pipeline has shipped
-**v0.18.0** (PyPI + cosign-signed, attested image); 0.19–0.21 are on `main` awaiting
-a release tag. A third arc — *continuous assurance & remediation* (0.22.0+) — and
-a fourth arc — *consortium interop & the evidence substrate* (0.28.0+) — are
-planned (see the tables at the end).
+**v0.28.0**) across three complete arcs — the single-run hardened auditor
+(0.1–0.15), fleet tooling & integrations (0.16–0.21), and continuous assurance &
+remediation (0.22–0.27) — plus the opening of a fourth arc, *consortium interop &
+the evidence substrate* (0.28.0+). The release pipeline has shipped **v0.18.0**
+(PyPI + cosign-signed, attested image); 0.19–0.28 are on `main` awaiting a release
+tag. The rest of the fourth arc (0.29.0+) is planned (see the tables at the end).
 
 | Version | Highlights |
 |---|---|
@@ -675,9 +713,10 @@ planned (see the tables at the end).
 | **0.26.0** | Executive & multi-format reporting — `presidio-scout-summary` renders a report (or a `--fleet` rollup) as Markdown, **self-contained HTML** (escaped, no scripts), CSV, or JSON |
 | **0.27.0** | Stable extension API — `presidio-scout-ext` discovers MIT-safe plugins (redactors / exporters / sinks) via entry points; installed redactor plugins feed the redaction step, fail-closed (a broken redactor errors rather than letting a secret through) |
 
-### Planned — fourth arc: consortium interop & the evidence substrate (0.28.0+)
+### Fourth arc: consortium interop & the evidence substrate (0.28.0+)
 
-This arc makes a ScoutSuite audit a **first-class evidence producer** in the
+**0.28.0 is delivered**; 0.29.0–0.30.0 are planned. This arc makes a ScoutSuite
+audit a **first-class evidence producer** in the
 `presidio-hardened-*` family. A *clean* curated control (no `danger`/`warning`
 finding for its mapped rules) becomes a signed `EvidenceRef`
 (`presidio-hardened/evidence-ref@1`) that a peer **consumer** —
@@ -692,7 +731,7 @@ ikigov-assess does today.
 
 | Version | Planned |
 |---|---|
-| **0.28.0** | Signed finding evidence (presidio-evidence **producer**) — `evidence.py` + `presidio-scout-evidence` (`emit`/`verify`) + `presidio-scout --evidence-out PATH`: emit a signed `EvidenceRef` envelope per clean curated control (content hash over the canonical control subject, `ledger_ref` bound to the report-manifest digest), Ed25519 (optional `[crypto]`) + HMAC (stdlib), fail-closed; a curated rule→checklist-item map validated against the rule manifest; golden-vector conformance against `presidio-evidence/vectors/` |
+| **0.28.0** ✓ | Signed finding evidence (presidio-evidence **producer**) — `evidence.py` + `presidio-scout-evidence` (`emit`/`verify`) + `presidio-scout --evidence-out PATH`: emit a signed `EvidenceRef` envelope per clean curated control (content hash over the canonical control subject, `ledger_ref` bound to the report-manifest digest), Ed25519 (optional `[crypto]`) + HMAC (stdlib), fail-closed; a curated rule→checklist-item map (T5/O5) validated against the rule manifest; golden-vector conformance against `presidio-evidence/vectors/` |
 | **0.29.0** | Trust store, rotation & interop hardening — `verify --trust` against `presidio-hardened/trust-store@1` (key rotation, signer-bound signatures, tamper cases fail closed) and a cross-repo interop golden proving ikigov-assess verifies a ScoutSuite-emitted envelope |
 | **0.30.0** (stretch) | Library extraction & evidence consumption — migrate the vendored contract to `presidio-evidence>=0.2.0` imports, and optionally ingest peer evidence to annotate findings with provenance (mirror of ikigov-assess's consumer side) |
 
@@ -729,6 +768,7 @@ presidio-hardened-scoutsuite/
 │   ├── sarif.py           # SARIF 2.1.0 export for code scanning (presidio-scout-export)
 │   ├── compliance.py      # CIS/NIST/SOC2 control mapping (presidio-scout-compliance)
 │   ├── asff.py            # AWS Security Hub ASFF export (presidio-scout-asff)
+│   ├── evidence.py        # signed evidence for clean controls (presidio-scout-evidence)
 │   ├── waivers.py         # expiring findings waivers / exceptions (--waivers)
 │   ├── attestation.py     # in-toto run attestation (presidio-scout-attest)
 │   ├── diff.py            # drift detection between two runs (presidio-scout-diff)

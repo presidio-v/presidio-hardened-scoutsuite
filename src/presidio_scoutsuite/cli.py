@@ -26,6 +26,7 @@ from . import (
     sarif,
     scout_integrity,
 )
+from . import evidence as evidence_mod
 from . import findings as findings_mod
 from .errors import PresidioScoutError
 from .version import __version__
@@ -146,6 +147,28 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="PATH",
         help="write an in-toto run attestation (inputs -> report-manifest digest) to PATH; "
         "sign it with cosign sign-blob",
+    )
+    parser.add_argument(
+        "--evidence-out",
+        metavar="PATH",
+        help="write a signed evidence envelope (presidio-hardened/evidence-ref@1) for the "
+        "report's clean controls to PATH, for a peer tool (e.g. ikigov-assess) to verify",
+    )
+    parser.add_argument(
+        "--evidence-signer",
+        default=evidence_mod.SOURCE,
+        help=f"signer identity bound into evidence signatures (default: {evidence_mod.SOURCE})",
+    )
+    parser.add_argument(
+        "--evidence-key",
+        metavar="PATH",
+        help=f"evidence signing key file (default: ${evidence_mod.SIGNING_KEY_ENV})",
+    )
+    parser.add_argument(
+        "--evidence-alg",
+        choices=evidence_mod.SIGNING_ALGORITHMS,
+        default="ed25519",
+        help="evidence signature algorithm (default: ed25519; hmac-sha256 needs no extra)",
     )
     parser.add_argument(
         "--scout-bin",
@@ -374,7 +397,7 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     findings_report = None
-    if args.fail_on_finding or args.sarif or args.asff:
+    if args.fail_on_finding or args.sarif or args.asff or args.evidence_out:
         try:
             findings_report = findings_mod.load_report(plan.report_dir)
             if args.waivers:
@@ -431,6 +454,29 @@ def main(argv: list[str] | None = None) -> int:
             return 3
         Path(args.attest).write_text(json.dumps(statement, indent=2) + "\n", encoding="utf-8")
         print(f"run attestation: {args.attest} (sign with cosign sign-blob)")
+
+    # Signed evidence: emit a verifiable claim for each clean curated control,
+    # bound to the report's integrity manifest, for a peer tool to consume.
+    if args.evidence_out and findings_report is not None:
+        try:
+            key = evidence_mod.resolve_key(args.evidence_key)
+            envelope = evidence_mod.build_evidence(
+                findings_report,
+                report_digest=evidence_mod.report_manifest_digest(plan.report_dir),
+                signer=args.evidence_signer,
+                key=key,
+                alg=args.evidence_alg,
+            )
+            text = json.dumps(envelope, indent=2, sort_keys=True) + "\n"
+            redact.assert_clean(text, where="evidence envelope", extra=extra_redaction)
+        except PresidioScoutError as exc:
+            print(f"error: cannot emit evidence: {exc}", file=sys.stderr)
+            return 3
+        Path(args.evidence_out).write_text(text, encoding="utf-8")
+        print(
+            f"evidence: {args.evidence_out} ({len(envelope['evidence'])} clean control(s), "
+            f"alg={args.evidence_alg})"
+        )
 
     if args.fail_on_finding and findings_report is not None:
         counts = findings_report.counts

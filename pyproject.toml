@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "presidio-hardened-scoutsuite"
-version = "0.27.0"
+version = "0.28.0"
 description = "Presidio security-hardened distribution of ScoutSuite — runs the multi-cloud auditor out of process with hardened defaults, report redaction, and a least-privilege deployment model."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -38,7 +38,11 @@ dependencies = [
 # Convenience extra that pulls in a pinned ScoutSuite. NOTE: ScoutSuite is
 # GPL-2.0 — installing this extra brings GPL software into your environment.
 scoutsuite = ["ScoutSuite==5.14.0"]
-dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.6"]
+# Ed25519 signing/verification for evidence emission (presidio-scout-evidence,
+# --evidence-out). HMAC-SHA256 works with the stdlib alone, so this stays
+# optional and the wrapper's runtime remains effectively dependency-free.
+crypto = ["cryptography>=41"]
+dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.6", "cryptography>=41"]
 
 [project.scripts]
 presidio-scout = "presidio_scoutsuite.cli:main"
@@ -53,6 +57,7 @@ presidio-scout-vuln-gate = "presidio_scoutsuite.vuln:_main"
 presidio-scout-policy = "presidio_scoutsuite.config:_main"
 presidio-scout-upgrade = "presidio_scoutsuite.upgrade:_main"
 presidio-scout-compliance = "presidio_scoutsuite.compliance:_main"
+presidio-scout-evidence = "presidio_scoutsuite.evidence:_main"
 presidio-scout-asff = "presidio_scoutsuite.asff:_main"
 presidio-scout-orchestrate = "presidio_scoutsuite.orchestrate:_main"
 presidio-scout-notify = "presidio_scoutsuite.notify:_main"

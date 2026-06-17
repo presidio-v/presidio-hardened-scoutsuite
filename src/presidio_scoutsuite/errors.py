@@ -128,6 +128,19 @@ class ComplianceError(PresidioScoutError):
     """
 
 
+class EvidenceError(PresidioScoutError):
+    """A signed evidence envelope, ref, trust store, or item mapping is invalid.
+
+    Raised when an evidence-ref document/trust store can't be parsed or violates
+    the cross-repo contract (missing/oversize field, non-hex hash/signature,
+    unknown signer or algorithm), when the rule→checklist-item map references a
+    rule the pinned ScoutSuite's manifest doesn't provide or an unknown item id,
+    or when Ed25519 signing/verification is requested without the optional
+    ``[crypto]`` extra — fail-closed, so evidence is never emitted or accepted on
+    a contract it couldn't actually honour.
+    """
+
+
 class AsffError(PresidioScoutError):
     """An AWS Security Hub (ASFF) export could not be produced.
 

@@ -1,0 +1,64 @@
+{
+  "_note": "Curated mapping from ScoutSuite finding rules to IKI-Gov governance checklist items (presidio-hardened-ikigov-assess). A rule that is CLEAN in a run (no flagged finding) is evidence the corresponding item holds: T5 = 'a security review of the infrastructure and all dependencies has been conducted and findings addressed'; O5 = 'an audit log is maintained, stored immutably, and accessible to authorised auditors'. Rule names mirror <provider>.controls.json and are validated fail-closed against the rule manifest. Edit deliberately: a clean control must genuinely support its item.",
+  "items": [
+    "O5",
+    "T5"
+  ],
+  "provider": "aliyun",
+  "rules": {
+    "actiontrail-not-configured.json": [
+      "O5"
+    ],
+    "actiontrail-not-enabled.json": [
+      "O5"
+    ],
+    "ecs-instance-with-deletion-protection-disabled.json": [
+      "T5"
+    ],
+    "ecs-instance-with-public-ip.json": [
+      "T5"
+    ],
+    "kms-no-key-rotation.json": [
+      "T5"
+    ],
+    "ram-password-policy-expiration-threshold.json": [
+      "T5"
+    ],
+    "ram-password-policy-minimum-length.json": [
+      "T5"
+    ],
+    "ram-password-policy-no-expiration.json": [
+      "T5"
+    ],
+    "ram-password-policy-no-lowercase-required.json": [
+      "T5"
+    ],
+    "ram-password-policy-no-number-required.json": [
+      "T5"
+    ],
+    "ram-password-policy-no-symbol-required.json": [
+      "T5"
+    ],
+    "ram-password-policy-no-uppercase-required.json": [
+      "T5"
+    ],
+    "ram-password-policy-reuse-enabled.json": [
+      "T5"
+    ],
+    "ram-user-lacking-mfa.json": [
+      "T5"
+    ],
+    "ram-user-unused-api-key.json": [
+      "T5"
+    ],
+    "ram-user-unused-console-password.json": [
+      "T5"
+    ],
+    "ram-user-with-multiple-api-keys.json": [
+      "T5"
+    ],
+    "ram-user-with-old-api-key.json": [
+      "T5"
+    ]
+  }
+}

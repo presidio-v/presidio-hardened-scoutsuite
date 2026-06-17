@@ -1,0 +1,91 @@
+{
+  "_note": "Curated mapping from ScoutSuite finding rules to IKI-Gov governance checklist items (presidio-hardened-ikigov-assess). A rule that is CLEAN in a run (no flagged finding) is evidence the corresponding item holds: T5 = 'a security review of the infrastructure and all dependencies has been conducted and findings addressed'; O5 = 'an audit log is maintained, stored immutably, and accessible to authorised auditors'. Rule names mirror <provider>.controls.json and are validated fail-closed against the rule manifest. Edit deliberately: a clean control must genuinely support its item.",
+  "items": [
+    "O5",
+    "T5"
+  ],
+  "provider": "gcp",
+  "rules": {
+    "cloudsql-instance-backups-disabled.json": [
+      "T5"
+    ],
+    "cloudsql-instance-is-open-to-the-world.json": [
+      "T5"
+    ],
+    "cloudsql-instance-ssl-not-required.json": [
+      "T5"
+    ],
+    "cloudsql-instances-public-ips.json": [
+      "T5"
+    ],
+    "cloudstorage-bucket-no-logging.json": [
+      "O5"
+    ],
+    "cloudstorage-bucket-no-public-access-prevention.json": [
+      "T5"
+    ],
+    "cloudstorage-bucket-no-versioning.json": [
+      "T5"
+    ],
+    "cloudstorage-uniform-bucket-level-access-disabled.json": [
+      "T5"
+    ],
+    "computeengine-firewall-default-rule-in-use.json": [
+      "T5"
+    ],
+    "computeengine-firewall-rule-opens-all-ports-to-all.json": [
+      "T5"
+    ],
+    "computeengine-firewall-rule-opens-sensitive-port-to-all.json": [
+      "T5"
+    ],
+    "computeengine-instance-connecting-serial-ports-enabled.json": [
+      "T5"
+    ],
+    "computeengine-instance-default-service-account.json": [
+      "T5"
+    ],
+    "computeengine-instance-full-api-access.json": [
+      "T5"
+    ],
+    "computeengine-instance-ip-forwarding-enabled.json": [
+      "T5"
+    ],
+    "computeengine-instance-os-login-disabled.json": [
+      "T5"
+    ],
+    "computeengine-instance-public-ip-adresses.json": [
+      "T5"
+    ],
+    "computeengine-instance-shielded-vm-disabled.json": [
+      "T5"
+    ],
+    "computeengine-vpc-flow-logs-disabled.json": [
+      "O5"
+    ],
+    "iam-lack-of-service-account-key-rotation.json": [
+      "T5"
+    ],
+    "iam-primitive-role-in-use.json": [
+      "T5"
+    ],
+    "iam-sa-has-admin-privileges.json": [
+      "T5"
+    ],
+    "iam-service-account-with-user-managed-keys.json": [
+      "T5"
+    ],
+    "kms-cryptokeys-anonymously-publicly-accessible.json": [
+      "T5"
+    ],
+    "kms-encryption-keys-not-rotated.json": [
+      "T5"
+    ],
+    "kubernetesengine-cluster-logging-disabled.json": [
+      "O5"
+    ],
+    "kubernetesengine-legacy-abac-enabled.json": [
+      "T5"
+    ]
+  }
+}

@@ -1236,7 +1236,7 @@ the natural next capability now that single runs are fully featured.
 
 ---
 
-## Fourth arc — 0.28.0+ (sketch)
+## Fourth arc — 0.28.0+ (in progress)
 
 The first three arcs built a hardened single-run auditor (0.1–0.15), a fleet tool
 with integrations (0.16–0.21), and a continuous assurance program (0.22–0.27).
@@ -1276,7 +1276,7 @@ consumers stay byte-for-byte interoperable across the extraction.
 
 | Version | Planned | Axis · depends on |
 |---|---|---|
-| **0.28.0** | **Signed finding evidence (presidio-evidence producer)** — a new `evidence.py` (`EvidenceRef` dataclass, canonical JSON, SHA-256, HMAC-SHA256 via stdlib + Ed25519 via optional `[crypto]`, fail-closed verify), a `presidio-scout-evidence` console script (`emit` / `verify`), and `presidio-scout --evidence-out PATH [--evidence-signer ID --evidence-key … --evidence-alg ed25519\|hmac-sha256 --evidence-map PATH]` wired into `cli.main()` at the finalization point (after report-guard + findings load, alongside attest/SARIF/ASFF). Emits one `EvidenceRef` per clean curated control; a curated `policy/evidence-map.json` (rule → peer checklist item-id) validated fail-closed against the rule manifest and item-id set; golden HMAC/Ed25519/canonical-JSON conformance against `presidio-evidence/vectors/`; redaction-aware (hashes only, never raw secret values); security events log counts only. | integration · 0.3, 0.9, 0.17 |
+| **0.28.0** ✓ | **Signed finding evidence (presidio-evidence producer)** — a new `evidence.py` (`EvidenceRef` dataclass, canonical JSON, SHA-256, HMAC-SHA256 via stdlib + Ed25519 via optional `[crypto]`, fail-closed verify), a `presidio-scout-evidence` console script (`emit` / `verify`), and `presidio-scout --evidence-out PATH [--evidence-signer ID --evidence-key … --evidence-alg ed25519\|hmac-sha256]` wired into `cli.main()` at the finalization point (after report-guard + findings load, alongside attest/SARIF/ASFF). Emits one `EvidenceRef` per clean curated `(provider, item)`; curated per-provider `policy/<provider>.evidence.json` maps (rule → peer checklist item-id; T5/O5) validated fail-closed against the rule manifest and item-id set; golden HMAC/Ed25519/canonical-JSON conformance against `presidio-evidence/vectors/`; redaction-aware (hashes only, never raw secret values); security events log counts only. | integration · 0.3, 0.9, 0.17 |
 | **0.29.0** | **Trust store, rotation & interop hardening** — `presidio-scout-evidence verify --trust` parses `presidio-hardened/trust-store@1` (bare-string HMAC back-compat, `{alg, public_key\|key}` objects, key lists for rotation), verifies every ref fail-closed (unknown signer / tampered hash / tampered signer / wrong key → exit nonzero), and a cross-repo interop golden vector proves ikigov-assess's `verify_ref` accepts a ScoutSuite-emitted envelope (the `test_consortium_round` analog). | integration / security · 0.28 |
 | **0.30.0** (stretch) | **Library extraction & evidence consumption** — migrate the vendored contract to `presidio-evidence>=0.2.0` imports (drop the inline crypto), and optionally let ScoutSuite *consume* peer evidence to annotate findings with provenance / inform waivers — the mirror of ikigov-assess's consumer side, making the loop bidirectional. | integration · 0.28, 0.29 |
 
@@ -1287,36 +1287,49 @@ compliance-map infrastructure, and (like ikigov-assess) ships fully offline-
 testable against the shared golden vectors before the library is even a hard
 dependency.
 
-**Open design questions.**
+**Open design questions — resolved in v0.28.0.**
 
-- **Subject of the content hash.** Hash the per-control finding subset, or the
-  whole report manifest digest plus the control id? Leaning per-control (so a
-  consumer can affirm one item without trusting the entire report), with
-  `ledger_ref` pointing at the manifest for the full chain.
-- **Rule → item-id map ownership.** The map encodes a cross-repo coupling
-  (ScoutSuite rule names ↔ ikigov checklist ids). Curate it here (validated
-  against both the rule manifest and a checked-in copy of the item-id set), or
-  source the item-id set from ikigov to avoid drift? Leaning curate-here +
-  validate, matching how the 0.17 compliance maps are owned.
-- **Default algorithm & key handling.** Reuse the manifest/attestation key
-  conventions (key from file or env, never logged); default to Ed25519 with HMAC
-  as the stdlib-only fallback, mirroring ikigov-assess.
-- **Whether to add the consume side at all (0.30.0).** A producer alone fully
-  satisfies the consortium use case; consumption is only worth it if ScoutSuite
-  should act on peer evidence (e.g. provenance-aware waivers).
+- **Subject of the content hash.** *Resolved: per-control.* Each ref's
+  `content_hash` is SHA-256 over `canonical({item_id, provider, rules,
+  status:"clean", report_manifest_digest})` — a consumer can affirm one item
+  without trusting the whole report, while `ledger_ref`
+  (`presidio-report-manifest:sha256/<digest>`) still ties it to the attested
+  report. An item is signed only when **every** rule mapped to it is clean.
+- **Rule → item-id map ownership.** *Resolved: curate here + validate.* Per-
+  provider `policy/<provider>.evidence.json` files (mirroring the 0.17 compliance
+  maps) map manifest-valid rule names to checklist items; `validate_item_map`
+  fails closed against `ruleset.manifest_rules`, and item ids are checked against
+  a vendored snapshot of ikigov's `VALID_ITEM_IDS`. The curated mapping is
+  conservative — clean infra controls → **T5**, clean logging/audit-trail
+  controls → **O5** — so a clean control genuinely supports its claim.
+- **Default algorithm & key handling.** *Resolved.* Default Ed25519 (optional
+  `[crypto]` extra) with HMAC-SHA256 as the stdlib-only fallback; the key is read
+  from `--evidence-key PATH` or `$PRESIDIO_EVIDENCE_SIGNING_KEY`, never logged —
+  the manifest/attestation convention.
+- **Whether to add the consume side at all (0.30.0).** Still open; the producer
+  alone satisfies the consortium use case. Deferred to 0.30.0 (stretch).
+
+**v0.28.0 delivery note.** Shipped as designed. The wire format is cross-
+validated byte-for-byte against the shared golden vectors: the HMAC-SHA256 vector
+is exercised with the stdlib (always), and the Ed25519 vector when the `[crypto]`
+extra is present. Evidence carries only item ids, rule names, digests and
+signatures — `redact.assert_clean` scans every envelope before it is written, so
+a finding value can never ride out in evidence. `presidio-evidence` is **not yet
+a dependency** (it is at v0.1.0, constants + vectors only); the contract is
+vendored in `evidence.py` and migrates to library imports at 0.30.0.
 
 ---
 
 ## Delivery status
 
 Everything planned to date is **delivered and merged to `main`**; the project is
-at **v0.21.0**. Both arcs shipped in full, each version as its own babysat,
-squash-merged PR:
+at **v0.28.0**. Each version shipped as its own babysat, squash-merged PR:
 
 - **Arc 1 — single-run hardened auditor (0.1.0–0.15.0):** ✓ delivered
 - **Arc 2 — fleet tooling & integrations (0.16.0–0.21.0):** ✓ delivered
-- **Arc 3 — continuous assurance & remediation (0.22.0+):** planned (sketch above)
-- **Arc 4 — consortium interop & the evidence substrate (0.28.0+):** planned (sketch above)
+- **Arc 3 — continuous assurance & remediation (0.22.0–0.27.0):** ✓ delivered
+- **Arc 4 — consortium interop & the evidence substrate (0.28.0+):** 0.28.0 ✓
+  delivered; 0.29.0–0.30.0 planned (sketch above)
 
 **Release status.** The release pipeline has been exercised once end-to-end at
 **v0.18.0** — `verify-rulesets` validated the corrected baselines against a real
