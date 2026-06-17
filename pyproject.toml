@@ -10,7 +10,7 @@ name = "presidio-hardened-scoutsuite"
 version = "0.29.0"
 description = "Presidio security-hardened distribution of ScoutSuite — runs the multi-cloud auditor out of process with hardened defaults, report redaction, and a least-privilege deployment model."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Presidio" }]
 keywords = ["scoutsuite", "cloud-security", "aws", "azure", "gcp", "hardening", "audit"]
@@ -92,7 +92,7 @@ branch = true
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py310"
 src = ["src", "tests"]
 
 [tool.ruff.lint]

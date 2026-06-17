@@ -75,11 +75,7 @@ def load_object(ref: str):
 
 
 def _entry_points(group: str) -> list:
-    eps = importlib.metadata.entry_points()
-    select = getattr(eps, "select", None)
-    if select is not None:  # Python 3.10+
-        return list(select(group=group))
-    return list(eps.get(group, []))  # Python 3.9
+    return list(importlib.metadata.entry_points().select(group=group))
 
 
 def discover(group: str) -> dict[str, object]:

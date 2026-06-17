@@ -15,7 +15,7 @@ import pytest
 
 try:
     import tomllib
-except ModuleNotFoundError:  # Python 3.9 / 3.10
+except ModuleNotFoundError:  # Python 3.10 (tomllib is stdlib from 3.11)
     import tomli as tomllib  # type: ignore[no-redef]
 
 _ROOT = Path(__file__).resolve().parents[1]
