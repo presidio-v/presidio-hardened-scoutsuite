@@ -1,0 +1,28 @@
+{
+  "evidence": [
+    {
+      "claimed_at": "2026-06-17T00:00:00Z",
+      "content_hash": "1458521e6180430a3f50506552d1be765d475ff6dcbaaaf303b1d65dbad50d52",
+      "item_id": "O5",
+      "ledger_ref": "presidio-report-manifest:sha256/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "signature": "70df8b762a8cb56be91afbd7b78bbb830ae0493aaf75d8c7e27c19f9b012c8bf",
+      "signer": "presidio-hardened-scoutsuite",
+      "source": "presidio-hardened-scoutsuite",
+      "source_version": "0.29.0"
+    },
+    {
+      "claimed_at": "2026-06-17T00:00:00Z",
+      "content_hash": "e90681af72db44e690afd6919647c4bdf978d49d4fca831a1bc71cf995919789",
+      "item_id": "T5",
+      "ledger_ref": "presidio-report-manifest:sha256/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "signature": "57a143d4555fd0ee3777d319df4ed8f831848db32e8c9ed9b4b55eddb2979e19",
+      "signer": "presidio-hardened-scoutsuite",
+      "source": "presidio-hardened-scoutsuite",
+      "source_version": "0.29.0"
+    }
+  ],
+  "generated_at": "2026-06-17T00:00:00Z",
+  "schema": "presidio-hardened/evidence-ref@1",
+  "source": "presidio-hardened-scoutsuite",
+  "source_version": "0.29.0"
+}

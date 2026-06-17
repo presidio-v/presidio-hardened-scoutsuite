@@ -1,0 +1,112 @@
+{
+  "_note": "Curated mapping from ScoutSuite finding rules to IKI-Gov governance checklist items (presidio-hardened-ikigov-assess). A rule that is CLEAN in a run (no flagged finding) is evidence the corresponding item holds: T5 = 'a security review of the infrastructure and all dependencies has been conducted and findings addressed'; O5 = 'an audit log is maintained, stored immutably, and accessible to authorised auditors'. Rule names mirror <provider>.controls.json and are validated fail-closed against the rule manifest. Edit deliberately: a clean control must genuinely support its item.",
+  "items": [
+    "O5",
+    "T5"
+  ],
+  "provider": "aws",
+  "rules": {
+    "cloudtrail-no-encryption-with-kms.json": [
+      "O5"
+    ],
+    "cloudtrail-no-global-services-logging.json": [
+      "O5"
+    ],
+    "cloudtrail-no-log-file-validation.json": [
+      "O5"
+    ],
+    "cloudtrail-no-logging.json": [
+      "O5"
+    ],
+    "cloudtrail-not-configured.json": [
+      "O5"
+    ],
+    "config-recorder-not-configured.json": [
+      "O5"
+    ],
+    "ec2-default-security-group-in-use.json": [
+      "T5"
+    ],
+    "ec2-default-security-group-with-rules.json": [
+      "T5"
+    ],
+    "ec2-ebs-default-encryption-disabled.json": [
+      "T5"
+    ],
+    "ec2-ebs-volume-not-encrypted.json": [
+      "T5"
+    ],
+    "ec2-instance-with-user-data-secrets.json": [
+      "T5"
+    ],
+    "ec2-security-group-opens-all-ports-to-all.json": [
+      "T5"
+    ],
+    "ec2-security-group-opens-known-port-to-all.json": [
+      "T5"
+    ],
+    "iam-inline-policy-allows-NotActions.json": [
+      "T5"
+    ],
+    "iam-managed-policy-allows-full-privileges.json": [
+      "T5"
+    ],
+    "iam-password-policy-minimum-length.json": [
+      "T5"
+    ],
+    "iam-password-policy-no-expiration.json": [
+      "T5"
+    ],
+    "iam-password-policy-reuse-enabled.json": [
+      "T5"
+    ],
+    "iam-root-account-no-hardware-mfa.json": [
+      "T5"
+    ],
+    "iam-root-account-no-mfa.json": [
+      "T5"
+    ],
+    "iam-root-account-used-recently.json": [
+      "T5"
+    ],
+    "iam-root-account-with-active-keys.json": [
+      "T5"
+    ],
+    "iam-user-no-key-rotation.json": [
+      "T5"
+    ],
+    "iam-user-with-multiple-access-keys.json": [
+      "T5"
+    ],
+    "iam-user-with-password-and-key.json": [
+      "T5"
+    ],
+    "iam-user-without-mfa.json": [
+      "T5"
+    ],
+    "kms-cmk-rotation-disabled.json": [
+      "T5"
+    ],
+    "rds-instance-publicly-accessible.json": [
+      "T5"
+    ],
+    "s3-bucket-allowing-cleartext.json": [
+      "T5"
+    ],
+    "s3-bucket-no-default-encryption.json": [
+      "T5"
+    ],
+    "s3-bucket-no-logging.json": [
+      "O5"
+    ],
+    "s3-bucket-no-versioning.json": [
+      "T5"
+    ],
+    "s3-bucket-world-acl.json": [
+      "T5"
+    ],
+    "vpc-subnet-without-flow-log.json": [
+      "O5"
+    ]
+  }
+}

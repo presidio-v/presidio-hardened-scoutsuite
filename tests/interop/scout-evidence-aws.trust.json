@@ -1,0 +1,6 @@
+{
+  "presidio-hardened-scoutsuite": {
+    "alg": "hmac-sha256",
+    "key": "consortium-interop-key"
+  }
+}

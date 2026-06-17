@@ -1,0 +1,88 @@
+{
+  "_note": "Curated mapping from ScoutSuite finding rules to IKI-Gov governance checklist items (presidio-hardened-ikigov-assess). A rule that is CLEAN in a run (no flagged finding) is evidence the corresponding item holds: T5 = 'a security review of the infrastructure and all dependencies has been conducted and findings addressed'; O5 = 'an audit log is maintained, stored immutably, and accessible to authorised auditors'. Rule names mirror <provider>.controls.json and are validated fail-closed against the rule manifest. Edit deliberately: a clean control must genuinely support its item.",
+  "items": [
+    "O5",
+    "T5"
+  ],
+  "provider": "azure",
+  "rules": {
+    "aad-guest-users.json": [
+      "T5"
+    ],
+    "aad-users-create-security-groups-disabled.json": [
+      "T5"
+    ],
+    "keyvault-not-recoverable.json": [
+      "T5"
+    ],
+    "keyvault-public-traffic-allowed.json": [
+      "T5"
+    ],
+    "logging-monitoring-log-alert-not-exist-nsg.json": [
+      "O5"
+    ],
+    "mysql-database-servers-ssl-enforcement-disabled.json": [
+      "T5"
+    ],
+    "network-security-groups-rule-inbound-internet-all.json": [
+      "T5"
+    ],
+    "network-security-groups-rule-inbound-service-mssql.json": [
+      "T5"
+    ],
+    "network-watcher-not-enabled.json": [
+      "O5"
+    ],
+    "postgresql-database-servers-ssl-enforcement-disabled.json": [
+      "T5"
+    ],
+    "rbac-custom-subscription-owner-role-not-allowed.json": [
+      "T5"
+    ],
+    "securitycenter-auto-provisioning-off.json": [
+      "T5"
+    ],
+    "securitycenter-standard-tier-not-enabled.json": [
+      "T5"
+    ],
+    "sqldatabase-allow-any-ip.json": [
+      "T5"
+    ],
+    "sqldatabase-databases-no-transparent-data-encryption.json": [
+      "T5"
+    ],
+    "sqldatabase-servers-no-ad-admin-configured.json": [
+      "T5"
+    ],
+    "sqldatabase-servers-no-auditing.json": [
+      "O5"
+    ],
+    "sqldatabase-servers-no-threat-detection.json": [
+      "T5"
+    ],
+    "storageaccount-access-keys-not-rotated.json": [
+      "T5"
+    ],
+    "storageaccount-account-allowing-clear-text.json": [
+      "T5"
+    ],
+    "storageaccount-encrypted-not-customer-managed.json": [
+      "T5"
+    ],
+    "storageaccount-public-blob-container.json": [
+      "T5"
+    ],
+    "storageaccount-public-traffic-allowed.json": [
+      "T5"
+    ],
+    "virtual-machines-disk-encryption.json": [
+      "T5"
+    ],
+    "virtual-machines-managed-disks.json": [
+      "T5"
+    ],
+    "virtual-machines-os-data-encrypted-cmk.json": [
+      "T5"
+    ]
+  }
+}
