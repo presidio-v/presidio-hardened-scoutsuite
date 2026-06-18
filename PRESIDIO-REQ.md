@@ -1265,9 +1265,10 @@ consortium loop: `presidio-hardened-ai` was producer #1, ScoutSuite is producer
 
 **Contract & migration posture.** The wire format is the shared
 `presidio-evidence` contract — canonical JSON (sorted keys, compact separators,
-UTF-8, no floats) + SHA-256 content hash + detached signature over
-`canonical({"content_hash","signer"})` (signer-bound, blocking cross-signer
-replay), schema id `presidio-hardened/evidence-ref@1`, trust store
+UTF-8, no floats) + SHA-256 content hash + detached signature over every ref
+field except `signature` itself (so the item, ledger reference, signer,
+source/version and timestamp cannot be relabelled or replayed), schema id
+`presidio-hardened/evidence-ref@2`, trust store
 `presidio-hardened/trust-store@1`. Because `presidio-evidence` is at v0.1.0
 (constants + golden vectors only), ScoutSuite **vendors the contract inline** in
 `evidence.py` and cross-validates against `presidio-evidence/vectors/`, then

@@ -3,7 +3,7 @@
 This makes a ScoutSuite audit a **producer** in the ``presidio-hardened-*``
 evidence substrate. When a curated control is **clean** in a run (no flagged
 finding for any rule mapped to it), this module emits a signed ``EvidenceRef``
-(schema ``presidio-hardened/evidence-ref@1``) that a peer **consumer** —
+(schema ``presidio-hardened/evidence-ref@2``) that a peer **consumer** —
 ``presidio-hardened-ikigov-assess`` — verifies fail-closed and uses to affirm
 its governance checklist items. ScoutSuite is the second producer in the family
 (after ``presidio-hardened-ai``); ikigov-assess consumes both.
@@ -15,14 +15,14 @@ dependencies has been conducted and findings addressed"; **O5** = "an audit log
 is maintained, stored immutably, and accessible to authorised auditors". A claim
 is signed only when *every* rule mapped to its item is clean.
 
-Wire format (must byte-match the consumer and the cross-repo golden vectors in
-``presidio-evidence/vectors/``): the detached signature is over
-``canonical_json({"content_hash": ..., "signer": ...})`` where ``canonical_json``
-is ``json.dumps(sort_keys=True, separators=(",", ":"), ensure_ascii=False)``;
-the signer identity is bound into the signed message so a signature cannot be
-replayed under another signer. HMAC-SHA256 uses the stdlib; Ed25519 (the secure
-default) needs the optional ``[crypto]`` extra. Pure stdlib otherwise, offline,
-fail-closed — never imports ScoutSuite.
+Wire format: the detached signature is over every contract field except
+``signature`` itself, canonicalized as
+``json.dumps(sort_keys=True, separators=(",", ":"), ensure_ascii=False)``. This
+binds the checklist item, ledger reference, signer, source/version and timestamp
+into the signature so a valid ref cannot be relabelled or replayed under another
+identity. HMAC-SHA256 uses the stdlib; Ed25519 (the secure default) needs the
+optional ``[crypto]`` extra. Pure stdlib otherwise, offline, fail-closed — never
+imports ScoutSuite.
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ from .findings import FindingsReport, load_report
 from .version import __version__
 
 #: Cross-repo wire-format contract identifiers (mirrors presidio-evidence).
-SCHEMA_ID = "presidio-hardened/evidence-ref@1"
+SCHEMA_ID = "presidio-hardened/evidence-ref@2"
 #: Verifier-side trust-store schema id (the consumer's contract id).
 TRUST_STORE_SCHEMA_ID = "presidio-hardened/trust-store@1"
 #: Signature algorithms, secure default first.
@@ -75,7 +75,9 @@ _CONTRACT_FIELDS = (
     "signature",
     "claimed_at",
 )
-_HEX_RE = re.compile(r"^[0-9a-f]{8,128}$")
+_SIGNED_FIELDS = tuple(field for field in _CONTRACT_FIELDS if field != "signature")
+_SHA256_HEX_RE = re.compile(r"^[0-9a-f]{64}$")
+_SIGNATURE_HEX_RE = re.compile(r"^(?:[0-9a-f]{64}|[0-9a-f]{128})$")
 _ED25519_PUBKEY_RE = re.compile(r"^[0-9a-f]{64}$")
 _MAX_STR = 512
 
@@ -113,14 +115,19 @@ def content_hash(subject: Mapping[str, object]) -> str:
     return hashlib.sha256(_canonical(subject)).hexdigest()
 
 
-def _signing_message(content_hash_hex: str, signer: str) -> bytes:
-    return _canonical({"content_hash": content_hash_hex, "signer": signer})
+def _signed_payload(fields: Mapping[str, object]) -> dict[str, object]:
+    missing = [field for field in _SIGNED_FIELDS if field not in fields]
+    if missing:
+        raise EvidenceError(f"cannot sign evidence ref; missing field(s): {', '.join(missing)}")
+    return {field: fields[field] for field in _SIGNED_FIELDS}
 
 
-def _sign_hmac(content_hash_hex: str, signer: str, key: str) -> str:
-    return hmac.new(
-        key.encode("utf-8"), _signing_message(content_hash_hex, signer), hashlib.sha256
-    ).hexdigest()
+def _signing_message(fields: Mapping[str, object]) -> bytes:
+    return _canonical(_signed_payload(fields))
+
+
+def _sign_hmac(fields: Mapping[str, object], key: str) -> str:
+    return hmac.new(key.encode("utf-8"), _signing_message(fields), hashlib.sha256).hexdigest()
 
 
 def _require_crypto():
@@ -135,21 +142,21 @@ def _require_crypto():
     return ed25519
 
 
-def _sign_ed25519(content_hash_hex: str, signer: str, private_key_hex: str) -> str:
+def _sign_ed25519(fields: Mapping[str, object], private_key_hex: str) -> str:
     ed25519 = _require_crypto()
     try:
         sk = ed25519.Ed25519PrivateKey.from_private_bytes(bytes.fromhex(private_key_hex))
     except ValueError as exc:
         raise EvidenceError(f"invalid Ed25519 private key: {exc}") from exc
-    return sk.sign(_signing_message(content_hash_hex, signer)).hex()
+    return sk.sign(_signing_message(fields)).hex()
 
 
-def sign(alg: str, content_hash_hex: str, signer: str, key: str) -> str:
-    """Detached signature over ``{content_hash, signer}`` for ``alg`` (wire-format)."""
+def sign(alg: str, fields: Mapping[str, object], key: str) -> str:
+    """Detached signature over the evidence ref's signed fields for ``alg``."""
     if alg == "hmac-sha256":
-        return _sign_hmac(content_hash_hex, signer, key)
+        return _sign_hmac(fields, key)
     if alg == "ed25519":
-        return _sign_ed25519(content_hash_hex, signer, key)
+        return _sign_ed25519(fields, key)
     raise EvidenceError(f"unknown signing algorithm {alg!r}; expected one of {SIGNING_ALGORITHMS}")
 
 
@@ -191,10 +198,12 @@ def _parse_ref(raw: object) -> EvidenceRef:
         raise EvidenceError(
             f"evidence ref item_id is not a known checklist item: {fields['item_id']}"
         )
-    if not _HEX_RE.match(fields["content_hash"]):
-        raise EvidenceError("evidence ref content_hash must be lowercase hex")
-    if not _HEX_RE.match(fields["signature"]):
-        raise EvidenceError("evidence ref signature must be lowercase hex")
+    if not _SHA256_HEX_RE.match(fields["content_hash"]):
+        raise EvidenceError("evidence ref content_hash must be a lowercase SHA-256 hex digest")
+    if not _SIGNATURE_HEX_RE.match(fields["signature"]):
+        raise EvidenceError(
+            "evidence ref signature must be lowercase hex with HMAC-SHA256 or Ed25519 length"
+        )
     return EvidenceRef(**fields)
 
 
@@ -273,6 +282,11 @@ def load_item_map(provider: str, *, path: str | Path | None = None) -> ItemMap:
                 )
             items_used.add(item)
         cleaned[str(rule)] = list(item_ids)
+    declared_provider = data.get("provider")
+    if declared_provider is not None and declared_provider != provider:
+        raise EvidenceError(
+            f"{source.name}: provider {declared_provider!r} does not match {provider!r}"
+        )
     return ItemMap(provider, tuple(sorted(items_used)), cleaned)
 
 
@@ -309,7 +323,7 @@ def report_manifest_digest(report_dir: str | Path) -> str:
     except (OSError, ValueError) as exc:
         raise EvidenceError(f"cannot read report integrity manifest: {exc}") from exc
     digest = document.get("content_digest")
-    if not isinstance(digest, str) or not _HEX_RE.match(digest):
+    if not isinstance(digest, str) or not _SHA256_HEX_RE.match(digest):
         raise EvidenceError("report manifest is missing a valid 'content_digest'")
     return digest
 
@@ -338,6 +352,8 @@ def build_evidence(
         raise EvidenceError(
             "cannot determine which provider(s) were audited; pass --provider explicitly"
         )
+    if not _SHA256_HEX_RE.match(report_digest):
+        raise EvidenceError("report_digest must be a lowercase SHA-256 hex digest")
     failing = {finding.rule for finding in findings_report.findings}
     claimed = claimed_at or _iso_now()
     ledger_ref = f"presidio-report-manifest:sha256/{report_digest}"
@@ -357,6 +373,15 @@ def build_evidence(
                 item_id=item, provider=provider, rules=mapped, report_digest=report_digest
             )
             chash = content_hash(subject)
+            signed_fields = {
+                "item_id": item,
+                "source": SOURCE,
+                "source_version": source_version,
+                "ledger_ref": ledger_ref,
+                "content_hash": chash,
+                "signer": signer,
+                "claimed_at": claimed,
+            }
             refs.append(
                 EvidenceRef(
                     item_id=item,
@@ -365,7 +390,7 @@ def build_evidence(
                     ledger_ref=ledger_ref,
                     content_hash=chash,
                     signer=signer,
-                    signature=sign(alg, chash, signer, key),
+                    signature=sign(alg, signed_fields, key),
                     claimed_at=claimed,
                 )
             )
@@ -448,19 +473,17 @@ def load_trust_store(text: str) -> dict[str, dict[str, object]]:
     return normalised
 
 
-def _verify_hmac(content_hash_hex: str, signer: str, signature: str, secret: str) -> bool:
-    return hmac.compare_digest(_sign_hmac(content_hash_hex, signer, secret), signature)
+def _verify_hmac(ref: EvidenceRef, secret: str) -> bool:
+    return hmac.compare_digest(_sign_hmac(ref.to_dict(), secret), ref.signature)
 
 
-def _verify_ed25519(
-    content_hash_hex: str, signer: str, signature: str, public_key_hex: str
-) -> bool:
+def _verify_ed25519(ref: EvidenceRef, public_key_hex: str) -> bool:
     from cryptography.exceptions import InvalidSignature
 
     ed25519 = _require_crypto()
     try:
         pk = ed25519.Ed25519PublicKey.from_public_bytes(bytes.fromhex(public_key_hex))
-        pk.verify(bytes.fromhex(signature), _signing_message(content_hash_hex, signer))
+        pk.verify(bytes.fromhex(ref.signature), _signing_message(ref.to_dict()))
         return True
     except (InvalidSignature, ValueError):
         return False
@@ -481,7 +504,7 @@ def verify_ref(ref: EvidenceRef, trust: Mapping[str, object]) -> bool:
         else _normalise_entry(ref.signer, entry)
     )
     verify = _verify_ed25519 if norm["alg"] == "ed25519" else _verify_hmac
-    return any(verify(ref.content_hash, ref.signer, ref.signature, key) for key in norm["keys"])
+    return any(verify(ref, key) for key in norm["keys"])
 
 
 # ── console entry point ──────────────────────────────────────────────────────
@@ -507,7 +530,7 @@ def _main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="presidio-scout-evidence",
         description=(
-            "Emit or verify signed evidence (presidio-hardened/evidence-ref@1) for a "
+            "Emit or verify signed evidence (presidio-hardened/evidence-ref@2) for a "
             "ScoutSuite report's clean controls. A clean control evidences an IKI-Gov "
             "checklist item a peer tool can verify. Offline; no ScoutSuite required."
         ),

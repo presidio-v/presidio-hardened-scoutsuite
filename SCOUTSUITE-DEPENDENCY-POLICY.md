@@ -5,8 +5,11 @@
 - the MIT wrapper package, which intentionally has no runtime dependency on ScoutSuite;
 - the optional full ScoutSuite runtime tree in `requirements.lock` and the container image.
 
+The release split and long-term runtime strategy are recorded in
+[`docs/adr/0001-scoutsuite-runtime-release-strategy.md`](./docs/adr/0001-scoutsuite-runtime-release-strategy.md).
+
 When `pip-audit -r requirements.lock` reports a vulnerability in a transitive dependency
-owned by ScoutSuite or its cloud SDK stack, do not suppress it by default. The release image
+owned by ScoutSuite or its cloud SDK stack, do not suppress it by default. The runtime image
 must stay blocked until one of these paths is true:
 
 1. Upstream ScoutSuite or the affected SDK publishes a compatible fixed dependency tree, and

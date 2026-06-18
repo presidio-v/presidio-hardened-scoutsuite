@@ -151,7 +151,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--evidence-out",
         metavar="PATH",
-        help="write a signed evidence envelope (presidio-hardened/evidence-ref@1) for the "
+        help="write a signed evidence envelope (presidio-hardened/evidence-ref@2) for the "
         "report's clean controls to PATH, for a peer tool (e.g. ikigov-assess) to verify",
     )
     parser.add_argument(

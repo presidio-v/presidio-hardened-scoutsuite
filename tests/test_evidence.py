@@ -21,27 +21,45 @@ from presidio_scoutsuite.errors import EvidenceError
 from presidio_scoutsuite.findings import Finding, FindingsReport
 
 # ── cross-repo golden vectors (presidio-evidence/vectors/signing) ────────────
-GOLDEN_CH = "abc123def456"
+GOLDEN_CH = "b" * 64
 GOLDEN_SIGNER = "presidio-hardened-ai"
 GOLDEN_HMAC_KEY = "shared-key"
-GOLDEN_HMAC_SIG = "2e7af6d2882dd53847dcf3032e1fe36e58c5a879c224ea97b505b3e3b626b87a"
-GOLDEN_CANONICAL = '{"content_hash":"abc123def456","signer":"presidio-hardened-ai"}'
+GOLDEN_REF_FIELDS = {
+    "item_id": "T5",
+    "source": E.SOURCE,
+    "source_version": "0.29.0",
+    "ledger_ref": "presidio-report-manifest:sha256/" + "a" * 64,
+    "content_hash": GOLDEN_CH,
+    "signer": GOLDEN_SIGNER,
+    "claimed_at": "2026-06-17T00:00:00Z",
+}
+GOLDEN_HMAC_SIG = "4a87680aeba36ed35975f536e80ce7dcf57de128cfbda444d7284f21903a6aec"
+GOLDEN_CANONICAL = (
+    '{"claimed_at":"2026-06-17T00:00:00Z",'
+    '"content_hash":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",'
+    '"item_id":"T5",'
+    '"ledger_ref":"presidio-report-manifest:sha256/'
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    '","signer":"presidio-hardened-ai",'
+    '"source":"presidio-hardened-scoutsuite",'
+    '"source_version":"0.29.0"}'
+)
 
 ED_PRIV = "0101010101010101010101010101010101010101010101010101010101010101"
 ED_PUB = "8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c"
 ED_SIG = (
-    "a0dc8599958734457f194ebce15c60ec097754b59897ab5dc758f73abadafe36"
-    "97874049d9f7736de4e3a9cc28b2fb4d76b15d8bce7fa0b26c8434bebbba590a"
+    "24175d2302cfda4a53d2795ab80838b4fd9e162096beec9c60abdcf96fc5b"
+    "495c0b3112a8f2ef05541ce97c2d543e3cb8687984278f01ad2c9a4fb7d75036a0c"
 )
 
 
 # ── wire format ──────────────────────────────────────────────────────────────
 def test_canonical_signing_message_matches_vector():
-    assert E._signing_message(GOLDEN_CH, GOLDEN_SIGNER).decode("utf-8") == GOLDEN_CANONICAL
+    assert E._signing_message(GOLDEN_REF_FIELDS).decode("utf-8") == GOLDEN_CANONICAL
 
 
 def test_hmac_golden_signature_matches_producer():
-    assert E.sign("hmac-sha256", GOLDEN_CH, GOLDEN_SIGNER, GOLDEN_HMAC_KEY) == GOLDEN_HMAC_SIG
+    assert E.sign("hmac-sha256", GOLDEN_REF_FIELDS, GOLDEN_HMAC_KEY) == GOLDEN_HMAC_SIG
 
 
 def test_canonical_preserves_unicode_and_sorts_keys():
@@ -50,7 +68,7 @@ def test_canonical_preserves_unicode_and_sorts_keys():
 
 def test_unknown_alg_rejected():
     with pytest.raises(EvidenceError):
-        E.sign("rot13", GOLDEN_CH, GOLDEN_SIGNER, "k")
+        E.sign("rot13", GOLDEN_REF_FIELDS, "k")
 
 
 # ── building evidence from a findings report ─────────────────────────────────
@@ -75,7 +93,7 @@ def test_clean_controls_emit_evidence_failing_ones_do_not():
     ref = env["evidence"][0]
     assert ref["ledger_ref"] == "presidio-report-manifest:sha256/" + "a" * 64
     assert ref["signer"] == E.SOURCE
-    assert E._HEX_RE.match(ref["content_hash"])
+    assert E._SHA256_HEX_RE.match(ref["content_hash"])
 
 
 def test_fully_clean_report_emits_all_items():
@@ -135,6 +153,13 @@ def test_map_with_unknown_item_rejected(tmp_path):
         E.load_item_map("aws", path=bad)
 
 
+def test_map_provider_mismatch_rejected(tmp_path):
+    bad = tmp_path / "bad.evidence.json"
+    bad.write_text(json.dumps({"provider": "gcp", "rules": {"s3-bucket-world-acl.json": ["T5"]}}))
+    with pytest.raises(EvidenceError):
+        E.load_item_map("aws", path=bad)
+
+
 def test_map_with_unknown_rule_fails_validation(tmp_path, monkeypatch):
     bad = tmp_path / "bad.evidence.json"
     bad.write_text(json.dumps({"provider": "aws", "rules": {"not-a-real-rule.json": ["T5"]}}))
@@ -148,7 +173,7 @@ def _ref_dict(**over):
     base = {
         "item_id": "T5",
         "source": E.SOURCE,
-        "source_version": "0.28.0",
+        "source_version": "0.29.0",
         "ledger_ref": "presidio-report-manifest:sha256/" + "a" * 64,
         "content_hash": GOLDEN_CH,
         "signer": GOLDEN_SIGNER,
@@ -164,7 +189,9 @@ def _ref_dict(**over):
     [
         {"evidence": [_ref_dict(item_id="Q9")]},  # unknown checklist item
         {"evidence": [_ref_dict(content_hash="NOTHEX")]},  # bad hex
+        {"evidence": [_ref_dict(content_hash="abc123def456")]},  # truncated digest
         {"evidence": [_ref_dict(signature="ZZ")]},  # bad hex signature
+        {"evidence": [_ref_dict(signature="deadbeef")]},  # truncated signature
         {"schema": "other@2", "evidence": []},  # wrong schema id
         {"evidence": "nope"},  # evidence not an array
         {"no_evidence": []},  # missing evidence array
@@ -201,8 +228,16 @@ def test_verify_hmac_golden_and_tamper():
     ref = E.EvidenceRef(**_ref_dict())
     trust = E.load_trust_store(json.dumps({GOLDEN_SIGNER: GOLDEN_HMAC_KEY}))
     assert E.verify_ref(ref, trust) is True
-    tampered = E.EvidenceRef(**_ref_dict(content_hash="dead" * 4))
+    tampered = E.EvidenceRef(**_ref_dict(content_hash="c" * 64))
     assert E.verify_ref(tampered, trust) is False
+    tampered_item = E.EvidenceRef(**_ref_dict(item_id="O5"))
+    assert E.verify_ref(tampered_item, trust) is False
+    tampered_ledger = E.EvidenceRef(
+        **_ref_dict(ledger_ref="presidio-report-manifest:sha256/" + "c" * 64)
+    )
+    assert E.verify_ref(tampered_ledger, trust) is False
+    tampered_time = E.EvidenceRef(**_ref_dict(claimed_at="2026-06-18T00:00:00Z"))
+    assert E.verify_ref(tampered_time, trust) is False
     wrong_signer = E.EvidenceRef(**_ref_dict(signer="evil"))
     assert E.verify_ref(wrong_signer, trust) is False
 
@@ -233,13 +268,13 @@ _needs_ed25519 = pytest.mark.skipif(not _HAS_ED25519, reason="cryptography Ed255
 
 @_needs_ed25519
 def test_ed25519_golden_sign_and_verify():
-    assert E.sign("ed25519", GOLDEN_CH, GOLDEN_SIGNER, ED_PRIV) == ED_SIG
+    assert E.sign("ed25519", GOLDEN_REF_FIELDS, ED_PRIV) == ED_SIG
     ref = E.EvidenceRef(**_ref_dict(signature=ED_SIG))
     trust = E.load_trust_store(
         json.dumps({GOLDEN_SIGNER: {"alg": "ed25519", "public_key": ED_PUB}})
     )
     assert E.verify_ref(ref, trust) is True
-    tampered = E.EvidenceRef(**_ref_dict(signature=ED_SIG, content_hash="beef" * 4))
+    tampered = E.EvidenceRef(**_ref_dict(signature=ED_SIG, content_hash="c" * 64))
     assert E.verify_ref(tampered, trust) is False
 
 
