@@ -293,7 +293,7 @@ resource becomes one ASFF finding with a stable `Id`.
 A *clean* control — one with **no** flagged finding for any rule mapped to it — is
 positive evidence that a security property held at audit time. `--evidence-out`
 (or the standalone `presidio-scout-evidence`) emits a **signed evidence envelope**
-(`presidio-hardened/evidence-ref@1`) that a peer `presidio-hardened-*` tool — e.g.
+(`presidio-hardened/evidence-ref@2`) that a peer `presidio-hardened-*` tool — e.g.
 `presidio-hardened-ikigov-assess` — verifies fail-closed and uses to affirm its
 governance checklist. A clean infrastructure audit evidences IKI-Gov item **T5**
 ("a security review of the infrastructure and all dependencies has been conducted
@@ -303,8 +303,7 @@ auditors"). A claim is signed only when *every* rule mapped to its item is clean
 
 ```bash
 # Ed25519 (recommended; needs the optional [crypto] extra):
-export PRESIDIO_EVIDENCE_SIGNING_KEY=$(cat ed25519.key)   # 32-byte private key, hex
-presidio-scout aws --report-dir ./report --evidence-out evidence.json
+presidio-scout aws --report-dir ./report --evidence-key ed25519.key --evidence-out evidence.json
 
 # …or HMAC-SHA256 (stdlib only, shared secret), from an existing report:
 presidio-scout-evidence emit ./report --alg hmac-sha256 -o evidence.json
@@ -313,10 +312,11 @@ presidio-scout-evidence emit ./report --alg hmac-sha256 -o evidence.json
 presidio-scout-evidence verify --evidence evidence.json --trust trust.json
 ```
 
-The signature is detached over `canonical_json({content_hash, signer})` (signer
-bound in, so it can't be replayed under another identity); each ref's
-`content_hash` covers the clean control's subject and its `ledger_ref` is bound to
-the report's integrity-manifest digest, tying the claim to one specific report.
+The signature is detached over the canonical JSON of every ref field except
+`signature` itself, so the checklist item, ledger reference, signer,
+source/version and timestamp are all tamper-evident. Each ref's `content_hash`
+covers the clean control's subject and its `ledger_ref` is bound to the report's
+integrity-manifest digest, tying the claim to one specific report.
 The rule→item map (`policy/<provider>.evidence.json`) is validated **fail-closed**
 against the rule manifest, and the envelope carries only item ids, rule names,
 digests and signatures — never raw findings. The wire format matches the shared
@@ -720,7 +720,7 @@ tables at the end).
 audit a **first-class evidence producer** in the
 `presidio-hardened-*` family. A *clean* curated control (no `danger`/`warning`
 finding for its mapped rules) becomes a signed `EvidenceRef`
-(`presidio-hardened/evidence-ref@1`) that a peer **consumer** —
+(`presidio-hardened/evidence-ref@2`) that a peer **consumer** —
 `presidio-hardened-ikigov-assess` — verifies fail-closed and uses to affirm its
 governance checklist items, upgrading them from *self-attested* to
 *affirmed-by-evidence*. ScoutSuite becomes the second producer in the consortium

@@ -41,8 +41,8 @@ scoutsuite = ["ScoutSuite==5.14.0"]
 # Ed25519 signing/verification for evidence emission (presidio-scout-evidence,
 # --evidence-out). HMAC-SHA256 works with the stdlib alone, so this stays
 # optional and the wrapper's runtime remains effectively dependency-free.
-crypto = ["cryptography>=41"]
-dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.6", "cryptography>=41"]
+crypto = ["cryptography>=48.0.1"]
+dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.6", "cryptography>=48.0.1"]
 
 [project.scripts]
 presidio-scout = "presidio_scoutsuite.cli:main"
