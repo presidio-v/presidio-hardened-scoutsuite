@@ -92,7 +92,7 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
       - name: Generate the image SBOM (CycloneDX)
-        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0 # v0.29.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
           image-ref: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
@@ -156,7 +156,7 @@ jobs:
             --repo "${{ github.repository }}" \
             --predicate-type https://cyclonedx.org/bom > /dev/null
       - name: Scan the published image for vulnerabilities
-        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0 # v0.29.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
           image-ref: ${{ env.IMAGE }}@${{ env.DIGEST }}
