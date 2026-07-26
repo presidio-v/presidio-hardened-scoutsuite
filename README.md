@@ -132,11 +132,11 @@ severity threshold exceeded (`--fail-on-finding`).
 from presidio_scoutsuite import build_plan, run, redact_report_dir, guard_report
 
 plan = build_plan("aws", "scoutsuite-report", ruleset="src/presidio_scoutsuite/policy/aws-cis.json")
-print(plan.redacted_command())          # scout aws --no-browser --report-dir … --ruleset …
+print(plan.redacted_command())  # scout aws --no-browser --report-dir … --ruleset …
 
-result = run(plan)                      # subprocess.CompletedProcess
-redact_report_dir(plan.report_dir)      # scrub secrets out of the report
-guard = guard_report(plan.report_dir)   # CSP + SRI + write integrity manifest
+result = run(plan)  # subprocess.CompletedProcess
+redact_report_dir(plan.report_dir)  # scrub secrets out of the report
+guard = guard_report(plan.report_dir)  # CSP + SRI + write integrity manifest
 print(len(guard.manifest), "files;", len(guard.sri_hardened), "SRI-pinned")
 ```
 
