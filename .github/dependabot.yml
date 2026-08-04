@@ -13,6 +13,13 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      # codeql-action/init and codeql-action/analyze are distinct Dependabot
+      # dependencies but ship from one repo, and analyze rejects a config file
+      # written by a different version. Ungrouped, Dependabot bumps one and
+      # leaves the other behind, which breaks the CodeQL job on every release.
+      codeql-action:
+        patterns: ["github/codeql-action*"]
 
   - package-ecosystem: "docker"
     directory: "/"
