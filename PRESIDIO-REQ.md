@@ -1280,7 +1280,7 @@ consumers stay byte-for-byte interoperable across the extraction.
 |---|---|---|
 | **0.28.0** ✓ | **Signed finding evidence (presidio-evidence producer)** — a new `evidence.py` (`EvidenceRef` dataclass, canonical JSON, SHA-256, HMAC-SHA256 via stdlib + Ed25519 via optional `[crypto]`, fail-closed verify), a `presidio-scout-evidence` console script (`emit` / `verify`), and `presidio-scout --evidence-out PATH [--evidence-signer ID --evidence-key … --evidence-alg ed25519\|hmac-sha256]` wired into `cli.main()` at the finalization point (after report-guard + findings load, alongside attest/SARIF/ASFF). Emits one `EvidenceRef` per clean curated `(provider, item)`; curated per-provider `policy/<provider>.evidence.json` maps (rule → peer checklist item-id; T5/O5) validated fail-closed against the rule manifest and item-id set; golden HMAC/Ed25519/canonical-JSON conformance against `presidio-evidence/vectors/`; redaction-aware (hashes only, never raw secret values); security events log counts only. | integration · 0.3, 0.9, 0.17 |
 | **0.29.0** ✓ | **Trust store, rotation & interop hardening** — `presidio-scout-evidence verify --trust` parses `presidio-hardened/trust-store@1` (bare-string HMAC back-compat, `{alg, public_key\|key}` objects, key lists for rotation), verifies every ref fail-closed (unknown signer / tampered hash / tampered signer / wrong key → exit nonzero); malformed Ed25519 public keys are now rejected at load (loud operator error, not a silent verify-false); tamper-case conformance pins the fail-closed behaviour; and a committed cross-repo interop golden (`tests/interop/`) is verified byte-for-byte by ikigov-assess's own `verify_ref`/`classify` (the `test_consortium_round` analog). | integration / security · 0.28 |
-| **0.30.0** | **Evidence signing conformance (#79)** — sign over canonical `{content_hash, signer}` (the family contract message ikigov-assess verifies) instead of every field but `signature`; canonicaliser rejects floats and NaN/Infinity; vendored contract test vectors for conformance; legacy signatures verify with `legacy_signature=True` and a WARNING until v0.32.0 or 90 days after v0.30.0 (whichever is later); `presidio-scout-evidence resign` upgrades legacy refs | Correctness · 0.29.0 |
+| **0.30.0** ✓ | **Evidence signing conformance (#79)** — sign over canonical `{content_hash, signer}` (the family contract message ikigov-assess verifies) instead of every field but `signature`; canonicaliser rejects floats and NaN/Infinity; vendored contract test vectors for conformance; legacy signatures verify with `legacy_signature=True` and a WARNING until v0.32.0 or 90 days after v0.30.0 (whichever is later); `presidio-scout-evidence resign` upgrades legacy refs | Correctness · 0.29.0 |
 | **0.31.0** (stretch) | **Library extraction & evidence consumption** — migrate the vendored contract to `presidio-evidence>=0.2.0` imports (drop the inline crypto), and optionally let ScoutSuite *consume* peer evidence to annotate findings with provenance / inform waivers — the mirror of ikigov-assess's consumer side, making the loop bidirectional. | integration · 0.28, 0.29 |
 
 **Recommendation:** start with **0.28.0** — a producer-side `evidence.py` +
@@ -1336,14 +1336,14 @@ verified — during development against ikigov-assess's *own* `verify_ref`,
 ## Delivery status
 
 Everything planned to date is **delivered and merged to `main`**; the project is
-at **v0.29.0**. Each version shipped as its own babysat, squash-merged PR (the
-fourth arc bundling 0.28.0–0.29.0 like arc 3 bundled 0.22–0.27):
+at **v0.30.0**. Each version shipped as its own babysat, squash-merged PR (the
+fourth arc bundling 0.28.0–0.30.0 like arc 3 bundled 0.22–0.27):
 
 - **Arc 1 — single-run hardened auditor (0.1.0–0.15.0):** ✓ delivered
 - **Arc 2 — fleet tooling & integrations (0.16.0–0.21.0):** ✓ delivered
 - **Arc 3 — continuous assurance & remediation (0.22.0–0.27.0):** ✓ delivered
-- **Arc 4 — consortium interop & the evidence substrate (0.28.0+):** 0.28.0–0.29.0
-  ✓ delivered; 0.30.0 (stretch) planned (sketch above)
+- **Arc 4 — consortium interop & the evidence substrate (0.28.0+):** 0.28.0–0.30.0
+  ✓ delivered; 0.31.0 (stretch) planned (sketch above)
 
 **Release status.** The release pipeline has been exercised once end-to-end at
 **v0.18.0** — `verify-rulesets` validated the corrected baselines against a real
@@ -1351,7 +1351,9 @@ ScoutSuite install, and the MIT wrapper published to PyPI with a cosign-signed,
 provenance+SBOM-attested image. (The earlier `v0.15.0` tag could not be pushed
 from the development environment — the git proxy rejects any ref other than the
 dev branch.) The post-0.18 work (**0.19.0–0.21.0**) is on `main` but **not yet
-tagged**; a fresh `v0.21.0` tag would release it through the same pipeline.
+tagged** separately; it shipped in **v0.29.0** (wrapper only, PyPI), and
+**v0.30.0** follows the same wrapper-only path. The container image stays on the
+separate runtime track (ADR-0001).
 
 ---
 
