@@ -7,7 +7,7 @@ the roadmap tables in `README.md` and `PRESIDIO-REQ.md`.
 
 ## [Unreleased]
 
-Targets v0.30.0.
+## [0.30.0] - 2026-10-18
 
 ### Fixed
 

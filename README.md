@@ -696,16 +696,16 @@ does this automatically on a version bump).
 ## Roadmap
 
 **Status:** all versions below are **delivered and merged to `main`** (currently
-**v0.29.0**) across three complete arcs — the single-run hardened auditor
+**v0.30.0**) across three complete arcs — the single-run hardened auditor
 (0.1–0.15), fleet tooling & integrations (0.16–0.21), and continuous assurance &
 remediation (0.22–0.27) — plus the fourth arc, *consortium interop & the evidence
-substrate* (0.28.0+), now through 0.29.0. Released to PyPI:
-**v0.18.0** and **v0.29.0** (the wrapper); 0.19–0.28 were not tagged separately
-and ship in v0.29.0. No container image has been published: the bundled
+substrate* (0.28.0+), now through 0.30.0. Released to PyPI:
+**v0.18.0**, **v0.29.0** and **v0.30.0** (the wrapper); 0.19–0.28 were not tagged
+separately and ship in v0.29.0. No container image has been published: the bundled
 ScoutSuite runtime is a separate release track, blocked while `pip-audit` reports
 inherited ScoutSuite dependency vulnerabilities in `requirements.lock` (see
 [ADR-0001](./docs/adr/0001-scoutsuite-runtime-release-strategy.md)). The rest
-of the fourth arc (0.30.0+) is planned (see the tables at the end).
+of the fourth arc (0.31.0+) is planned (see the tables at the end).
 
 | Version | Highlights |
 |---|---|
@@ -739,7 +739,7 @@ of the fourth arc (0.30.0+) is planned (see the tables at the end).
 
 ### Fourth arc: consortium interop & the evidence substrate (0.28.0+)
 
-**0.28.0–0.29.0 are delivered**; 0.30.0 is in progress and 0.31.0 is planned. This arc makes a ScoutSuite
+**0.28.0–0.30.0 are delivered**; 0.31.0 is planned. This arc makes a ScoutSuite
 audit a **first-class evidence producer** in the
 `presidio-hardened-*` family. A *clean* curated control (no `danger`/`warning`
 finding for its mapped rules) becomes a signed `EvidenceRef`
@@ -757,7 +757,7 @@ ikigov-assess does today.
 |---|---|
 | **0.28.0** ✓ | Signed finding evidence (presidio-evidence **producer**) — `evidence.py` + `presidio-scout-evidence` (`emit`/`verify`) + `presidio-scout --evidence-out PATH`: emit a signed `EvidenceRef` envelope per clean curated control (content hash over the canonical control subject, `ledger_ref` bound to the report-manifest digest), Ed25519 (optional `[crypto]`) + HMAC (stdlib), fail-closed; a curated rule→checklist-item map (T5/O5) validated against the rule manifest; golden-vector conformance against `presidio-evidence/vectors/` |
 | **0.29.0** ✓ | Trust store, rotation & interop hardening — `verify --trust` against `presidio-hardened/trust-store@1` (key rotation, signer-bound signatures, tamper cases fail closed; malformed Ed25519 keys rejected at load) and a committed cross-repo interop golden, verified byte-for-byte by ikigov-assess's own `verify_ref` |
-| **0.30.0** | Evidence signing conforms to the family contract — refs are signed over canonical `{content_hash, signer}` (the message ikigov-assess and the family verifier check); the canonicaliser rejects floats and NaN/Infinity; legacy full-document signatures still verify with a warning until v0.32.0 (or 90 days after v0.30.0, if later), and `presidio-scout-evidence resign` upgrades them |
+| **0.30.0** ✓ | Evidence signing conforms to the family contract — refs are signed over canonical `{content_hash, signer}` (the message ikigov-assess and the family verifier check); the canonicaliser rejects floats and NaN/Infinity; legacy full-document signatures still verify with a warning until v0.32.0 (or 90 days after v0.30.0, if later), and `presidio-scout-evidence resign` upgrades them |
 | **0.31.0** (stretch) | Library extraction & evidence consumption — migrate the vendored contract to `presidio-evidence>=0.2.0` imports, and optionally ingest peer evidence to annotate findings with provenance (mirror of ikigov-assess's consumer side) |
 
 See [`PRESIDIO-REQ.md`](./PRESIDIO-REQ.md) for the per-version rationale,
