@@ -54,8 +54,10 @@ from .evidence import (
     emit_report,
     load_item_map,
     load_trust_store,
+    resign_document,
     validate_item_map,
     verify_ref,
+    verify_ref_detailed,
 )
 from .extensions import (
     Exporter,
@@ -142,6 +144,8 @@ __all__ = [
     "load_item_map",
     "validate_item_map",
     "verify_ref",
+    "verify_ref_detailed",
+    "resign_document",
     "load_trust_store",
     "Assertion",
     "AssertionResult",
