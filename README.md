@@ -648,9 +648,10 @@ tightening.
 
 ## Curated rulesets
 
-Curated baselines ship for **AWS, Azure, and GCP** under
-[`src/presidio_scoutsuite/policy/`](./src/presidio_scoutsuite/policy/)
-(`aws-cis.json`, `azure-cis.json`, `gcp-cis.json`). Each enables a CIS-aligned
+Curated baselines ship for **AWS, Azure, GCP, Alibaba Cloud, and Oracle Cloud**
+under [`src/presidio_scoutsuite/policy/`](./src/presidio_scoutsuite/policy/)
+(`aws-cis.json`, `azure-cis.json`, `gcp-cis.json`, `aliyun-cis.json`,
+`oci-cis.json`). Each enables a CIS-aligned
 subset of ScoutSuite's findings and elevates the high-impact ones to `danger`.
 Override with `--ruleset PATH` or opt out with `--no-baseline`.
 
@@ -679,10 +680,13 @@ does this automatically on a version bump).
 **v0.29.0**) across three complete arcs — the single-run hardened auditor
 (0.1–0.15), fleet tooling & integrations (0.16–0.21), and continuous assurance &
 remediation (0.22–0.27) — plus the fourth arc, *consortium interop & the evidence
-substrate* (0.28.0+), now through 0.29.0. The release pipeline has shipped
-**v0.18.0** (PyPI + cosign-signed, attested image); 0.19–0.29 are on `main`
-awaiting a release tag. The rest of the fourth arc (0.30.0+) is planned (see the
-tables at the end).
+substrate* (0.28.0+), now through 0.29.0. Released to PyPI:
+**v0.18.0** and **v0.29.0** (the wrapper); 0.19–0.28 were not tagged separately
+and ship in v0.29.0. No container image has been published: the bundled
+ScoutSuite runtime is a separate release track, blocked while `pip-audit` reports
+inherited ScoutSuite dependency vulnerabilities in `requirements.lock` (see
+[ADR-0001](./docs/adr/0001-scoutsuite-runtime-release-strategy.md)). The rest
+of the fourth arc (0.30.0+) is planned (see the tables at the end).
 
 | Version | Highlights |
 |---|---|

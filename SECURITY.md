@@ -4,8 +4,8 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 0.27.x  | ✅ Yes (current) |
-| <0.27   | Best-effort security fixes only |
+| 0.29.x  | ✅ Yes (current) |
+| <0.29   | Best-effort security fixes only |
 
 ## Reporting a Vulnerability
 
