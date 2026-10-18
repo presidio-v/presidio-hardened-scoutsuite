@@ -1,10 +1,13 @@
-"""Tests for evidence emission (presidio-evidence producer, 0.28.0–0.29.0).
+"""Tests for evidence emission (family evidence producer, 0.28.0+).
 
-The HMAC golden vector is exercised with the stdlib so the wire format is pinned
-without the optional ``[crypto]`` extra; the Ed25519 golden vector and ed25519
-trust-store paths run only when a real Ed25519 operation works (``_needs_ed25519``
-skips an importable-but-broken backend). The cross-repo interop golden under
-``tests/interop/`` is a ScoutSuite-emitted envelope ikigov-assess must verify.
+Signatures are over the family contract message ``canonical({content_hash,
+signer})`` since 0.30.0; conformance against the vendored contract vectors lives
+in ``test_evidence_conformance.py``. The HMAC vectors here are exercised with the
+stdlib so the wire format is pinned without the optional ``[crypto]`` extra; the
+Ed25519 golden vector and ed25519 trust-store paths run only when a real Ed25519
+operation works (``_needs_ed25519`` skips an importable-but-broken backend).
+The cross-repo interop golden under ``tests/interop/`` is a ScoutSuite-emitted
+envelope ikigov-assess must verify.
 """
 
 from __future__ import annotations
@@ -20,7 +23,7 @@ from presidio_scoutsuite import evidence as E
 from presidio_scoutsuite.errors import EvidenceError
 from presidio_scoutsuite.findings import Finding, FindingsReport
 
-# ── cross-repo golden vectors (presidio-evidence/vectors/signing) ────────────
+# ── this repo's own vectors (contract message; legacy message for back-compat) ─
 GOLDEN_CH = "b" * 64
 GOLDEN_SIGNER = "presidio-hardened-ai"
 GOLDEN_HMAC_KEY = "shared-key"
@@ -33,8 +36,14 @@ GOLDEN_REF_FIELDS = {
     "signer": GOLDEN_SIGNER,
     "claimed_at": "2026-06-17T00:00:00Z",
 }
-GOLDEN_HMAC_SIG = "4a87680aeba36ed35975f536e80ce7dcf57de128cfbda444d7284f21903a6aec"
+GOLDEN_HMAC_SIG = "cb276327fcc4174566780ef567368cb6f91791a22bd7cbbdabe30619c58ec0b1"
 GOLDEN_CANONICAL = (
+    '{"content_hash":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",'
+    '"signer":"presidio-hardened-ai"}'
+)
+# Pre-0.30.0 (legacy, deprecated) message and signatures over the same fields.
+LEGACY_HMAC_SIG = "4a87680aeba36ed35975f536e80ce7dcf57de128cfbda444d7284f21903a6aec"
+LEGACY_CANONICAL = (
     '{"claimed_at":"2026-06-17T00:00:00Z",'
     '"content_hash":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",'
     '"item_id":"T5",'
@@ -48,6 +57,10 @@ GOLDEN_CANONICAL = (
 ED_PRIV = "0101010101010101010101010101010101010101010101010101010101010101"
 ED_PUB = "8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c"
 ED_SIG = (
+    "b9c19dd11e65625e76c41f31554980f933a6affd962b9364a5cb7c27b99b4984"
+    "b7bb64f4ceabbc974f33c43ac14edb5dd4d5d26e0f2cbbb28dcdefc4ee8b260e"
+)
+LEGACY_ED_SIG = (
     "24175d2302cfda4a53d2795ab80838b4fd9e162096beec9c60abdcf96fc5b"
     "495c0b3112a8f2ef05541ce97c2d543e3cb8687984278f01ad2c9a4fb7d75036a0c"
 )
@@ -60,6 +73,10 @@ def test_canonical_signing_message_matches_vector():
 
 def test_hmac_golden_signature_matches_producer():
     assert E.sign("hmac-sha256", GOLDEN_REF_FIELDS, GOLDEN_HMAC_KEY) == GOLDEN_HMAC_SIG
+
+
+def test_legacy_message_is_unchanged_for_back_compat():
+    assert E._legacy_signing_message(GOLDEN_REF_FIELDS).decode("utf-8") == LEGACY_CANONICAL
 
 
 def test_canonical_preserves_unicode_and_sorts_keys():
@@ -230,16 +247,25 @@ def test_verify_hmac_golden_and_tamper():
     assert E.verify_ref(ref, trust) is True
     tampered = E.EvidenceRef(**_ref_dict(content_hash="c" * 64))
     assert E.verify_ref(tampered, trust) is False
-    tampered_item = E.EvidenceRef(**_ref_dict(item_id="O5"))
-    assert E.verify_ref(tampered_item, trust) is False
-    tampered_ledger = E.EvidenceRef(
-        **_ref_dict(ledger_ref="presidio-report-manifest:sha256/" + "c" * 64)
-    )
-    assert E.verify_ref(tampered_ledger, trust) is False
-    tampered_time = E.EvidenceRef(**_ref_dict(claimed_at="2026-06-18T00:00:00Z"))
-    assert E.verify_ref(tampered_time, trust) is False
     wrong_signer = E.EvidenceRef(**_ref_dict(signer="evil"))
     assert E.verify_ref(wrong_signer, trust) is False
+
+
+def test_contract_signature_covers_only_content_hash_and_signer():
+    # The family contract signs {content_hash, signer} only. item_id, ledger_ref
+    # and the report digest are committed to by content_hash (see claim_subject),
+    # so a verifier holding the report re-derives the hash to bind them; the
+    # signature alone does not cover item_id/ledger_ref/claimed_at.
+    trust = E.load_trust_store(json.dumps({GOLDEN_SIGNER: GOLDEN_HMAC_KEY}))
+    relabelled = E.EvidenceRef(**_ref_dict(claimed_at="2026-06-18T00:00:00Z"))
+    assert E.verify_ref(relabelled, trust) is True
+    subject_t5 = E.claim_subject(
+        item_id="T5", provider="aws", rules=["r.json"], report_digest="a" * 64
+    )
+    subject_o5 = E.claim_subject(
+        item_id="O5", provider="aws", rules=["r.json"], report_digest="a" * 64
+    )
+    assert E.content_hash(subject_t5) != E.content_hash(subject_o5)
 
 
 def test_hmac_key_rotation_any_key_verifies():
@@ -273,8 +299,19 @@ def test_ed25519_golden_sign_and_verify():
     trust = E.load_trust_store(
         json.dumps({GOLDEN_SIGNER: {"alg": "ed25519", "public_key": ED_PUB}})
     )
-    assert E.verify_ref(ref, trust) is True
+    assert E.verify_ref_detailed(ref, trust) == E.VerifyResult(True, legacy_signature=False)
     tampered = E.EvidenceRef(**_ref_dict(signature=ED_SIG, content_hash="c" * 64))
+    assert E.verify_ref(tampered, trust) is False
+
+
+@_needs_ed25519
+def test_ed25519_legacy_signature_accepted_with_flag():
+    ref = E.EvidenceRef(**_ref_dict(signature=LEGACY_ED_SIG))
+    trust = E.load_trust_store(
+        json.dumps({GOLDEN_SIGNER: {"alg": "ed25519", "public_key": ED_PUB}})
+    )
+    assert E.verify_ref_detailed(ref, trust) == E.VerifyResult(True, legacy_signature=True)
+    tampered = E.EvidenceRef(**_ref_dict(signature=LEGACY_ED_SIG, item_id="O5"))
     assert E.verify_ref(tampered, trust) is False
 
 
@@ -558,7 +595,8 @@ def test_interop_golden_is_byte_stable():
 def test_interop_golden_verifies_and_tamper_fails():
     refs = E.load_evidence((_INTEROP / "scout-evidence-aws.json").read_text())
     trust = E.load_trust_store((_INTEROP / "scout-evidence-aws.trust.json").read_text())
-    assert refs and all(E.verify_ref(r, trust) for r in refs)
+    results = [E.verify_ref_detailed(r, trust) for r in refs]
+    assert results and all(r.ok and not r.legacy_signature for r in results)
     # tampering any field the signature covers breaks verification
     tampered = E.EvidenceRef(**{**refs[0].to_dict(), "content_hash": "dead" * 16})
     assert E.verify_ref(tampered, trust) is False
@@ -569,3 +607,139 @@ def test_interop_golden_items_are_known_checklist_ids():
     refs = E.load_evidence((_INTEROP / "scout-evidence-aws.json").read_text())
     assert {r.item_id for r in refs} == {"T5", "O5"}
     assert all(r.item_id in E.VALID_ITEM_IDS for r in refs)
+
+
+# ── legacy signatures (deprecated; removal per E.LEGACY_SIGNATURE_REMOVAL) ────
+def _legacy_envelope(key="sek", signer="sig-er"):
+    """An envelope signed the pre-0.30.0 way (every field but ``signature``)."""
+    env = E.build_evidence(
+        _report([]), report_digest="a" * 64, signer=signer, key=key, alg="hmac-sha256"
+    )
+    for ref in env["evidence"]:
+        ref["signature"] = E._hmac_hex(E._legacy_signing_message(ref), key)
+    return env
+
+
+def test_legacy_hmac_signature_accepted_with_flag_and_warning(caplog):
+    ref = E.EvidenceRef(**_ref_dict(signature=LEGACY_HMAC_SIG))
+    trust = E.load_trust_store(json.dumps({GOLDEN_SIGNER: GOLDEN_HMAC_KEY}))
+    with caplog.at_level("WARNING", logger="presidio_scoutsuite.evidence"):
+        result = E.verify_ref_detailed(ref, trust)
+    assert result == E.VerifyResult(True, legacy_signature=True)
+    assert E.verify_ref(ref, trust) is True
+    assert "legacy" in caplog.text and "resign" in caplog.text
+    assert GOLDEN_HMAC_KEY not in caplog.text
+
+
+def test_contract_signature_is_not_flagged_legacy(caplog):
+    ref = E.EvidenceRef(**_ref_dict())
+    trust = E.load_trust_store(json.dumps({GOLDEN_SIGNER: GOLDEN_HMAC_KEY}))
+    with caplog.at_level("WARNING", logger="presidio_scoutsuite.evidence"):
+        assert E.verify_ref_detailed(ref, trust) == E.VerifyResult(True, legacy_signature=False)
+    assert caplog.text == ""
+
+
+def test_legacy_signature_still_binds_every_field():
+    trust = E.load_trust_store(json.dumps({GOLDEN_SIGNER: GOLDEN_HMAC_KEY}))
+    for field, value in (
+        ("item_id", "O5"),
+        ("claimed_at", "2026-06-18T00:00:00Z"),
+        ("ledger_ref", "presidio-report-manifest:sha256/" + "c" * 64),
+    ):
+        tampered = E.EvidenceRef(**_ref_dict(signature=LEGACY_HMAC_SIG, **{field: value}))
+        assert E.verify_ref_detailed(tampered, trust) == E.VerifyResult(False)
+
+
+def test_resign_document_upgrades_legacy_refs():
+    env = _legacy_envelope()
+    trust = E.load_trust_store(json.dumps({"sig-er": "sek"}))
+    assert all(E.verify_ref_detailed(r, trust).legacy_signature for r in E.parse_document(env))
+    new, count = E.resign_document(env, trust, key="sek", alg="hmac-sha256")
+    assert count == len(env["evidence"]) == 2
+    results = [E.verify_ref_detailed(r, trust) for r in E.parse_document(new)]
+    assert all(r.ok and not r.legacy_signature for r in results)
+    # only the signature changes; the envelope and every other field are kept
+    assert {k: v for k, v in new.items() if k != "evidence"} == {
+        k: v for k, v in env.items() if k != "evidence"
+    }
+    for old, fresh in zip(env["evidence"], new["evidence"], strict=True):
+        assert {k: v for k, v in old.items() if k != "signature"} == {
+            k: v for k, v in fresh.items() if k != "signature"
+        }
+    # idempotent: a conformant document is left untouched
+    again, count = E.resign_document(new, trust, key="sek", alg="hmac-sha256")
+    assert count == 0 and again == new
+
+
+def test_resign_refuses_unverifiable_ref():
+    env = _legacy_envelope(key="sek")
+    trust = E.load_trust_store(json.dumps({"sig-er": "other"}))
+    with pytest.raises(EvidenceError, match="refusing to re-sign"):
+        E.resign_document(env, trust, key="other", alg="hmac-sha256")
+
+
+def test_resign_refuses_key_not_matching_signer():
+    env = _legacy_envelope(key="sek")
+    trust = E.load_trust_store(json.dumps({"sig-er": "sek"}))
+    with pytest.raises(EvidenceError, match="does not match") as exc:
+        E.resign_document(env, trust, key="attacker-key", alg="hmac-sha256")
+    assert "attacker-key" not in str(exc.value)
+
+
+@_needs_ed25519
+def test_resign_ed25519_legacy_ref():
+    env = {"schema": E.SCHEMA_ID, "evidence": [_ref_dict(signature=LEGACY_ED_SIG)]}
+    trust = E.load_trust_store(
+        json.dumps({GOLDEN_SIGNER: {"alg": "ed25519", "public_key": ED_PUB}})
+    )
+    new, count = E.resign_document(env, trust, key=ED_PRIV, alg="ed25519")
+    assert count == 1 and new["evidence"][0]["signature"] == ED_SIG
+
+
+def test_main_resign_round_trip_never_prints_key(tmp_path, capsys, caplog):
+    secret = "resign-secret-do-not-print"
+    ev = tmp_path / "legacy.json"
+    ev.write_text(json.dumps(_legacy_envelope(key=secret)))
+    trust = tmp_path / "trust.json"
+    trust.write_text(json.dumps({"sig-er": secret}))
+    keyfile = tmp_path / "key"
+    keyfile.write_text(secret + "\n")
+    out = tmp_path / "resigned.json"
+
+    with caplog.at_level("DEBUG"):
+        assert E._main(["verify", "--evidence", str(ev), "--trust", str(trust)]) == 0
+        legacy_io = capsys.readouterr()
+        assert "[legacy signature]" in legacy_io.out
+        assert "presidio-scout-evidence resign" in legacy_io.err
+
+        argv = ["resign", "--evidence", str(ev), "--trust", str(trust)]
+        argv += ["--key", str(keyfile), "--alg", "hmac-sha256", "-o", str(out)]
+        assert E._main(argv) == 0
+        resign_io = capsys.readouterr()
+        assert "2 legacy ref(s) re-signed" in resign_io.err
+
+        assert E._main(["verify", "--evidence", str(out), "--trust", str(trust)]) == 0
+        fresh_io = capsys.readouterr()
+        assert "[legacy signature]" not in fresh_io.out
+        assert "warning" not in fresh_io.err
+
+    for text in (legacy_io.out, legacy_io.err, resign_io.out, resign_io.err, caplog.text):
+        assert secret not in text
+    assert secret not in out.read_text()
+
+
+def test_main_resign_wrong_key_and_missing_file_fail_closed(tmp_path, capsys):
+    ev = tmp_path / "legacy.json"
+    ev.write_text(json.dumps(_legacy_envelope(key="sek")))
+    trust = tmp_path / "trust.json"
+    trust.write_text(json.dumps({"sig-er": "sek"}))
+    keyfile = tmp_path / "key"
+    keyfile.write_text("wrong-key-value")
+    base = ["resign", "--evidence", str(ev), "--trust", str(trust), "--alg", "hmac-sha256"]
+    assert E._main([*base, "--key", str(keyfile)]) == 3
+    assert E._main([*base, "--key", str(tmp_path / "nope")]) == 2
+    bad = tmp_path / "bad.json"
+    bad.write_text("{not json")
+    assert E._main(["resign", "--evidence", str(bad), "--trust", str(trust)]) == 2
+    io = capsys.readouterr()
+    assert "wrong-key-value" not in io.out + io.err

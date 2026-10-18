@@ -1,4 +1,4 @@
-"""Emit signed evidence for clean controls — presidio-evidence producer (0.28.0).
+"""Emit signed evidence for clean controls — family evidence producer (0.28.0+).
 
 This makes a ScoutSuite audit a **producer** in the ``presidio-hardened-*``
 evidence substrate. When a curated control is **clean** in a run (no flagged
@@ -15,13 +15,24 @@ dependencies has been conducted and findings addressed"; **O5** = "an audit log
 is maintained, stored immutably, and accessible to authorised auditors". A claim
 is signed only when *every* rule mapped to its item is clean.
 
-Wire format: the detached signature is over every contract field except
-``signature`` itself, canonicalized as
-``json.dumps(sort_keys=True, separators=(",", ":"), ensure_ascii=False)``. This
-binds the checklist item, ledger reference, signer, source/version and timestamp
-into the signature so a valid ref cannot be relabelled or replayed under another
-identity. HMAC-SHA256 uses the stdlib; Ed25519 (the secure default) needs the
-optional ``[crypto]`` extra. Pure stdlib otherwise, offline, fail-closed — never
+Wire format: the detached signature is over the family evidence contract's
+signing message, the canonical JSON of ``{"content_hash", "signer"}`` only.
+Canonical JSON is ``json.dumps(sort_keys=True, separators=(",", ":"),
+ensure_ascii=False, allow_nan=False)`` encoded as UTF-8, with floats (and so
+NaN/Infinity) rejected anywhere in the payload. The checklist item, provider,
+clean rule set and report digest are bound through ``content_hash`` (see
+:func:`claim_subject`), and the signer is bound directly, so a valid signature
+cannot be replayed under another signer or claim. HMAC-SHA256 uses the stdlib;
+Ed25519 (the secure default) needs the optional ``[crypto]`` extra. Pure stdlib
+otherwise, offline, fail-closed — never imports ScoutSuite.
+
+Legacy signatures (deprecated): releases up to 0.29.x signed the canonical JSON
+of every contract field except ``signature``, which no other family verifier
+accepts. :func:`verify_ref_detailed` still accepts such a signature, but only
+after the contract message fails, and it reports ``legacy_signature=True`` and
+logs a WARNING. ``presidio-scout-evidence resign`` re-signs legacy refs over the
+contract message. Legacy acceptance is removed in v0.32.0 or 90 days after the
+v0.30.0 release, whichever is later.
 imports ScoutSuite.
 """
 
@@ -31,6 +42,7 @@ import argparse
 import hashlib
 import hmac
 import json
+import logging
 import os
 import re
 import sys
@@ -45,7 +57,7 @@ from .errors import EvidenceError, PresidioScoutError
 from .findings import FindingsReport, load_report
 from .version import __version__
 
-#: Cross-repo wire-format contract identifiers (mirrors presidio-evidence).
+#: Cross-repo wire-format contract identifiers (the family evidence contract).
 SCHEMA_ID = "presidio-hardened/evidence-ref@2"
 #: Verifier-side trust-store schema id (the consumer's contract id).
 TRUST_STORE_SCHEMA_ID = "presidio-hardened/trust-store@1"
@@ -75,7 +87,10 @@ _CONTRACT_FIELDS = (
     "signature",
     "claimed_at",
 )
-_SIGNED_FIELDS = tuple(field for field in _CONTRACT_FIELDS if field != "signature")
+#: Fields the pre-0.30.0 (legacy, deprecated) signing message covered.
+_LEGACY_SIGNED_FIELDS = tuple(field for field in _CONTRACT_FIELDS if field != "signature")
+#: When legacy-signature acceptance goes away (see the module docstring).
+LEGACY_SIGNATURE_REMOVAL = "v0.32.0 or 90 days after the v0.30.0 release, whichever is later"
 _SHA256_HEX_RE = re.compile(r"^[0-9a-f]{64}$")
 _SIGNATURE_HEX_RE = re.compile(r"^(?:[0-9a-f]{64}|[0-9a-f]{128})$")
 _ED25519_PUBKEY_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -83,13 +98,39 @@ _MAX_STR = 512
 
 _MAPPING_FILES: dict[str, str] = {p: f"{p}.evidence.json" for p in MAPPED_PROVIDERS}
 
+_log = logging.getLogger(__name__)
+
 
 # ── wire format ──────────────────────────────────────────────────────────────
-def _canonical(payload: Mapping[str, object]) -> bytes:
-    """Strict canonical JSON bytes: sorted keys, compact, UTF-8 preserved."""
-    return json.dumps(
-        dict(payload), sort_keys=True, separators=(",", ":"), ensure_ascii=False
-    ).encode("utf-8")
+def _reject_floats(payload: object) -> None:
+    """Reject floats anywhere in ``payload`` (the contract's strict profile).
+
+    Floats have no single canonical text form across languages, so the contract
+    forbids them outright; this also rules out NaN and +/-Infinity.
+    """
+    if isinstance(payload, float):
+        raise EvidenceError("floats are not permitted in canonical evidence payloads")
+    if isinstance(payload, Mapping):
+        for key, value in payload.items():
+            _reject_floats(key)
+            _reject_floats(value)
+    elif isinstance(payload, (list, tuple)):
+        for value in payload:
+            _reject_floats(value)
+
+
+def _canonical(payload: object) -> bytes:
+    """Strict canonical JSON bytes: sorted keys, compact, UTF-8, no floats/NaN."""
+    _reject_floats(payload)
+    if isinstance(payload, Mapping):
+        payload = dict(payload)
+    try:
+        text = json.dumps(
+            payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
+        )
+    except (TypeError, ValueError) as exc:
+        raise EvidenceError(f"payload is not canonicalisable: {exc}") from exc
+    return text.encode("utf-8")
 
 
 def claim_subject(
@@ -115,19 +156,39 @@ def content_hash(subject: Mapping[str, object]) -> str:
     return hashlib.sha256(_canonical(subject)).hexdigest()
 
 
-def _signed_payload(fields: Mapping[str, object]) -> dict[str, object]:
-    missing = [field for field in _SIGNED_FIELDS if field not in fields]
-    if missing:
-        raise EvidenceError(f"cannot sign evidence ref; missing field(s): {', '.join(missing)}")
-    return {field: fields[field] for field in _SIGNED_FIELDS}
+def signing_message(content_hash: str, signer: str) -> bytes:
+    """The family contract's signing message: canonical ``{content_hash, signer}``."""
+    return _canonical({"content_hash": content_hash, "signer": signer})
+
+
+def _contract_fields(fields: Mapping[str, object]) -> tuple[str, str]:
+    values = []
+    for name in ("content_hash", "signer"):
+        value = fields.get(name)
+        if not isinstance(value, str) or not value:
+            raise EvidenceError(f"cannot sign evidence ref; missing or invalid field: {name}")
+        values.append(value)
+    return values[0], values[1]
 
 
 def _signing_message(fields: Mapping[str, object]) -> bytes:
-    return _canonical(_signed_payload(fields))
+    return signing_message(*_contract_fields(fields))
+
+
+def _legacy_signing_message(fields: Mapping[str, object]) -> bytes:
+    """Pre-0.30.0 message (every field but ``signature``). Verification only."""
+    missing = [field for field in _LEGACY_SIGNED_FIELDS if field not in fields]
+    if missing:
+        raise EvidenceError(f"legacy message needs field(s): {', '.join(missing)}")
+    return _canonical({field: fields[field] for field in _LEGACY_SIGNED_FIELDS})
+
+
+def _hmac_hex(message: bytes, key: str) -> str:
+    return hmac.new(key.encode("utf-8"), message, hashlib.sha256).hexdigest()
 
 
 def _sign_hmac(fields: Mapping[str, object], key: str) -> str:
-    return hmac.new(key.encode("utf-8"), _signing_message(fields), hashlib.sha256).hexdigest()
+    return _hmac_hex(_signing_message(fields), key)
 
 
 def _require_crypto():
@@ -473,38 +534,118 @@ def load_trust_store(text: str) -> dict[str, dict[str, object]]:
     return normalised
 
 
-def _verify_hmac(ref: EvidenceRef, secret: str) -> bool:
-    return hmac.compare_digest(_sign_hmac(ref.to_dict(), secret), ref.signature)
+def _verify_hmac(signature: str, message: bytes, secret: str) -> bool:
+    return hmac.compare_digest(_hmac_hex(message, secret), signature)
 
 
-def _verify_ed25519(ref: EvidenceRef, public_key_hex: str) -> bool:
+def _verify_ed25519(signature: str, message: bytes, public_key_hex: str) -> bool:
     from cryptography.exceptions import InvalidSignature
 
     ed25519 = _require_crypto()
     try:
         pk = ed25519.Ed25519PublicKey.from_public_bytes(bytes.fromhex(public_key_hex))
-        pk.verify(bytes.fromhex(ref.signature), _signing_message(ref.to_dict()))
+        pk.verify(bytes.fromhex(signature), message)
         return True
     except (InvalidSignature, ValueError):
         return False
 
 
-def verify_ref(ref: EvidenceRef, trust: Mapping[str, object]) -> bool:
-    """Verify a ref's signature against the trust store (timing-safe, fail-closed).
+@dataclass(frozen=True)
+class VerifyResult:
+    """Outcome of verifying one ref.
 
-    Succeeds if the signature matches **any** key listed for the signer (which is
-    what allows key rotation); an unknown signer returns ``False``.
+    ``legacy_signature`` is ``True`` only when the ref verified over the
+    deprecated pre-0.30.0 message (every field but ``signature``) and not over
+    the family contract message. Such a ref should be re-signed with
+    ``presidio-scout-evidence resign``.
     """
+
+    ok: bool
+    legacy_signature: bool = False
+
+    def __bool__(self) -> bool:
+        return self.ok
+
+
+def _trust_entry(ref: EvidenceRef, trust: Mapping[str, object]) -> dict[str, object] | None:
     entry = trust.get(ref.signer)
     if entry is None:
-        return False
-    norm = (
-        entry
-        if isinstance(entry, Mapping) and "keys" in entry
-        else _normalise_entry(ref.signer, entry)
-    )
+        return None
+    if isinstance(entry, Mapping) and "keys" in entry:
+        return dict(entry)
+    return _normalise_entry(ref.signer, entry)
+
+
+def verify_ref_detailed(ref: EvidenceRef, trust: Mapping[str, object]) -> VerifyResult:
+    """Verify a ref's signature against the trust store (timing-safe, fail-closed).
+
+    The family contract message is tried first, against **any** key listed for
+    the signer (which is what allows key rotation). Only if that fails is the
+    deprecated legacy message tried; a legacy match succeeds with
+    ``legacy_signature=True`` and a WARNING is logged. An unknown signer fails.
+    """
+    norm = _trust_entry(ref, trust)
+    if norm is None:
+        return VerifyResult(False)
     verify = _verify_ed25519 if norm["alg"] == "ed25519" else _verify_hmac
-    return any(verify(ref, key) for key in norm["keys"])
+    keys = norm["keys"]
+    message = _signing_message(ref.to_dict())
+    if any(verify(ref.signature, message, key) for key in keys):
+        return VerifyResult(True)
+    legacy = _legacy_signing_message(ref.to_dict())
+    if any(verify(ref.signature, legacy, key) for key in keys):
+        _log.warning(
+            "evidence ref %s from signer %r verified only over the deprecated legacy "
+            "signing message; re-sign it with `presidio-scout-evidence resign`. "
+            "Legacy acceptance is removed in %s.",
+            ref.item_id,
+            ref.signer,
+            LEGACY_SIGNATURE_REMOVAL,
+        )
+        return VerifyResult(True, legacy_signature=True)
+    return VerifyResult(False)
+
+
+def verify_ref(ref: EvidenceRef, trust: Mapping[str, object]) -> bool:
+    """``True`` if :func:`verify_ref_detailed` accepts the ref (legacy included)."""
+    return verify_ref_detailed(ref, trust).ok
+
+
+def resign_document(
+    doc: Mapping[str, object], trust: Mapping[str, object], *, key: str, alg: str
+) -> tuple[dict, int]:
+    """Re-sign a document's legacy-signed refs over the contract message.
+
+    Fail-closed: every ref must already verify against ``trust`` (contract or
+    legacy message), so a ref that was never validly signed cannot be laundered
+    into a valid one. Each new signature is checked against ``trust`` before it
+    is accepted, which proves ``key`` belongs to the ref's signer. Refs that
+    already use the contract message are left untouched. Returns the new
+    document and the number of refs re-signed.
+    """
+    refs = parse_document(doc)
+    out: list[dict[str, str]] = []
+    resigned = 0
+    for ref in refs:
+        result = verify_ref_detailed(ref, trust)
+        if not result.ok:
+            raise EvidenceError(
+                f"evidence ref {ref.item_id} (signer {ref.signer!r}) does not verify "
+                "against the trust store; refusing to re-sign it"
+            )
+        if not result.legacy_signature:
+            out.append(ref.to_dict())
+            continue
+        new = EvidenceRef(**{**ref.to_dict(), "signature": sign(alg, ref.to_dict(), key)})
+        check = verify_ref_detailed(new, trust)
+        if not check.ok or check.legacy_signature:
+            raise EvidenceError(
+                f"the provided key does not match the trust-store entry for signer "
+                f"{ref.signer!r}; refusing to re-sign"
+            )
+        out.append(new.to_dict())
+        resigned += 1
+    return {**dict(doc), "evidence": out}, resigned
 
 
 # ── console entry point ──────────────────────────────────────────────────────
@@ -526,11 +667,51 @@ def resolve_key(key_path: str | None) -> str:
     return raw
 
 
+def _cmd_resign(args: argparse.Namespace) -> int:
+    """``resign``: re-sign legacy refs. Key material is never printed or logged."""
+    try:
+        doc = json.loads(Path(args.evidence).read_text(encoding="utf-8"))
+        trust = load_trust_store(Path(args.trust).read_text(encoding="utf-8"))
+        key = resolve_key(args.key)
+    except OSError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    except ValueError as exc:
+        print(f"error: invalid evidence JSON: {exc}", file=sys.stderr)
+        return 2
+    except PresidioScoutError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    try:
+        envelope, resigned = resign_document(doc, trust, key=key, alg=args.alg)
+    except PresidioScoutError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 3
+    text = json.dumps(envelope, indent=2, sort_keys=True) + "\n"
+    from . import redact
+
+    try:
+        redact.assert_clean(text, where="evidence envelope")
+    except PresidioScoutError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 3
+    if args.output:
+        Path(args.output).write_text(text, encoding="utf-8")
+    else:
+        sys.stdout.write(text)
+    print(
+        f"resign: {resigned} legacy ref(s) re-signed, "
+        f"{len(envelope['evidence']) - resigned} already conformant",
+        file=sys.stderr,
+    )
+    return 0
+
+
 def _main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="presidio-scout-evidence",
         description=(
-            "Emit or verify signed evidence (presidio-hardened/evidence-ref@2) for a "
+            "Emit, verify or re-sign signed evidence (presidio-hardened/evidence-ref@2) for a "
             "ScoutSuite report's clean controls. A clean control evidences an IKI-Gov "
             "checklist item a peer tool can verify. Offline; no ScoutSuite required."
         ),
@@ -570,7 +751,32 @@ def _main(argv: list[str] | None = None) -> int:
     )
     ver.add_argument("--quiet", "-q", action="store_true", help="suppress per-ref output")
 
+    res = sub.add_parser(
+        "resign",
+        help="re-sign legacy (pre-0.30.0) refs over the family contract message",
+    )
+    res.add_argument("--evidence", required=True, metavar="PATH", help="evidence envelope JSON")
+    res.add_argument(
+        "--trust",
+        required=True,
+        metavar="PATH",
+        help="trust-store JSON; every ref must verify against it before re-signing",
+    )
+    res.add_argument(
+        "--key", metavar="PATH", help=f"signing key file (default: ${SIGNING_KEY_ENV})"
+    )
+    res.add_argument(
+        "--alg",
+        choices=SIGNING_ALGORITHMS,
+        default="ed25519",
+        help="signature algorithm of the signer's trust entry (default: ed25519)",
+    )
+    res.add_argument("-o", "--output", help="write to this file instead of stdout")
+
     args = parser.parse_args(argv)
+
+    if args.command == "resign":
+        return _cmd_resign(args)
 
     if args.command == "emit":
         try:
@@ -619,14 +825,24 @@ def _main(argv: list[str] | None = None) -> int:
         return 2
 
     ok = True
+    legacy = 0
     for ref in refs:
-        verified = verify_ref(ref, trust)
-        ok = ok and verified
+        result = verify_ref_detailed(ref, trust)
+        ok = ok and result.ok
+        legacy += result.legacy_signature
         if not args.quiet:
-            mark = "ok  " if verified else "FAIL"
-            print(f"{mark} {ref.item_id} signer={ref.signer} ({ref.content_hash[:12]}…)")
+            mark = "ok  " if result.ok else "FAIL"
+            note = " [legacy signature]" if result.legacy_signature else ""
+            print(f"{mark} {ref.item_id} signer={ref.signer} ({ref.content_hash[:12]}…){note}")
     if ok:
         print(f"ok   {len(refs)} evidence ref(s) verified", file=sys.stderr)
+        if legacy:
+            print(
+                f"warning: {legacy} ref(s) use the deprecated legacy signing message; "
+                f"run `presidio-scout-evidence resign` (legacy acceptance is removed in "
+                f"{LEGACY_SIGNATURE_REMOVAL})",
+                file=sys.stderr,
+            )
         return 0
     print("FAIL one or more evidence refs did not verify", file=sys.stderr)
     return 3
