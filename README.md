@@ -288,7 +288,7 @@ aws securityhub batch-import-findings --findings file://findings.asff.json
 `danger` maps to `HIGH` (Normalized 70), `warning` to `MEDIUM` (40); each flagged
 resource becomes one ASFF finding with a stable `Id`.
 
-### Emitting signed evidence (presidio-evidence producer)
+### Emitting signed evidence (family evidence producer)
 
 A *clean* control — one with **no** flagged finding for any rule mapped to it — is
 positive evidence that a security property held at audit time. `--evidence-out`
@@ -310,17 +310,36 @@ presidio-scout-evidence emit ./report --alg hmac-sha256 -o evidence.json
 
 # the consumer verifies it against a trust store mapping signer -> key:
 presidio-scout-evidence verify --evidence evidence.json --trust trust.json
+
+# re-sign refs written by v0.29.x or earlier (legacy signing message):
+presidio-scout-evidence resign --evidence old.json --trust trust.json \
+  --key ed25519.key -o evidence.json
 ```
 
-The signature is detached over the canonical JSON of every ref field except
-`signature` itself, so the checklist item, ledger reference, signer,
-source/version and timestamp are all tamper-evident. Each ref's `content_hash`
-covers the clean control's subject and its `ledger_ref` is bound to the report's
-integrity-manifest digest, tying the claim to one specific report.
+Since v0.30.0 the signature is detached over the family evidence contract's
+signing message: the canonical JSON of `{"content_hash", "signer"}` (sorted keys,
+`(",", ":")` separators, UTF-8, floats and NaN/Infinity rejected). The signer is
+bound directly; each ref's `content_hash` commits to the checklist item, the
+provider, the exact set of clean rules and the report's integrity-manifest digest,
+tying the claim to one specific report. `item_id`, `ledger_ref` and `claimed_at`
+are not covered by the signature itself; a verifier that holds the report can
+re-derive `content_hash` to bind them.
 The rule→item map (`policy/<provider>.evidence.json`) is validated **fail-closed**
 against the rule manifest, and the envelope carries only item ids, rule names,
-digests and signatures — never raw findings. The wire format matches the shared
-`presidio-evidence` golden vectors, so ikigov-assess verifies it byte-for-byte.
+digests and signatures — never raw findings. Conformance is tested against the
+vendored family evidence contract test vectors (`tests/vectors/`), and the
+committed interop envelope (`tests/interop/`) is checked the way the family
+verifier checks it, so ikigov-assess verifies it byte-for-byte.
+
+**Legacy signatures (deprecated).** v0.29.x and earlier signed every ref field
+except `signature`, which no other family verifier accepts. `verify` still
+accepts such a ref, but only after the contract message fails: the ref is marked
+`[legacy signature]`, a WARNING is logged, and the Python API returns
+`VerifyResult(ok=True, legacy_signature=True)` from `verify_ref_detailed`.
+`resign` upgrades those refs. It re-signs only refs that already verify against
+the trust store, checks each new signature against the signer's trust entry, and
+never prints the key. Legacy acceptance will be removed in **v0.32.0 or 90 days
+after the v0.30.0 release, whichever is later**.
 
 ### Tracking drift between runs
 
@@ -720,7 +739,7 @@ of the fourth arc (0.30.0+) is planned (see the tables at the end).
 
 ### Fourth arc: consortium interop & the evidence substrate (0.28.0+)
 
-**0.28.0–0.29.0 are delivered**; 0.30.0 is planned. This arc makes a ScoutSuite
+**0.28.0–0.29.0 are delivered**; 0.30.0 is in progress and 0.31.0 is planned. This arc makes a ScoutSuite
 audit a **first-class evidence producer** in the
 `presidio-hardened-*` family. A *clean* curated control (no `danger`/`warning`
 finding for its mapped rules) becomes a signed `EvidenceRef`
@@ -738,7 +757,8 @@ ikigov-assess does today.
 |---|---|
 | **0.28.0** ✓ | Signed finding evidence (presidio-evidence **producer**) — `evidence.py` + `presidio-scout-evidence` (`emit`/`verify`) + `presidio-scout --evidence-out PATH`: emit a signed `EvidenceRef` envelope per clean curated control (content hash over the canonical control subject, `ledger_ref` bound to the report-manifest digest), Ed25519 (optional `[crypto]`) + HMAC (stdlib), fail-closed; a curated rule→checklist-item map (T5/O5) validated against the rule manifest; golden-vector conformance against `presidio-evidence/vectors/` |
 | **0.29.0** ✓ | Trust store, rotation & interop hardening — `verify --trust` against `presidio-hardened/trust-store@1` (key rotation, signer-bound signatures, tamper cases fail closed; malformed Ed25519 keys rejected at load) and a committed cross-repo interop golden, verified byte-for-byte by ikigov-assess's own `verify_ref` |
-| **0.30.0** (stretch) | Library extraction & evidence consumption — migrate the vendored contract to `presidio-evidence>=0.2.0` imports, and optionally ingest peer evidence to annotate findings with provenance (mirror of ikigov-assess's consumer side) |
+| **0.30.0** | Evidence signing conforms to the family contract — refs are signed over canonical `{content_hash, signer}` (the message ikigov-assess and the family verifier check); the canonicaliser rejects floats and NaN/Infinity; legacy full-document signatures still verify with a warning until v0.32.0 (or 90 days after v0.30.0, if later), and `presidio-scout-evidence resign` upgrades them |
+| **0.31.0** (stretch) | Library extraction & evidence consumption — migrate the vendored contract to `presidio-evidence>=0.2.0` imports, and optionally ingest peer evidence to annotate findings with provenance (mirror of ikigov-assess's consumer side) |
 
 See [`PRESIDIO-REQ.md`](./PRESIDIO-REQ.md) for the per-version rationale,
 dependencies, delivery status, and open design questions.
