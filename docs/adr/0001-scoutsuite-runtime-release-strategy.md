@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted, 2026-06-18.
+Accepted, 2026-06-18. The Option C rejection is superseded for the AWS-only
+runtime by [ADR-0002](./0002-aws-only-runtime.md) (2026-10-22).
 
 ## Context
 

@@ -15,9 +15,9 @@ env = { AWS_PROFILE = "prod-audit", AWS_DEFAULT_REGION = "us-east-1" }
 args = ["--fail-on-finding", "danger"]
 
 [[targets]]
-name = "analytics-gcp"
-provider = "gcp"
-env = { CLOUDSDK_CORE_PROJECT = "analytics-123" }
+name = "analytics-aws"
+provider = "aws"
+env = { AWS_PROFILE = "analytics-audit" }
 """
 
 
@@ -32,7 +32,7 @@ def _write(tmp_path, text, name=".presidio-scout-targets.toml"):
 
 def test_load_good(tmp_path):
     targets = O.load_targets(_write(tmp_path, _GOOD))
-    assert [t.name for t in targets] == ["prod-aws", "analytics-gcp"]
+    assert [t.name for t in targets] == ["prod-aws", "analytics-aws"]
     assert targets[0].provider == "aws"
     assert targets[0].env["AWS_PROFILE"] == "prod-audit"
     assert targets[0].args == ("--fail-on-finding", "danger")
@@ -44,7 +44,7 @@ def test_empty_targets(tmp_path):
 
 
 def test_duplicate_name(tmp_path):
-    text = '[[targets]]\nname="a"\nprovider="aws"\n[[targets]]\nname="a"\nprovider="gcp"'
+    text = '[[targets]]\nname="a"\nprovider="aws"\n[[targets]]\nname="a"\nprovider="aws"'
     with pytest.raises(OrchestrationError, match="duplicate target name"):
         O.load_targets(_write(tmp_path, text))
 
@@ -52,6 +52,11 @@ def test_duplicate_name(tmp_path):
 def test_unknown_provider(tmp_path):
     with pytest.raises(OrchestrationError, match="unknown provider"):
         O.load_targets(_write(tmp_path, '[[targets]]\nname="a"\nprovider="neptune"'))
+
+
+def test_retired_provider(tmp_path):
+    with pytest.raises(OrchestrationError, match="AWS-only"):
+        O.load_targets(_write(tmp_path, '[[targets]]\nname="a"\nprovider="gcp"'))
 
 
 def test_unknown_key(tmp_path):

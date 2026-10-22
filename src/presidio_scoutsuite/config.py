@@ -26,7 +26,7 @@ except ModuleNotFoundError:  # Python < 3.11
     import tomli as tomllib  # type: ignore[no-redef]
 
 from .errors import ConfigError
-from .launcher import PROVIDERS
+from .launcher import PROVIDERS, RETIRED_PROVIDERS
 
 CONFIG_FILENAME = ".presidio-scout.toml"
 
@@ -35,7 +35,8 @@ _STR, _BOOL, _NUM = "str", "bool", "num"
 #: Recognized settings: argparse ``dest`` -> (kind, allowed-values | None).
 #: TOML keys may be kebab-case (``report-dir``) and are normalized to ``dest``.
 _OPTIONS: dict[str, tuple[str, tuple[str, ...] | None]] = {
-    "provider": (_STR, PROVIDERS),
+    # Retired providers parse, then fail in launcher.check_provider with the reason.
+    "provider": (_STR, PROVIDERS + RETIRED_PROVIDERS),
     "report_dir": (_STR, None),
     "ruleset": (_STR, None),
     "no_baseline": (_BOOL, None),

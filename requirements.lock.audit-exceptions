@@ -7,8 +7,8 @@
 #             lock audit only (so new advisories still fail PRs), never by the
 #             release gate, which keeps the image blocked.
 #
+# No blockers since the AWS-only runtime (docs/adr/0002-aws-only-runtime.md)
+# removed azure-identity and protobuf from the lock.
+#
 # ID              kind      expires     package
 PYSEC-2026-1939   accepted  2027-04-22  sqlitedict==2.1.0
-PYSEC-2026-1209   blocker   -           azure-identity==1.5.0
-PYSEC-2026-1805   blocker   -           protobuf==3.20.3
-PYSEC-2026-1806   blocker   -           protobuf==3.20.3

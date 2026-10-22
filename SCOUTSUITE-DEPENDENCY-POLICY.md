@@ -25,16 +25,23 @@ PyPI releases of the wrapper may continue independently when the wrapper itself 
 runtime audit, because installing the base package does not install ScoutSuite. Container
 releases and `[scoutsuite]` lockfile refreshes remain subject to the hard audit gate.
 
-## Current runtime-track blockers (as of 2026-10-18, ScoutSuite 5.14.0)
+## AWS-only runtime (since 2026-10-22, ScoutSuite 5.14.0)
 
-The lock was regenerated on 2026-10-18; every finding with a fix the ScoutSuite
-5.14.0 metadata allows is fixed. These remain, and keep the image release blocked.
-Neither meets the "proven unreachable" bar, so neither is ignored in the release gate:
+The runtime is AWS-only ([ADR-0002](./docs/adr/0002-aws-only-runtime.md)).
+`requirements-aws.overrides` lists every ScoutSuite dependency that serves only the
+Azure, GCP, Aliyun, OCI, Kubernetes or DigitalOcean providers, and the lock is
+generated without them. That removed the two former runtime-track blockers, which
+had no fix within ScoutSuite's pins:
 
-| Package | Advisory | Why it can't be bumped | Reachable in the shipped runtime |
-|---|---|---|---|
-| `azure-identity==1.5.0` | CVE-2024-35255 (PYSEC-2026-1209), fixed in 1.16.1 | ScoutSuite pins `azure-identity==1.5.0` exactly (also on upstream `master`/`develop`) | Yes: ScoutSuite's Azure `--msi` path uses `ManagedIdentityCredential`, and the wrapper supports managed identity |
-| `protobuf==3.20.3` | CVE-2025-4565 (PYSEC-2026-1806), CVE-2026-0994 (PYSEC-2026-1805) | ScoutSuite pins `google-cloud-kms==1.3.0` and `google-cloud-monitoring==1.1.0`, which need `google-api-core<2`, which caps `protobuf<4` | Yes: the GCP provider parses API responses with it (DoS class) |
+| Package | Advisory | Status |
+|---|---|---|
+| `azure-identity==1.5.0` | CVE-2024-35255 (PYSEC-2026-1209) | Not in the lock |
+| `protobuf==3.20.3` | CVE-2025-4565 (PYSEC-2026-1806), CVE-2026-0994 (PYSEC-2026-1805) | Not in the lock |
+
+There are no runtime-track blockers. The lock is installed with `--no-deps`, and
+`scripts/runtime_smoke.py` checks the installed tree: every AWS provider module
+imports, every other provider fails to load, and ScoutSuite's declared
+dependencies equal the lock plus the exclusion list.
 
 ## Accepted exceptions (path 3)
 
@@ -52,13 +59,8 @@ Neither meets the "proven unreachable" bar, so neither is ignored in the release
   blockers keep the image release blocked.
 - Both fail once an accepted exception passes its expiry date.
 
-Paths to clear them are those listed above and in ADR-0001: an upstream ScoutSuite release
-with modern pins, or a reviewed Presidio-patched runtime (for example an AWS-only
-provider split that drops the Azure/GCP SDKs). Dropping only the Azure SDK would not
-unblock the image, because `protobuf` (GCP) would still block it.
+A new blocker would be cleared by the paths listed above and in ADR-0001, or for a
+provider-specific SDK by keeping it out of the AWS-only runtime (ADR-0002).
 
-Separate pre-existing defect, found during the 2026-10-18 refresh and present in the
-previous lock as well: on the locked tree, the GCP and Kubernetes providers fail to import
-(`No module named 'pkg_resources'`, which setuptools >= 82 no longer ships) and the Aliyun
-ActionTrail resources fail to import (`aliyunsdkactiontrail.request.v20171204` missing).
-Run the provider smoke tests that ADR-0001 requires before publishing an image.
+The GCP, Kubernetes and Aliyun import failures noted during the 2026-10-18 refresh no
+longer apply: those providers are not part of the runtime.

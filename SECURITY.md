@@ -52,8 +52,8 @@ redaction, supply-chain controls, and a least-privilege deployment model.
   rendered report — self-digested, optionally HMAC-signed
   (`PRESIDIO_MANIFEST_HMAC_KEY`) — and verified offline with
   **`presidio-scout-verify`**, which flags any modified/missing/added file.
-- **Secure-by-default rulesets** — curated, CIS-aligned **AWS, Azure, GCP,
-  Alibaba Cloud, and Oracle Cloud** baselines are applied by default (`--ruleset`), forcing high-impact
+- **Secure-by-default rulesets** — the curated, CIS-aligned **AWS** baseline is
+  applied by default (`--ruleset`); the runtime is AWS-only (ADR-0002), forcing high-impact
   identity/logging/network/storage controls to `danger`. Opt out with
   `--no-baseline`.
 - **Ruleset rule-name validation (`ruleset`)** — a baseline references finding
@@ -262,6 +262,15 @@ separately (or bundled into the container image). See
 - A blocking CI job audits `requirements.lock` on every pull request and push
   to `main`. It ignores only the IDs in `requirements.lock.audit-exceptions`, so
   a new advisory in the bundled runtime fails CI as soon as it is published.
+- The bundled runtime is **AWS-only**
+  ([ADR-0002](./docs/adr/0002-aws-only-runtime.md)). `requirements.lock` leaves
+  out the Azure, GCP, Aliyun, OCI, Kubernetes and DigitalOcean SDKs listed in
+  `requirements-aws.overrides`, which removed the azure-identity and protobuf
+  advisories that had blocked the image. It is installed with `--no-deps`, and
+  `scripts/runtime_smoke.py` (CI, release and image build) checks that every
+  AWS provider module imports, the other providers fail to load, and ScoutSuite's
+  declared dependencies match the lock plus the exclusions. `presidio-scout`
+  refuses `azure`, `gcp`, `aliyun` and `oci` with exit code 2.
 - A checked-in `.presidio-scout.toml` (defaults + named profiles) lets a team
   enforce the hardened gates by default across every pipeline;
   `presidio-scout-policy validate` fail-closed-checks it so a typo in org policy

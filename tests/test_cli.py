@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import subprocess
 
+import pytest
+
 from presidio_scoutsuite import cli, launcher, scout_integrity
 
 
@@ -80,30 +82,39 @@ def test_invalid_passthrough_returns_2(tmp_path, capsys):
     assert "not on the hardened pass-through" in capsys.readouterr().err
 
 
-def test_azure_and_gcp_apply_bundled_baseline(tmp_path, capsys):
-    for provider in ("azure", "gcp"):
-        rc = cli.main([provider, "--report-dir", str(tmp_path / provider), "--dry-run"])
-        assert rc == 0
-        out = capsys.readouterr().out
-        assert f"scout {provider}" in out
-        assert "--ruleset" in out  # bundled baseline applied by default
+def test_aws_applies_bundled_baseline(tmp_path, capsys):
+    rc = cli.main(["aws", "--report-dir", str(tmp_path / "aws"), "--dry-run"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "scout aws" in out
+    assert "--ruleset" in out  # bundled baseline applied by default
 
 
-def test_aliyun_and_oci_apply_bundled_baseline(tmp_path, capsys):
-    # Every supported provider now ships a curated baseline (verified vs 5.14.0).
-    for provider in ("aliyun", "oci"):
-        rc = cli.main([provider, "--report-dir", str(tmp_path / provider), "--dry-run"])
-        assert rc == 0
-        out = capsys.readouterr().out
-        assert f"scout {provider}" in out
-        assert "--ruleset" in out
+@pytest.mark.parametrize("provider", ["azure", "gcp", "aliyun", "oci"])
+def test_retired_provider_refused_with_reason(tmp_path, capsys, provider):
+    # The runtime is AWS-only (ADR-0002): the other SDKs are not installed, so a
+    # retired provider is refused up front, with the reason, before any run.
+    rc = cli.main([provider, "--report-dir", str(tmp_path / provider), "--dry-run"])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert f"provider {provider!r} is not supported" in err
+    assert "AWS-only" in err
+    assert not (tmp_path / provider).exists()
+
+
+def test_retired_provider_from_config_refused(tmp_path, capsys):
+    cfg = tmp_path / ".presidio-scout.toml"
+    cfg.write_text('[defaults]\nprovider = "gcp"\n')
+    rc = cli.main(["--config", str(cfg), "--report-dir", str(tmp_path / "out"), "--dry-run"])
+    assert rc == 2
+    assert "AWS-only" in capsys.readouterr().err
 
 
 def test_warns_when_no_bundled_ruleset(tmp_path, capsys, monkeypatch):
     # If a provider has no bundled baseline, fall back to ScoutSuite's default
     # (with a warning) rather than silently dropping the hardened ruleset.
-    monkeypatch.delitem(cli._BUNDLED_RULESETS, "oci")
-    rc = cli.main(["oci", "--report-dir", str(tmp_path / "out"), "--dry-run"])
+    monkeypatch.delitem(cli._BUNDLED_RULESETS, "aws")
+    rc = cli.main(["aws", "--report-dir", str(tmp_path / "out"), "--dry-run"])
     assert rc == 0
     err = capsys.readouterr().err
     assert "no bundled baseline ruleset" in err

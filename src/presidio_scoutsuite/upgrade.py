@@ -39,6 +39,23 @@ from .errors import UpgradeError
 #: :func:`scout_integrity.pinned_version` reads from installed metadata.
 _PYPROJECT = "pyproject.toml"
 _LOCK = "requirements.lock"
+
+#: Regenerates the AWS-only runtime lock (ADR-0002). The overrides file drops the
+#: Azure/GCP/Aliyun/OCI/Kubernetes/DigitalOcean SDKs from ScoutSuite's dependency
+#: set; run with uv 0.10.12, as the upgrade workflow does.
+LOCK_CMD = (
+    "uv pip compile pyproject.toml --extra scoutsuite "
+    "--override requirements-aws.overrides --generate-hashes "
+    "--python-version 3.11 --python-platform linux --output-file requirements.lock"
+)
+
+#: Installs the locked runtime. --no-deps because the lock is the complete,
+#: reviewed dependency set and ScoutSuite's metadata still names the excluded
+#: SDKs; scripts/runtime_smoke.py checks that drift explicitly.
+RUNTIME_INSTALL_CMD = (
+    "pip install --no-deps --require-hashes -r requirements.lock "
+    "&& pip install --no-deps -e . && python scripts/runtime_smoke.py"
+)
 _INTEGRITY = "src/presidio_scoutsuite/scout_integrity.py"
 
 #: ``ScoutSuite==X`` inside the extra (also matches the lock's lower-cased line).
@@ -245,10 +262,7 @@ def plan_upgrade(target: str, *, root: Path | None = None) -> UpgradePlan:
     current = assert_coherent(base)
     if parse_version(target) <= parse_version(current):
         raise UpgradeError(f"target {target} is not newer than the current pin {current}")
-    lock_cmd = (
-        "pip-compile --allow-unsafe --extra=scoutsuite --generate-hashes "
-        "--output-file=requirements.lock --strip-extras pyproject.toml"
-    )
+    lock_cmd = LOCK_CMD
     steps = [
         Step(
             f"Pin ScoutSuite=={target} in the [scoutsuite] extra of pyproject.toml",
@@ -267,7 +281,7 @@ def plan_upgrade(target: str, *, root: Path | None = None) -> UpgradePlan:
             "Regenerate the rule-name manifests against the installed ScoutSuite "
             "(needs the GPL [scoutsuite] extra installed)",
             "regenerate",
-            'pip install -e ".[scoutsuite]" && presidio-scout-validate --source installed',
+            RUNTIME_INSTALL_CMD + " && presidio-scout-validate --source installed",
         ),
         Step(
             "Re-check pin coherence",
@@ -393,13 +407,8 @@ def _main(argv: list[str] | None = None) -> int:
                 "\nText pins updated. requirements.lock and the rule manifests are "
                 "now stale — regenerate them before committing:"
             )
-            print(
-                "  $ pip-compile --allow-unsafe --extra=scoutsuite --generate-hashes "
-                "--output-file=requirements.lock --strip-extras pyproject.toml"
-            )
-            print(
-                '  $ pip install -e ".[scoutsuite]" && presidio-scout-validate --source installed'
-            )
+            print(f"  $ {LOCK_CMD}")
+            print(f"  $ {RUNTIME_INSTALL_CMD} && presidio-scout-validate --source installed")
             return 0
     except UpgradeError as exc:
         print(f"error: {exc}", file=sys.stderr)
