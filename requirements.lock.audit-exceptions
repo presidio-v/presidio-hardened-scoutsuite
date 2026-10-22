@@ -1,0 +1,14 @@
+# pip-audit exceptions for requirements.lock. Policy and evidence:
+# SCOUTSUITE-DEPENDENCY-POLICY.md. Columns: advisory ID, kind, expiry, package.
+#
+#   accepted  proven unreachable from the shipped runtime; ignored by the CI lock
+#             audit and the release gate until the expiry date, then both fail.
+#   blocker   reachable and unfixable within ScoutSuite's pins; ignored by the CI
+#             lock audit only (so new advisories still fail PRs), never by the
+#             release gate, which keeps the image blocked.
+#
+# ID              kind      expires     package
+PYSEC-2026-1939   accepted  2027-04-22  sqlitedict==2.1.0
+PYSEC-2026-1209   blocker   -           azure-identity==1.5.0
+PYSEC-2026-1805   blocker   -           protobuf==3.20.3
+PYSEC-2026-1806   blocker   -           protobuf==3.20.3

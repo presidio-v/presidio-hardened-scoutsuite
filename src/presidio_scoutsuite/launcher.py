@@ -49,6 +49,15 @@ ALLOWED_PASSTHROUGH: dict[str, bool] = {
     "--debug": False,
 }
 
+#: Value-flags whose argument is itself restricted. ``--result-format sqlite``
+#: makes ScoutSuite load its report through ``sqlitedict``, which unpickles the
+#: database (CVE-2024-35515 / PYSEC-2026-1939, no fixed release). Allowing only
+#: ``json`` keeps that code path unreachable from the wrapper; see
+#: SCOUTSUITE-DEPENDENCY-POLICY.md.
+RESTRICTED_VALUES: dict[str, frozenset[str]] = {
+    "--result-format": frozenset({"json"}),
+}
+
 #: Environment-variable name prefixes that carry legitimate cloud credentials /
 #: SDK configuration and must reach the child process.
 _CLOUD_ENV_PREFIXES: tuple[str, ...] = (
@@ -135,6 +144,11 @@ def validate_passthrough(extra_args: Sequence[str]) -> list[str]:
                 value = args[i + 1] if i + 1 < len(args) else None
                 if value is None or value.startswith("-"):
                     raise LauncherError(f"flag {token!r} requires a value")
+                allowed = RESTRICTED_VALUES.get(token)
+                if allowed is not None and value not in allowed:
+                    raise LauncherError(
+                        f"flag {token!r} accepts only {', '.join(sorted(allowed))}, got {value!r}"
+                    )
                 i += 2
                 continue
         else:

@@ -32,7 +32,8 @@ redaction, supply-chain controls, and a least-privilege deployment model.
 
 - **Hardened invocation (`launcher`)** — provider allowlist; a **fail-closed
   allowlist** of pass-through flags (an unknown/new ScoutSuite flag is rejected,
-  not forwarded); forced `--no-browser`; a fixed, **0700** report directory; a
+  not forwarded; `--result-format` accepts only `json`, keeping ScoutSuite's
+  pickle-backed sqlite path unreachable); forced `--no-browser`; a fixed, **0700** report directory; a
   restrictive `umask` (0077) on the child process.
 - **Environment scrubbing** — the ScoutSuite subprocess receives **only** cloud
   credential variables (by known prefix) and a short allowlist of runtime
@@ -258,6 +259,9 @@ separately (or bundled into the container image). See
   [`SCOUTSUITE-DEPENDENCY-POLICY.md`](./SCOUTSUITE-DEPENDENCY-POLICY.md): keep
   the gate, regenerate when upstream fixes are compatible, or carry a reviewed
   Presidio patch/fork with provenance and compatibility evidence.
+- A blocking CI job audits `requirements.lock` on every pull request and push
+  to `main`. It ignores only the IDs in `requirements.lock.audit-exceptions`, so
+  a new advisory in the bundled runtime fails CI as soon as it is published.
 - A checked-in `.presidio-scout.toml` (defaults + named profiles) lets a team
   enforce the hardened gates by default across every pipeline;
   `presidio-scout-policy validate` fail-closed-checks it so a typo in org policy
