@@ -7,6 +7,14 @@ the roadmap tables in `README.md` and `PRESIDIO-REQ.md`.
 
 ## [Unreleased]
 
+### Security
+
+- Container image: `certifi` 2026.7.22 → 2026.10.19 in `requirements.lock`. The new
+  bundle drops emSign ECC Root CA - G3, the root behind the eight eMudhra
+  intermediates whose private keys were trivially recoverable (Mozilla bug
+  2083449). The scanner's cloud API clients trust certifi and do not check
+  revocation, so browser-side blocks did not cover them.
+
 ## [0.30.0] - 2026-10-18
 
 ### Fixed
