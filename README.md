@@ -116,7 +116,9 @@ ScoutSuite's default ruleset (with a warning) for any provider without one.
 
 Anything after `--` is forwarded to ScoutSuite **only if it's on the
 pass-through allowlist** (`--profile`, `--region(s)`, `--services`, `--skip`,
-`--max-rate`, …). Flags the launcher owns (`--report-dir`, `--ruleset`,
+`--max-rate`, …). `--result-format` accepts only `json`: ScoutSuite's
+`sqlite` format loads results through `sqlitedict`'s pickle (PYSEC-2026-1939,
+unfixed). Flags the launcher owns (`--report-dir`, `--ruleset`,
 `--no-browser`) and unknown flags are rejected with exit code 2 — a new upstream
 flag can't silently weaken a run until it's vetted and added.
 

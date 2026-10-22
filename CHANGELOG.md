@@ -14,6 +14,21 @@ the roadmap tables in `README.md` and `PRESIDIO-REQ.md`.
   intermediates whose private keys were trivially recoverable (Mozilla bug
   2083449). The scanner's cloud API clients trust certifi and do not check
   revocation, so browser-side blocks did not cover them.
+- `--result-format` now accepts only `json`. ScoutSuite's `sqlite` format opens
+  its results with `sqlitedict`, which unpickles the database (CVE-2024-35515 /
+  PYSEC-2026-1939, no fixed release). With `--serve` already off the
+  allowlist, that path is now unreachable through the wrapper. The advisory is
+  an accepted exception that expires on 2027-04-22.
+- New blocking `lock-audit` CI job runs `pip-audit -r requirements.lock` on every
+  pull request and push to `main`, not only on release tags. It ignores exactly
+  the IDs in `requirements.lock.audit-exceptions`. The release gate ignores only
+  the accepted exceptions, so the azure-identity and protobuf blockers still
+  block the image release.
+
+### Changed
+
+- **Breaking for `--result-format sqlite` users:** the wrapper rejects it with
+  exit code 2. Use the default `json`.
 
 ## [0.30.0] - 2026-10-18
 

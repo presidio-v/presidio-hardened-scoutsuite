@@ -48,6 +48,22 @@ def test_passthrough_value_flag_rejects_flag_as_value():
         launcher.validate_passthrough(["--profile", "--all-regions"])
 
 
+def test_passthrough_result_format_allows_json():
+    assert launcher.validate_passthrough(["--result-format", "json"]) == ["--result-format", "json"]
+
+
+@pytest.mark.parametrize("fmt", ["sqlite", "SQLITE", "json,sqlite", ""])
+def test_passthrough_result_format_rejects_sqlite_and_others(fmt):
+    # sqlite reports load through sqlitedict's pickle (PYSEC-2026-1939, unfixed).
+    with pytest.raises(LauncherError, match="accepts only json"):
+        launcher.validate_passthrough(["--result-format", fmt])
+
+
+def test_passthrough_result_format_equals_form_is_rejected():
+    with pytest.raises(LauncherError, match="not on the hardened pass-through allowlist"):
+        launcher.validate_passthrough(["--result-format=sqlite"])
+
+
 def test_passthrough_rejects_bare_positional():
     with pytest.raises(LauncherError, match="unexpected positional"):
         launcher.validate_passthrough(["surprise"])
