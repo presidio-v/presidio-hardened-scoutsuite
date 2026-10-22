@@ -34,7 +34,7 @@ from pathlib import Path
 
 from . import findings as findings_mod
 from . import launcher
-from .errors import OrchestrationError, PresidioScoutError
+from .errors import LauncherError, OrchestrationError, PresidioScoutError
 
 try:
     import tomllib
@@ -125,11 +125,10 @@ def load_targets(path: str | Path) -> list[Target]:
             raise OrchestrationError(f"{p}: duplicate target name {name!r}")
         seen.add(name)
         provider = entry.get("provider")
-        if provider not in launcher.PROVIDERS:
-            raise OrchestrationError(
-                f"{p}: target {name!r} has unknown provider {provider!r}; "
-                f"expected one of {', '.join(launcher.PROVIDERS)}"
-            )
+        try:
+            launcher.check_provider(provider)
+        except LauncherError as exc:
+            raise OrchestrationError(f"{p}: target {name!r}: {exc}") from exc
         env = entry.get("env", {})
         if not isinstance(env, dict) or not all(
             isinstance(k, str) and isinstance(v, str) for k, v in env.items()

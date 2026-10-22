@@ -19,8 +19,14 @@ from pathlib import Path
 
 from .errors import LauncherError
 
-#: Cloud providers ScoutSuite supports and that we accept as the first argument.
-PROVIDERS: tuple[str, ...] = ("aws", "azure", "gcp", "aliyun", "oci")
+#: Cloud providers this distribution runs. The bundled ScoutSuite runtime is
+#: AWS-only (docs/adr/0002-aws-only-runtime.md): requirements.lock leaves out the
+#: Azure, GCP, Aliyun and OCI SDKs, so ScoutSuite cannot run those providers.
+PROVIDERS: tuple[str, ...] = ("aws",)
+
+#: Providers ScoutSuite supports that this distribution no longer runs. They are
+#: named so they fail with the reason, not as an unknown provider.
+RETIRED_PROVIDERS: tuple[str, ...] = ("azure", "gcp", "aliyun", "oci")
 
 #: Flags the launcher owns. A caller must not set these — we control them so the
 #: hardened posture (no browser, fixed report dir, curated ruleset) can't be
@@ -189,6 +195,24 @@ def harden_report_dir(report_dir: str | os.PathLike[str]) -> Path:
     return path
 
 
+def check_provider(provider: str) -> str:
+    """Return *provider* if this distribution runs it; raise :class:`LauncherError` otherwise.
+
+    A retired provider gets its own message so an operator learns why it is
+    refused and what to do instead.
+    """
+
+    if provider in PROVIDERS:
+        return provider
+    if provider in RETIRED_PROVIDERS:
+        raise LauncherError(
+            f"provider {provider!r} is not supported: the hardened ScoutSuite runtime "
+            "is AWS-only (docs/adr/0002-aws-only-runtime.md). Run upstream ScoutSuite "
+            f"directly to audit {provider}."
+        )
+    raise LauncherError(f"unknown provider {provider!r}; expected one of {', '.join(PROVIDERS)}")
+
+
 def build_plan(
     provider: str,
     report_dir: str | os.PathLike[str],
@@ -205,10 +229,7 @@ def build_plan(
     the environment. Does not run anything — see :func:`run`.
     """
 
-    if provider not in PROVIDERS:
-        raise LauncherError(
-            f"unknown provider {provider!r}; expected one of {', '.join(PROVIDERS)}"
-        )
+    check_provider(provider)
 
     safe_extra = validate_passthrough(list(extra_args))
     hardened_dir = harden_report_dir(report_dir)

@@ -18,9 +18,15 @@ WORKDIR /build
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Pinned, hash-verified third-party tree (includes ScoutSuite).
-COPY requirements.lock ./
-RUN pip install --require-hashes -r requirements.lock
+# Pinned, hash-verified, AWS-only third-party tree (includes ScoutSuite). The lock
+# is the complete runtime set: --no-deps stops pip from following ScoutSuite's
+# metadata to the Azure/GCP/Aliyun/OCI SDKs this image deliberately leaves out
+# (docs/adr/0002-aws-only-runtime.md). The smoke test fails the build if the AWS
+# provider does not import or if the installed set drifts from the lock.
+COPY requirements.lock requirements-aws.overrides ./
+COPY scripts/runtime_smoke.py ./scripts/
+RUN pip install --no-deps --require-hashes -r requirements.lock \
+ && python scripts/runtime_smoke.py
 
 # The wrapper itself (out-of-process driver; no GPL linkage).
 COPY pyproject.toml README.md ./

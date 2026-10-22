@@ -137,7 +137,7 @@ def test_plan(tmp_path):
     assert "regenerate" in kinds and "verify" in kinds
     assert sum(s.automatable for s in plan.steps) == 2
     # lock regen command is surfaced verbatim
-    assert any("pip-compile" in (s.command or "") for s in plan.steps)
+    assert any("uv pip compile" in (s.command or "") for s in plan.steps)
 
 
 def test_plan_to_dict_roundtrips(tmp_path):
@@ -212,7 +212,7 @@ def test_cli_plan_text(tmp_path, capsys):
     assert U._main(["--root", str(_repo(tmp_path)), "plan", "--to", "5.15.0"]) == 0
     out = capsys.readouterr().out
     assert "5.14.0 -> 5.15.0" in out
-    assert "pip-compile" in out
+    assert "uv pip compile" in out
 
 
 def test_cli_plan_json(tmp_path, capsys):
@@ -231,7 +231,7 @@ def test_cli_apply(tmp_path, capsys):
     assert U._main(["--root", str(repo), "apply", "--to", "5.15.0"]) == 0
     out = capsys.readouterr().out
     assert "edited" in out
-    assert "pip-compile" in out
+    assert "uv pip compile" in out
     assert U.authoritative_version(repo) == "5.15.0"
 
 
