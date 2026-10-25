@@ -9,6 +9,12 @@ the roadmap tables in `README.md` and `PRESIDIO-REQ.md`.
 
 ### Security
 
+- Trust store: a `public_key` entry without `alg` defaulted to `hmac-sha256` and
+  used the public key as the HMAC secret, so anyone holding the published public
+  key could forge evidence that `verify` accepted. `public_key` is now Ed25519
+  material only: without `alg` it means Ed25519, and under `hmac-sha256` it is
+  rejected. HMAC secrets come only from `key`. Found by the presidio-evidence
+  pre-publication audit, which fixed the same code there.
 - Container image: `certifi` 2026.7.22 → 2026.10.19 in `requirements.lock`. The new
   bundle drops emSign ECC Root CA - G3, the root behind the eight eMudhra
   intermediates whose private keys were trivially recoverable (Mozilla bug
