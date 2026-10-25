@@ -1,0 +1,53 @@
+# AWS-only runtime: ScoutSuite dependencies excluded from requirements.lock.
+# See docs/adr/0002-aws-only-runtime.md and SCOUTSUITE-DEPENDENCY-POLICY.md.
+#
+# Each line is a uv override whose marker is never true, so the resolver drops
+# that requirement from ScoutSuite's dependency set. Everything listed here
+# serves only the Azure, GCP, Aliyun, OCI, Kubernetes or DigitalOcean
+# providers, which ScoutSuite imports lazily and the launcher refuses to run.
+# tests/test_runtime_lock.py fails if ScoutSuite declares a dependency that is
+# neither in requirements.lock nor listed here.
+#
+# Azure
+azure-identity ; python_version < '0'
+azure-mgmt-authorization ; python_version < '0'
+azure-mgmt-compute ; python_version < '0'
+azure-mgmt-keyvault ; python_version < '0'
+azure-mgmt-monitor ; python_version < '0'
+azure-mgmt-network ; python_version < '0'
+azure-mgmt-rdbms ; python_version < '0'
+azure-mgmt-redis ; python_version < '0'
+azure-mgmt-resource ; python_version < '0'
+azure-mgmt-security ; python_version < '0'
+azure-mgmt-sql ; python_version < '0'
+azure-mgmt-storage ; python_version < '0'
+azure-mgmt-web ; python_version < '0'
+msgraph-core ; python_version < '0'
+# GCP
+google-api-python-client ; python_version < '0'
+google-cloud-container ; python_version < '0'
+google-cloud-core ; python_version < '0'
+google-cloud-iam ; python_version < '0'
+google-cloud-kms ; python_version < '0'
+google-cloud-logging ; python_version < '0'
+google-cloud-monitoring ; python_version < '0'
+google-cloud-resource-manager ; python_version < '0'
+google-cloud-storage ; python_version < '0'
+grpcio ; python_version < '0'
+httplib2shim ; python_version < '0'
+oauth2client ; python_version < '0'
+# Aliyun
+aliyun-python-sdk-actiontrail ; python_version < '0'
+aliyun-python-sdk-core ; python_version < '0'
+aliyun-python-sdk-ecs ; python_version < '0'
+aliyun-python-sdk-kms ; python_version < '0'
+aliyun-python-sdk-ocs ; python_version < '0'
+aliyun-python-sdk-ram ; python_version < '0'
+aliyun-python-sdk-rds ; python_version < '0'
+aliyun-python-sdk-sts ; python_version < '0'
+aliyun-python-sdk-vpc ; python_version < '0'
+oss2 ; python_version < '0'
+# OCI, Kubernetes, DigitalOcean
+oci ; python_version < '0'
+kubernetes ; python_version < '0'
+pydo ; python_version < '0'

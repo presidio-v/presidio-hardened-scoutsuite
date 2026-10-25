@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
       - name: requirements.lock must be hash-pinned
@@ -40,22 +40,27 @@ jobs:
             fi
             ignore+=(--ignore-vuln "$id")
           done < requirements.lock.audit-exceptions
-          pip-audit -r requirements.lock --progress-spinner off "${ignore[@]}"
+          # --no-deps --disable-pip: audit exactly the locked AWS-only set (ADR-0002).
+          pip-audit -r requirements.lock --no-deps --disable-pip --progress-spinner off "${ignore[@]}"
 
-  # Hard gate: the curated baselines must reference rule names that the
-  # actually-pinned ScoutSuite ships — not just the checked-in manifest. This
+  # Hard gate: install the runtime exactly as the image does (the hash-pinned,
+  # AWS-only lock), run the provider smoke test ADR-0001 requires, and check the
+  # curated baselines against the rule names the pinned ScoutSuite ships. This
   # installs GPL ScoutSuite (release env only) and fails on any drift.
   verify-rulesets:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: "3.12"
-      - name: Install wrapper + pinned ScoutSuite
+          python-version: "3.11"
+      - name: Install the locked runtime and the wrapper
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[scoutsuite]"
+          pip install --no-deps --require-hashes -r requirements.lock
+          pip install --no-deps -e .
+      - name: Runtime smoke test (AWS imports, other providers absent, no drift)
+        run: python scripts/runtime_smoke.py
       - name: Baselines must match the installed ScoutSuite rule inventory
         run: presidio-scout-validate --source installed
 
@@ -138,7 +143,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
