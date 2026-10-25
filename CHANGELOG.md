@@ -7,6 +7,12 @@ the roadmap tables in `README.md` and `PRESIDIO-REQ.md`.
 
 ## [Unreleased]
 
+## [0.30.1] - 2026-10-25
+
+Security patch: a trust-store fix (GHSA-35xw-588h-qfwh, low), the `sqlite`
+result format closed, and the runtime lock moved past new advisories. Wrapper
+only (PyPI); the container image stays on its separate runtime track.
+
 ### Security
 
 - Trust store: a `public_key` entry without `alg` defaulted to `hmac-sha256` and
