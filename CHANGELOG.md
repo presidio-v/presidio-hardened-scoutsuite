@@ -10,8 +10,10 @@ the roadmap tables in `README.md` and `PRESIDIO-REQ.md`.
 ## [0.30.1] - 2026-10-25
 
 Security patch: a trust-store fix (GHSA-35xw-588h-qfwh, low), the `sqlite`
-result format closed, and the runtime lock moved past new advisories. Wrapper
-only (PyPI); the container image stays on its separate runtime track.
+result format closed, and an AWS-only runtime (ADR-0002) that clears the
+runtime-track advisories. `presidio-scout` now refuses `azure`, `gcp`, `aliyun`
+and `oci`. Wrapper release (PyPI); the container image stays on its separate
+runtime track.
 
 ### Security
 

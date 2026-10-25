@@ -1352,7 +1352,7 @@ provenance+SBOM-attested image. (The earlier `v0.15.0` tag could not be pushed
 from the development environment — the git proxy rejects any ref other than the
 dev branch.) The post-0.18 work (**0.19.0–0.21.0**) is on `main` but **not yet
 tagged** separately; it shipped in **v0.29.0** (wrapper only, PyPI), and
-**v0.30.0** and the security patch **v0.30.1** (GHSA-35xw-588h-qfwh) follow the
+**v0.30.0** and the security patch **v0.30.1** (GHSA-35xw-588h-qfwh; AWS-only runtime, ADR-0002) follow the
 same wrapper-only path. The container image stays on the
 separate runtime track (ADR-0001).
 
