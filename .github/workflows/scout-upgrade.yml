@@ -28,10 +28,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: "3.12"
-      - name: Install tooling (wrapper + pip-tools; no GPL ScoutSuite yet)
+          # requirements.lock is resolved for Python 3.11, the runtime image's version.
+          python-version: "3.11"
+      - name: Install uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.10.12"
+      - name: Install tooling (wrapper only; no GPL ScoutSuite yet)
         run: |
-          python -m pip install --upgrade pip pip-tools
+          python -m pip install --upgrade pip
           pip install -e .
 
       - name: Determine target version
@@ -65,17 +70,23 @@ jobs:
         if: steps.target.outputs.skip == 'false'
         run: presidio-scout-upgrade apply --to "${{ steps.target.outputs.target }}"
 
-      - name: Regenerate hash-pinned requirements.lock
+      - name: Regenerate the AWS-only hash-pinned requirements.lock
+        # ADR-0002: requirements-aws.overrides drops the non-AWS provider SDKs.
         if: steps.target.outputs.skip == 'false'
         run: |
-          pip-compile --allow-unsafe --extra=scoutsuite --generate-hashes \
-            --output-file=requirements.lock --strip-extras pyproject.toml
+          uv pip compile pyproject.toml --extra scoutsuite \
+            --override requirements-aws.overrides --generate-hashes \
+            --python-version 3.11 --python-platform linux --output-file requirements.lock
 
-      - name: Install pinned ScoutSuite + regenerate rule manifests
+      - name: Install the locked runtime, smoke-test it, regenerate rule manifests
+        # runtime_smoke.py fails if the new ScoutSuite declares a dependency that is
+        # neither in the lock nor in requirements-aws.overrides. A human then decides
+        # which side it belongs on; nothing is opened until that is resolved.
         if: steps.target.outputs.skip == 'false'
         run: |
-          pip install --require-hashes -r requirements.lock
+          pip install --no-deps --require-hashes -r requirements.lock
           pip install --no-deps -e .
+          python scripts/runtime_smoke.py
           presidio-scout-validate --regenerate --source installed
 
       - name: Fail-closed gates (coherence, rulesets, tests)
@@ -107,7 +118,7 @@ jobs:
 
           Performed by the upgrade workflow:
           - bumped the \`scoutsuite\` extra pin and the install-integrity constant
-          - regenerated the hash-pinned \`requirements.lock\`
+          - regenerated the AWS-only hash-pinned \`requirements.lock\` and passed the runtime smoke test
           - regenerated the rule-name manifests from the installed ScoutSuite
           - all fail-closed gates passed (pin coherence, ruleset validation, tests)
 

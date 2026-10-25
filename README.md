@@ -16,6 +16,15 @@ NCC Group's multi-cloud security auditing tool.
 > trusted-upstream ScoutSuite underneath. See
 > [`LICENSES/README.md`](./LICENSES/README.md).
 
+> **AWS only.** The hardened runtime audits **AWS** accounts. The Azure, GCP,
+> Alibaba Cloud and Oracle Cloud SDKs that ScoutSuite pulls in carried
+> advisories with no fix that ScoutSuite's exact pins allow, so the bundled
+> runtime leaves them out and `presidio-scout` refuses those providers with
+> exit code 2 ([ADR-0002](./docs/adr/0002-aws-only-runtime.md)). To audit
+> another cloud, run upstream ScoutSuite directly. The offline report tools
+> (findings, compliance, evidence, SARIF/ASFF export) still read reports from
+> any provider.
+
 ---
 
 ## What "hardened" means here
@@ -24,7 +33,7 @@ NCC Group's multi-cloud security auditing tool.
 |---|---|
 | **Runtime credential & data safety** | Env scrubbed to cloud creds only; 0700 report dir + `umask 0077`; secrets redacted out of the report and ScoutSuite's logs; `--fail-on-secret` gate |
 | **Report integrity & isolation** | Strict CSP + **Subresource Integrity** on local report assets; remote-reference detection (`--fail-on-remote-ref`); a signed-able **SHA-256 integrity manifest** verified offline with `presidio-scout-verify` |
-| **Secure-by-default policy** | Curated, CIS-aligned baselines for **AWS, Azure, GCP, Alibaba Cloud, and Oracle Cloud** applied by default (high-impact IAM/logging/network/storage controls forced to `danger`) |
+| **Secure-by-default policy** | Curated, CIS-aligned **AWS** baseline applied by default (high-impact IAM/logging/network/storage controls forced to `danger`) |
 | **Supply-chain & build integrity** | Hash-pinned `requirements.lock`, pinned build backend, CycloneDX SBOM, CodeQL, Dependabot, **cosign-signed** images + SLSA build provenance, **reproducible** wheel/sdist, a `presidio-scout-verify-provenance` policy gate for what you pull, a **fail-closed preflight that the `scout` you run is the pinned, vetted ScoutSuite version**, and a release **vulnerability-scan gate** (`pip-audit` + Trivy + `presidio-scout-vuln-gate`) with **signed SBOM/provenance attestations** |
 | **Hardened deployment** | Distroless, non-root, `--read-only` container; bundled **least-privilege AWS audit role** (read-only + explicit `Deny`, MFA + `ExternalId` trust); hardened Kubernetes `Job`/`CronJob` + Helm chart (workload identity, read-only rootfs, dropped caps, seccomp, default-deny `NetworkPolicy`) |
 
@@ -104,15 +113,12 @@ presidio-scout --profile nightly            # apply org defaults from .presidio-
 presidio-scout aws --no-baseline            # use ScoutSuite's default ruleset instead
 presidio-scout aws --allow-unverified-scout # run even if scout isn't the pinned version (warns)
 presidio-scout aws --dry-run                # print the hardened command, run nothing
-presidio-scout azure                        # Azure audit with the hardened Azure baseline
-presidio-scout gcp                          # GCP audit with the hardened GCP baseline
-presidio-scout aliyun                       # Alibaba Cloud audit with the hardened aliyun baseline
-presidio-scout oci                          # Oracle Cloud audit with the hardened oci baseline
+presidio-scout gcp                          # refused, exit 2: the runtime is AWS-only (ADR-0002)
 ```
 
-AWS, Azure, GCP, Alibaba Cloud (`aliyun`), and Oracle Cloud (`oci`) each ship a
-curated, manifest-verified baseline applied by default; the launcher falls back to
-ScoutSuite's default ruleset (with a warning) for any provider without one.
+The curated, manifest-verified AWS baseline is applied by default. `azure`, `gcp`,
+`aliyun` and `oci` are refused with exit code 2 and the reason; see
+[ADR-0002](./docs/adr/0002-aws-only-runtime.md).
 
 Anything after `--` is forwarded to ScoutSuite **only if it's on the
 pass-through allowlist** (`--profile`, `--region(s)`, `--services`, `--skip`,
@@ -442,7 +448,9 @@ what the CI gate does.)
 ## Least-privilege audit identities
 
 ScoutSuite needs broad **read-only** access. Bundled, ready-to-apply identities
-grant exactly that and nothing else, per cloud:
+grant exactly that and nothing else, per cloud. The runtime is AWS-only
+([ADR-0002](./docs/adr/0002-aws-only-runtime.md)); the Azure and GCP identities
+stay for operators who run upstream ScoutSuite against those clouds:
 
 - **AWS** ([`iam/aws/`](./iam/aws/)) — the two managed read-only policies, a
   supplemental read policy with an explicit `Deny` on any non-read action, and a
@@ -621,9 +629,9 @@ provider = "aws"
 env = { AWS_PROFILE = "prod-audit", AWS_DEFAULT_REGION = "us-east-1" }
 
 [[targets]]
-name = "analytics-gcp"
-provider = "gcp"
-env = { CLOUDSDK_CORE_PROJECT = "analytics-123456" }
+name = "analytics-aws"
+provider = "aws"
+env = { AWS_PROFILE = "analytics-audit", AWS_DEFAULT_REGION = "eu-central-1" }
 ```
 
 ```bash
@@ -672,7 +680,9 @@ tightening.
 Curated baselines ship for **AWS, Azure, GCP, Alibaba Cloud, and Oracle Cloud**
 under [`src/presidio_scoutsuite/policy/`](./src/presidio_scoutsuite/policy/)
 (`aws-cis.json`, `azure-cis.json`, `gcp-cis.json`, `aliyun-cis.json`,
-`oci-cis.json`). Each enables a CIS-aligned
+`oci-cis.json`). Only the AWS baseline is applied by `presidio-scout`, which runs
+AWS only ([ADR-0002](./docs/adr/0002-aws-only-runtime.md)); the others stay
+manifest-verified for use with upstream ScoutSuite. Each enables a CIS-aligned
 subset of ScoutSuite's findings and elevates the high-impact ones to `danger`.
 Override with `--ruleset PATH` or opt out with `--no-baseline`.
 

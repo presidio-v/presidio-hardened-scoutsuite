@@ -65,9 +65,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "provider",
         nargs="?",
-        choices=launcher.PROVIDERS,
+        # Retired providers are accepted here so check_provider() can say why they
+        # are refused, instead of argparse's bare "invalid choice".
+        choices=launcher.PROVIDERS + launcher.RETIRED_PROVIDERS,
         default=None,
-        help="cloud provider to audit (may be set in .presidio-scout.toml)",
+        help="cloud provider to audit; only aws (may be set in .presidio-scout.toml)",
     )
     parser.add_argument(
         "--config",
@@ -257,6 +259,11 @@ def main(argv: list[str] | None = None) -> int:
             "error: no provider given (pass one or set it in .presidio-scout.toml)",
             file=sys.stderr,
         )
+        return 2
+    try:
+        launcher.check_provider(args.provider)
+    except PresidioScoutError as exc:
+        print(f"error: {exc}", file=sys.stderr)
         return 2
     if args.report_dir is None:
         args.report_dir = "scoutsuite-report"

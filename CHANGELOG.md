@@ -30,14 +30,30 @@ the roadmap tables in `README.md` and `PRESIDIO-REQ.md`.
   an accepted exception that expires on 2027-04-22.
 - New blocking `lock-audit` CI job runs `pip-audit -r requirements.lock` on every
   pull request and push to `main`, not only on release tags. It ignores exactly
-  the IDs in `requirements.lock.audit-exceptions`. The release gate ignores only
-  the accepted exceptions, so the azure-identity and protobuf blockers still
-  block the image release.
+  the IDs in `requirements.lock.audit-exceptions`; the release gate ignores only
+  the accepted exceptions.
+- **AWS-only runtime** ([ADR-0002](docs/adr/0002-aws-only-runtime.md)).
+  `requirements.lock` is now generated with `uv pip compile --override
+  requirements-aws.overrides`, which drops the Azure, GCP, Aliyun, OCI,
+  Kubernetes and DigitalOcean SDKs: 132 → 37 pinned packages. That removes
+  azure-identity 1.5.0 (PYSEC-2026-1209) and protobuf 3.20.3
+  (PYSEC-2026-1805/1806), the two runtime-track blockers, so the image release
+  gate passes with only the accepted sqlitedict exception. The lock is installed
+  with `--no-deps`, and the new `scripts/runtime_smoke.py` runs in CI
+  (`runtime-smoke`), in the release gate and in the image build.
 
 ### Changed
 
 - **Breaking for `--result-format sqlite` users:** the wrapper rejects it with
   exit code 2. Use the default `json`.
+- **Breaking: `presidio-scout` runs AWS only.** `azure`, `gcp`, `aliyun` and
+  `oci` (on the command line, in `.presidio-scout.toml`, or as
+  `presidio-scout-orchestrate` targets) are refused with exit code 2 and the
+  reason. The bundled runtime no longer contains their SDKs; audit those clouds
+  with upstream ScoutSuite. Offline report tools still accept reports from any
+  provider.
+- The release `verify-rulesets` gate installs the runtime from the hash-pinned
+  lock (as the image does) instead of resolving the `[scoutsuite]` extra.
 
 ## [0.30.0] - 2026-10-18
 
