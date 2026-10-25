@@ -324,6 +324,30 @@ def test_ed25519_key_rotation_multiple_public_keys():
     assert E.verify_ref(ref, trust) is True
 
 
+@_needs_ed25519
+def test_public_key_without_alg_is_ed25519_not_an_hmac_secret():
+    # Anyone holding the published public key could compute this HMAC; it must
+    # never verify against a public_key trust entry.
+    forged = E.sign("hmac-sha256", _ref_dict(), ED_PUB)
+    trust = E.load_trust_store(json.dumps({GOLDEN_SIGNER: {"public_key": ED_PUB}}))
+    assert trust[GOLDEN_SIGNER]["alg"] == "ed25519"
+    assert E.verify_ref(E.EvidenceRef(**_ref_dict(signature=forged)), trust) is False
+    bare = {GOLDEN_SIGNER: {"public_key": ED_PUB}}
+    assert E.verify_ref(E.EvidenceRef(**_ref_dict(signature=forged)), bare) is False
+    assert E.verify_ref(E.EvidenceRef(**_ref_dict(signature=ED_SIG)), trust) is True
+
+
+def test_public_key_under_hmac_is_rejected():
+    with pytest.raises(EvidenceError, match="not an HMAC secret"):
+        E.load_trust_store(json.dumps({"s": {"alg": "hmac-sha256", "public_key": ED_PUB}}))
+
+
+@_needs_ed25519
+def test_ed25519_public_key_under_key_still_loads():
+    trust = E.load_trust_store(json.dumps({GOLDEN_SIGNER: {"alg": "ed25519", "key": ED_PUB}}))
+    assert E.verify_ref(E.EvidenceRef(**_ref_dict(signature=ED_SIG)), trust) is True
+
+
 # ── key resolution ───────────────────────────────────────────────────────────
 def test_resolve_key_from_file_and_env(tmp_path, monkeypatch):
     monkeypatch.delenv(E.SIGNING_KEY_ENV, raising=False)
