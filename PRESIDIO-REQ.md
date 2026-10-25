@@ -1336,7 +1336,7 @@ verified — during development against ikigov-assess's *own* `verify_ref`,
 ## Delivery status
 
 Everything planned to date is **delivered and merged to `main`**; the project is
-at **v0.30.0**. Each version shipped as its own babysat, squash-merged PR (the
+at **v0.30.1** (a security patch on 0.30.0). Each version shipped as its own babysat, squash-merged PR (the
 fourth arc bundling 0.28.0–0.30.0 like arc 3 bundled 0.22–0.27):
 
 - **Arc 1 — single-run hardened auditor (0.1.0–0.15.0):** ✓ delivered
@@ -1352,7 +1352,8 @@ provenance+SBOM-attested image. (The earlier `v0.15.0` tag could not be pushed
 from the development environment — the git proxy rejects any ref other than the
 dev branch.) The post-0.18 work (**0.19.0–0.21.0**) is on `main` but **not yet
 tagged** separately; it shipped in **v0.29.0** (wrapper only, PyPI), and
-**v0.30.0** follows the same wrapper-only path. The container image stays on the
+**v0.30.0** and the security patch **v0.30.1** (GHSA-35xw-588h-qfwh; AWS-only runtime, ADR-0002) follow the
+same wrapper-only path. The container image stays on the
 separate runtime track (ADR-0001).
 
 ---

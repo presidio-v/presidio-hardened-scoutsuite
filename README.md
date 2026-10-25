@@ -708,11 +708,11 @@ does this automatically on a version bump).
 ## Roadmap
 
 **Status:** all versions below are **delivered and merged to `main`** (currently
-**v0.30.0**) across three complete arcs — the single-run hardened auditor
+**v0.30.1**) across three complete arcs — the single-run hardened auditor
 (0.1–0.15), fleet tooling & integrations (0.16–0.21), and continuous assurance &
 remediation (0.22–0.27) — plus the fourth arc, *consortium interop & the evidence
 substrate* (0.28.0+), now through 0.30.0. Released to PyPI:
-**v0.18.0**, **v0.29.0** and **v0.30.0** (the wrapper); 0.19–0.28 were not tagged
+**v0.18.0**, **v0.29.0**, **v0.30.0** and the security patch **v0.30.1** (the wrapper); 0.19–0.28 were not tagged
 separately and ship in v0.29.0. No container image has been published: the bundled
 ScoutSuite runtime is a separate release track, blocked while `pip-audit` reports
 inherited ScoutSuite dependency vulnerabilities in `requirements.lock` (see
