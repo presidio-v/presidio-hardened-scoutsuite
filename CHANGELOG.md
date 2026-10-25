@@ -15,6 +15,9 @@ the roadmap tables in `README.md` and `PRESIDIO-REQ.md`.
   material only: without `alg` it means Ed25519, and under `hmac-sha256` it is
   rejected. HMAC secrets come only from `key`. Found by the presidio-evidence
   pre-publication audit, which fixed the same code there.
+- Container image: `setuptools` 84.0.0 → 84.2.1 in `requirements.lock`
+  (GHSA-xmj3-9gf7-h52w). It is pulled in by ScoutSuite through `zc-lockfile`;
+  only that pin changed.
 - Container image: `certifi` 2026.7.22 → 2026.10.19 in `requirements.lock`. The new
   bundle drops emSign ECC Root CA - G3, the root behind the eight eMudhra
   intermediates whose private keys were trivially recoverable (Mozilla bug
