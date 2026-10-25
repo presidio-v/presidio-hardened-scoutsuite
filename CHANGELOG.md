@@ -7,6 +7,13 @@ the roadmap tables in `README.md` and `PRESIDIO-REQ.md`.
 
 ## [Unreleased]
 
+### Fixed
+
+- The SBOM workflow installs `requirements.lock` with `--no-deps`, like the
+  image, CI and the release gate. Since the AWS-only lock (ADR-0002) it failed
+  on every push to `main`: pip tried to resolve ScoutSuite's non-AWS
+  dependencies, which the lock leaves out, under `--require-hashes`.
+
 ## [0.30.1] - 2026-10-25
 
 Security patch: a trust-store fix (GHSA-35xw-588h-qfwh, low), the `sqlite`

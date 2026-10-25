@@ -23,9 +23,11 @@ jobs:
           # Pin the generator so a future cyclonedx-py CLI change can't silently
           # break the SBOM step (the --outfile -> --output-file rename did exactly that).
           pip install --upgrade pip "cyclonedx-bom==7.3.0"
-          # Resolve the pinned runtime tree (includes ScoutSuite) into the env.
+          # Install the pinned runtime tree (includes ScoutSuite) into the env.
           # Fail closed: the SBOM must describe the exact hash-verified tree.
-          pip install --require-hashes -r requirements.lock
+          # --no-deps as in the image, CI and release gate: the lock is AWS-only
+          # (ADR-0002), so ScoutSuite's declared non-AWS dependencies are absent.
+          pip install --no-deps --require-hashes -r requirements.lock
           cyclonedx-py environment --output-format JSON --output-file sbom.cdx.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
