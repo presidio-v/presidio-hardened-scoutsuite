@@ -1265,9 +1265,10 @@ consortium loop: `presidio-hardened-ai` was producer #1, ScoutSuite is producer
 
 **Contract & migration posture.** The wire format is the shared
 `presidio-evidence` contract — canonical JSON (sorted keys, compact separators,
-UTF-8, no floats) + SHA-256 content hash + detached signature over every ref
-field except `signature` itself (so the item, ledger reference, signer,
-source/version and timestamp cannot be relabelled or replayed), schema id
+UTF-8, no floats) + SHA-256 content hash + detached signature over the
+canonical `{content_hash, signer}` contract message (since v0.30.0; 0.28.0–0.29.x
+signed every ref field except `signature`, and those legacy signatures verify with
+`legacy_signature=True` and a WARNING until the cutoff in the 0.30.0 row), schema id
 `presidio-hardened/evidence-ref@2`, trust store
 `presidio-hardened/trust-store@1`. Because `presidio-evidence` is at v0.1.0
 (constants + golden vectors only), ScoutSuite **vendors the contract inline** in
@@ -1310,7 +1311,8 @@ dependency.
   from `--evidence-key PATH` or `$PRESIDIO_EVIDENCE_SIGNING_KEY`, never logged —
   the manifest/attestation convention.
 - **Whether to add the consume side at all (0.30.0).** Still open; the producer
-  alone satisfies the consortium use case. Deferred to 0.30.0 (stretch).
+  alone satisfies the consortium use case. Deferred to the 0.31.0 stretch row
+  (0.30.0 shipped as the signing-conformance release).
 
 **v0.28.0 delivery note.** Shipped as designed. The wire format is cross-
 validated byte-for-byte against the shared golden vectors: the HMAC-SHA256 vector
@@ -1319,7 +1321,8 @@ extra is present. Evidence carries only item ids, rule names, digests and
 signatures — `redact.assert_clean` scans every envelope before it is written, so
 a finding value can never ride out in evidence. `presidio-evidence` is **not yet
 a dependency** (it is at v0.1.0, constants + vectors only); the contract is
-vendored in `evidence.py` and migrates to library imports at 0.30.0.
+vendored in `evidence.py`; the migration to library imports is now the 0.31.0
+stretch row.
 
 **v0.29.0 delivery note.** The 0.28.0 producer already shipped trust-store
 parsing, key rotation and tamper-resistant verification, so 0.29.0 adds the
