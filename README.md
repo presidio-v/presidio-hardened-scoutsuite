@@ -82,14 +82,16 @@ pip install 'presidio-hardened-scoutsuite[scoutsuite]'
 pip install 'presidio-hardened-scoutsuite[crypto]'
 ```
 
-Or use the hardened container (bundles a pinned ScoutSuite):
+Or use the hardened container (bundles a pinned, AWS-only ScoutSuite runtime,
+[ADR-0002](./docs/adr/0002-aws-only-runtime.md)). Images are tagged per release;
+there is no `latest` tag:
 
 ```bash
 docker run --rm --read-only --tmpfs /tmp \
   -e AWS_PROFILE=auditor \
   -v "$HOME/.aws:/tmp/.aws:ro" \
   -v "$PWD/scoutsuite-report:/report" \
-  ghcr.io/presidio-v/presidio-hardened-scoutsuite:latest \
+  ghcr.io/presidio-v/presidio-hardened-scoutsuite:v0.30.1 \
   aws --report-dir /report
 ```
 
@@ -713,10 +715,11 @@ does this automatically on a version bump).
 remediation (0.22–0.27) — plus the fourth arc, *consortium interop & the evidence
 substrate* (0.28.0+), now through 0.30.0. Released to PyPI:
 **v0.18.0**, **v0.29.0**, **v0.30.0** and the security patch **v0.30.1** (the wrapper); 0.19–0.28 were not tagged
-separately and ship in v0.29.0. No container image has been published: the bundled
-ScoutSuite runtime is a separate release track, blocked while `pip-audit` reports
-inherited ScoutSuite dependency vulnerabilities in `requirements.lock` (see
-[ADR-0001](./docs/adr/0001-scoutsuite-runtime-release-strategy.md)). The rest
+separately and ship in v0.29.0. The bundled ScoutSuite runtime is a separate
+release track ([ADR-0001](./docs/adr/0001-scoutsuite-runtime-release-strategy.md));
+the first container image, `ghcr.io/presidio-v/presidio-hardened-scoutsuite:v0.30.1`,
+shipped with the AWS-only runtime that cleared the inherited advisories
+([ADR-0002](./docs/adr/0002-aws-only-runtime.md)). The rest
 of the fourth arc (0.31.0+) is planned (see the tables at the end).
 
 | Version | Highlights |
