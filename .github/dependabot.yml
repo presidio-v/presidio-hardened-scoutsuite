@@ -25,3 +25,9 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    ignore:
+      # The builder must stay on the distroless runtime's Python (debian12 ships
+      # 3.11): a venv and wheels built on another minor version do not run there,
+      # and requirements.lock is resolved for 3.11. Patch updates still arrive.
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
