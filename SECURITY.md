@@ -260,7 +260,7 @@ separately (or bundled into the container image). See
   the gate, regenerate when upstream fixes are compatible, or carry a reviewed
   Presidio patch/fork with provenance and compatibility evidence.
 - A blocking CI job audits `requirements.lock` on every pull request and push
-  to `main`. It ignores only the IDs in `requirements.lock.audit-exceptions`, so
+  to `main`. It ignores only the IDs in `audit-exceptions.txt`, so
   a new advisory in the bundled runtime fails CI as soon as it is published.
 - The bundled runtime is **AWS-only**
   ([ADR-0002](./docs/adr/0002-aws-only-runtime.md)). `requirements.lock` leaves
@@ -271,6 +271,11 @@ separately (or bundled into the container image). See
   AWS provider module imports, the other providers fail to load, and ScoutSuite's
   declared dependencies match the lock plus the exclusions. `presidio-scout`
   refuses `azure`, `gcp`, `aliyun` and `oci` with exit code 2.
+- No published install path pulls stock ScoutSuite: the pin lives in the unpublished
+  `scoutsuite` dependency group (the former `[scoutsuite]` extra installed ScoutSuite's
+  full provider tree, including azure-identity 1.5.0 and protobuf 3.20.3 with known
+  advisories). `audit-exceptions.txt` is the register of assessed advisories in the
+  shipped runtime, read by CI, the release gate and the PRESIDIO nightly scan.
 - A checked-in `.presidio-scout.toml` (defaults + named profiles) lets a team
   enforce the hardened gates by default across every pipeline;
   `presidio-scout-policy validate` fail-closed-checks it so a typo in org policy

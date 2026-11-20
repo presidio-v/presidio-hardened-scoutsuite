@@ -56,8 +56,9 @@ rulesets + IAM deferred to 0.2.0.
 ## Technical Requirements
 
 - Python 3.10+; `pyproject.toml` + `hatchling`; `src/presidio_scoutsuite/` layout.
-- **No runtime dependency on ScoutSuite** — invoked as a subprocess. Optional
-  `[scoutsuite]` extra pins it for convenience (documented GPL implication).
+- **No runtime dependency on ScoutSuite** — invoked as a subprocess. The pinned
+  version lives in the unpublished `scoutsuite` dependency group (documented GPL
+  implication); there is no `[scoutsuite]` extra since the unreleased version.
 - `pytest` + `pytest-cov` (≥ 90% gate); tests run **without ScoutSuite installed**
   (the subprocess boundary is injected).
 - `ruff` lint + format enforced in CI.

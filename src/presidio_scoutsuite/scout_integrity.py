@@ -26,36 +26,26 @@ import re
 import shutil
 import subprocess
 from dataclasses import dataclass
-from importlib import metadata
 
 from .errors import ScoutIntegrityError
 
-#: Fallback pin if our own package metadata can't be read (see :func:`pinned_version`).
+#: The pinned, vetted ScoutSuite; mirrors the ``scoutsuite`` dependency group
+#: (see :func:`pinned_version`).
 PINNED_SCOUTSUITE_VERSION = "5.14.0"
 
-_OWN_DISTRIBUTION = "presidio-hardened-scoutsuite"
-#: Matches the ``scoutsuite`` extra's pin, e.g. ``ScoutSuite==5.14.0; extra == "scoutsuite"``.
-_REQUIRES_RE = re.compile(r"ScoutSuite\s*==\s*([0-9][^\s;]*)", re.IGNORECASE)
 #: First version-looking token in ``scout --version`` output (e.g. "Scout Suite 5.14.0").
 _VERSION_RE = re.compile(r"\b(\d+\.\d+(?:\.\d+)?)\b")
 
 
 def pinned_version() -> str:
-    """The ScoutSuite version this distribution pins.
+    """The ScoutSuite version this distribution pins and vetted.
 
-    Read from our *own* package metadata (the ``scoutsuite`` extra's
-    ``ScoutSuite==`` requirement) so there is a single source of truth and the
-    runtime gate can't drift from what the lockfile/extra install. Falls back to
-    :data:`PINNED_SCOUTSUITE_VERSION` if the metadata isn't available.
+    The authoritative pin is the ``scoutsuite`` dependency group in
+    ``pyproject.toml``, which is not published to PyPI (so a ``[scoutsuite]`` extra
+    can no longer pull stock ScoutSuite with its vulnerable provider SDKs). This
+    constant mirrors it; the ``presidio-scout-upgrade check`` coherence gate fails
+    CI if the group, ``requirements.lock`` and this constant disagree.
     """
-
-    try:
-        for requirement in metadata.requires(_OWN_DISTRIBUTION) or []:
-            match = _REQUIRES_RE.search(requirement)
-            if match:
-                return match.group(1)
-    except metadata.PackageNotFoundError:
-        pass
     return PINNED_SCOUTSUITE_VERSION
 
 

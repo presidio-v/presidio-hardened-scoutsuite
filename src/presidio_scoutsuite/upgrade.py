@@ -7,11 +7,12 @@ the curated baselines validate against (:mod:`ruleset`). That version is declare
 in several files that **must agree**; if they drift, a gate can silently check
 against the wrong version. This module is two things:
 
-* a **fail-closed coherence gate** over the pin sites — the ``scoutsuite`` extra
-  in ``pyproject.toml`` (the authoritative source of truth that
-  :func:`scout_integrity.pinned_version` reads), the ``scoutsuite==`` line in
-  ``requirements.lock``, and the ``PINNED_SCOUTSUITE_VERSION`` fallback constant
-  in ``scout_integrity.py`` — that errors if any disagree;
+* a **fail-closed coherence gate** over the pin sites — the ``scoutsuite``
+  dependency group in ``pyproject.toml`` (the authoritative source of truth), the
+  ``scoutsuite==`` line in ``requirements.lock``, and the
+  ``PINNED_SCOUTSUITE_VERSION`` constant in ``scout_integrity.py`` (what
+  :func:`scout_integrity.pinned_version` returns at run time) — that errors if any
+  disagree;
 * a deterministic, reviewable **bump planner / applier**: it performs only the
   *offline, deterministic* part of an upgrade (the in-repo text pins) and emits
   the exact, ordered commands for the parts that need an environment —
@@ -35,8 +36,9 @@ from .errors import UpgradeError
 
 # --- pin sites ---------------------------------------------------------------
 
-#: Authoritative pin: the ``scoutsuite`` extra in pyproject.toml. This is what
-#: :func:`scout_integrity.pinned_version` reads from installed metadata.
+#: Authoritative pin: the ``scoutsuite`` dependency group in pyproject.toml.
+#: Groups are not published, so the run-time gate cannot read it from installed
+#: metadata; ``PINNED_SCOUTSUITE_VERSION`` mirrors it and this gate keeps them equal.
 _PYPROJECT = "pyproject.toml"
 _LOCK = "requirements.lock"
 
@@ -44,7 +46,7 @@ _LOCK = "requirements.lock"
 #: Azure/GCP/Aliyun/OCI/Kubernetes/DigitalOcean SDKs from ScoutSuite's dependency
 #: set; run with uv 0.10.12, as the upgrade workflow does.
 LOCK_CMD = (
-    "uv pip compile pyproject.toml --extra scoutsuite "
+    "uv pip compile pyproject.toml --group scoutsuite "
     "--override requirements-aws.overrides --generate-hashes "
     "--python-version 3.11 --python-platform linux --output-file requirements.lock"
 )
@@ -58,7 +60,7 @@ RUNTIME_INSTALL_CMD = (
 )
 _INTEGRITY = "src/presidio_scoutsuite/scout_integrity.py"
 
-#: ``ScoutSuite==X`` inside the extra (also matches the lock's lower-cased line).
+#: ``ScoutSuite==X`` inside the dependency group (also matches the lock's lower-cased line).
 _EXTRA_RE = re.compile(r"ScoutSuite\s*==\s*([0-9][^\s\"';\\]*)", re.IGNORECASE)
 #: ``scoutsuite==X`` at the start of a line in the pip-compile lockfile.
 _LOCK_RE = re.compile(r"(?mi)^scoutsuite==([0-9][^\s\\]*)")
@@ -123,7 +125,7 @@ def discover_pins(root: Path | None = None) -> list[Pin]:
     base = root or find_root()
     return [
         Pin(
-            "scoutsuite extra (pyproject.toml)",
+            "scoutsuite dependency group (pyproject.toml)",
             base / _PYPROJECT,
             _extract(_EXTRA_RE, _read(base / _PYPROJECT)),
             rewritable=True,
@@ -144,9 +146,9 @@ def discover_pins(root: Path | None = None) -> list[Pin]:
 
 
 def authoritative_version(root: Path | None = None) -> str:
-    """The current pinned version, read from the authoritative ``scoutsuite`` extra.
+    """The current pinned version, read from the authoritative ``scoutsuite`` dependency group.
 
-    Fail-closed: if the extra's pin is absent the project has no defined pinned
+    Fail-closed: if the group's pin is absent the project has no defined pinned
     ScoutSuite, so we error rather than fall back to a stale constant.
     """
 
@@ -154,7 +156,7 @@ def authoritative_version(root: Path | None = None) -> str:
     version = _extract(_EXTRA_RE, _read(base / _PYPROJECT))
     if version is None:
         raise UpgradeError(
-            f"no 'ScoutSuite==' pin found in the [scoutsuite] extra of {base / _PYPROJECT}"
+            f"no 'ScoutSuite==' pin found in the scoutsuite dependency group of {base / _PYPROJECT}"
         )
     return version
 
@@ -175,7 +177,7 @@ class CoherenceReport:
 def check_coherence(root: Path | None = None) -> CoherenceReport:
     """Verify every pin site declares the same ScoutSuite version.
 
-    The authoritative version is the ``scoutsuite`` extra. A pin that is missing
+    The authoritative version is the ``scoutsuite`` dependency group. A pin that is missing
     or disagrees is reported as a problem; an empty problem list means coherent.
     Does not raise (so a caller can render the full picture) — the CLI turns a
     non-empty report into a non-zero exit.
@@ -265,7 +267,7 @@ def plan_upgrade(target: str, *, root: Path | None = None) -> UpgradePlan:
     lock_cmd = LOCK_CMD
     steps = [
         Step(
-            f"Pin ScoutSuite=={target} in the [scoutsuite] extra of pyproject.toml",
+            f"Pin ScoutSuite=={target} in the scoutsuite dependency group of pyproject.toml",
             "edit",
         ),
         Step(
@@ -279,7 +281,7 @@ def plan_upgrade(target: str, *, root: Path | None = None) -> UpgradePlan:
         ),
         Step(
             "Regenerate the rule-name manifests against the installed ScoutSuite "
-            "(needs the GPL [scoutsuite] extra installed)",
+            "(needs the GPL ScoutSuite installed: uv pip install --group scoutsuite)",
             "regenerate",
             RUNTIME_INSTALL_CMD + " && presidio-scout-validate --source installed",
         ),
@@ -313,7 +315,7 @@ def _rewrite(path: Path, regex: re.Pattern[str], old: str, new: str) -> None:
 def apply_text_pins(target: str, *, root: Path | None = None) -> list[Path]:
     """Apply only the deterministic, offline text pins for an upgrade.
 
-    Rewrites the ``scoutsuite`` extra in pyproject.toml and the
+    Rewrites the ``scoutsuite`` dependency group in pyproject.toml and the
     ``PINNED_SCOUTSUITE_VERSION`` constant in scout_integrity.py to ``target``.
     Deliberately does **not** touch ``requirements.lock`` or the rule manifests
     — those need PyPI / an installed ScoutSuite and are regenerated by the

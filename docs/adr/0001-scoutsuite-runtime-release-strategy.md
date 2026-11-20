@@ -11,7 +11,7 @@ runtime by [ADR-0002](./0002-aws-only-runtime.md) (2026-10-22).
 ScoutSuite. The wrapper drives ScoutSuite out of process, never imports it, and
 the base package has no runtime dependency on ScoutSuite.
 
-The container image and `[scoutsuite]` extra are different: they bundle the full
+The container image is different (as the `[scoutsuite]` extra was, until the unreleased version): it bundles the full
 ScoutSuite runtime tree for operator convenience. That runtime tree inherits
 ScoutSuite's GPL-2.0 license obligations and ScoutSuite's dependency constraints.
 When `pip-audit -r requirements.lock` reports vulnerabilities in ScoutSuite or

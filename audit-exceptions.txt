@@ -1,0 +1,20 @@
+# pip-audit exception register for the shipped runtime (requirements.lock). Policy and
+# evidence: SCOUTSUITE-DEPENDENCY-POLICY.md. Read by CI (lock-audit), the release gate
+# (release.yml) and the PRESIDIO nightly scan, which also needs the operator's
+# acknowledgement before it leaves an entry out of its report.
+#
+# One entry per line, all fields mandatory:
+#   <advisory id> <scope runtime|extras|shipped|all> <kind> <expires YYYY-MM-DD> <package==version> <reason citing SECURITY.md#section>
+#
+#   accepted  proven unreachable from the shipped runtime; ignored by the CI lock
+#             audit and the release gate until the expiry date, then both fail.
+#   blocker   reachable and unfixable within ScoutSuite's pins; ignored by the CI
+#             lock audit only (so new advisories still fail PRs), never by the
+#             release gate, which keeps the image blocked.
+#
+# No blockers since the AWS-only runtime (docs/adr/0002-aws-only-runtime.md)
+# removed azure-identity and protobuf from the lock.
+
+@artefact requirements.lock
+
+PYSEC-2026-1939  shipped  accepted  2027-04-22  sqlitedict==2.1.0  no fixed release; ScoutSuite's SqliteDict use is unreachable from the AWS runtime (SCOUTSUITE-DEPENDENCY-POLICY.md); SECURITY.md#dependency-management

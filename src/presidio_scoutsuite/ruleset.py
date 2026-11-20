@@ -110,8 +110,8 @@ def installed_rules(provider: str) -> set[str]:
         findings = resources.files("ScoutSuite") / "providers" / provider / "rules" / "findings"
     except (ModuleNotFoundError, ImportError) as exc:
         raise RulesetValidationError(
-            "ScoutSuite is not installed; install the '[scoutsuite]' extra to validate "
-            "against the upstream rule inventory"
+            "ScoutSuite is not installed; install it (uv pip install --group scoutsuite) "
+            "to validate against the upstream rule inventory"
         ) from exc
     with resources.as_file(findings) as path:
         directory = Path(path)
@@ -153,8 +153,9 @@ def regenerate_manifest(provider: str) -> Path:
 
     Fail-closed via :func:`installed_rules` (raises if ScoutSuite isn't
     installed). Returns the path written. Intended to run inside an env with the
-    ``[scoutsuite]`` extra installed — the upgrade workflow does this after a
-    version bump so the offline manifest tracks the newly pinned ScoutSuite.
+    pinned ScoutSuite installed (``uv pip install --group scoutsuite``) — the
+    upgrade workflow does this after a version bump so the offline manifest
+    tracks the newly pinned ScoutSuite.
     """
 
     try:
