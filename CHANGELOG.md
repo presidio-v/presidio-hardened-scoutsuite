@@ -7,6 +7,14 @@ the roadmap tables in `README.md` and `PRESIDIO-REQ.md`.
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-11-20
+
+Breaking: the `[scoutsuite]` extra is gone, so no PyPI install path pulls stock
+ScoutSuite and its vulnerable provider SDKs. Install ScoutSuite 5.14.0 yourself or
+the audited AWS-only runtime from `requirements.lock`. The exception register moves
+to the shared PRESIDIO format. Wrapper release (PyPI); the image is rebuilt from the
+unchanged lock.
+
 ### Removed
 
 - **The `[scoutsuite]` extra.** It installed stock ScoutSuite 5.14.0 with its full provider
