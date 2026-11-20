@@ -7,6 +7,23 @@ the roadmap tables in `README.md` and `PRESIDIO-REQ.md`.
 
 ## [Unreleased]
 
+### Removed
+
+- **The `[scoutsuite]` extra.** It installed stock ScoutSuite 5.14.0 with its full provider
+  tree, including azure-identity 1.5.0 (CVE-2024-35255) and protobuf 3.20.3 (CVE-2025-4565,
+  CVE-2026-0994), which ScoutSuite pins. The pin moved to the `scoutsuite` dependency group,
+  which is not published, so no PyPI install path pulls that tree. Install ScoutSuite
+  yourself (`pip install 'ScoutSuite==5.14.0'`) or the audited AWS-only runtime
+  (`pip install --no-deps --require-hashes -r requirements.lock`). The run-time integrity
+  gate now takes the pinned version from `PINNED_SCOUTSUITE_VERSION`, which the coherence
+  gate keeps equal to the group and the lock.
+
+### Changed
+
+- `requirements.lock.audit-exceptions` became `audit-exceptions.txt` with the shared PRESIDIO
+  register format (scope, pinned version and a SECURITY.md reason per entry, plus
+  `@artefact requirements.lock`). CI, the release gate and the PRESIDIO nightly scan read it.
+
 ### Fixed
 
 - The SBOM workflow installs `requirements.lock` with `--no-deps`, like the

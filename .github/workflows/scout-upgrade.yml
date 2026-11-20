@@ -74,7 +74,7 @@ jobs:
         # ADR-0002: requirements-aws.overrides drops the non-AWS provider SDKs.
         if: steps.target.outputs.skip == 'false'
         run: |
-          uv pip compile pyproject.toml --extra scoutsuite \
+          uv pip compile pyproject.toml --group scoutsuite \
             --override requirements-aws.overrides --generate-hashes \
             --python-version 3.11 --python-platform linux --output-file requirements.lock
 

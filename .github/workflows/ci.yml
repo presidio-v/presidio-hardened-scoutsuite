@@ -35,7 +35,7 @@ jobs:
 
   pin-coherence:
     # The pinned ScoutSuite version is declared in several files that must agree
-    # (the [scoutsuite] extra, requirements.lock, the install-integrity fallback
+    # (the scoutsuite dependency group, requirements.lock, the install-integrity
     # constant). Drift would let a gate silently check against the wrong version.
     # Fail-closed, offline — no GPL ScoutSuite needed.
     runs-on: ubuntu-latest
@@ -54,7 +54,7 @@ jobs:
   lock-audit:
     # Blocking audit of the bundled runtime tree on every PR and push to main, so
     # a new advisory surfaces when it appears rather than at the next release.
-    # Ignores exactly the IDs in requirements.lock.audit-exceptions (accepted
+    # Ignores exactly the IDs in audit-exceptions.txt (accepted
     # exceptions until their expiry, plus the documented runtime-track
     # blockers); release.yml ignores only the accepted ones.
     runs-on: ubuntu-latest
@@ -68,14 +68,14 @@ jobs:
           python -m pip install --upgrade pip "pip-audit==2.10.0"
           today=$(date -u +%F)
           ignore=()
-          while read -r id kind expires _; do
-            case "$id" in ""|"#"*) continue ;; esac
+          while read -r id scope kind expires rest; do
+            case "$id" in ""|"#"*|"@"*) continue ;; esac
             if [ "$kind" = accepted ] && [[ "$expires" < "$today" ]]; then
-              echo "::error file=requirements.lock.audit-exceptions::$id expired on $expires"
+              echo "::error file=audit-exceptions.txt::$id expired on $expires"
               exit 1
             fi
             ignore+=(--ignore-vuln "$id")
-          done < requirements.lock.audit-exceptions
+          done < audit-exceptions.txt
           # --no-deps --disable-pip: the lock is the complete, hash-pinned runtime
           # set (ADR-0002). Resolving would follow ScoutSuite's metadata back to the
           # excluded Azure/GCP SDKs, which the runtime never installs.

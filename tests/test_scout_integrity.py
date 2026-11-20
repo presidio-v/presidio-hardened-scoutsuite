@@ -17,9 +17,26 @@ def _runner(stdout="", stderr="", *, raises=None):
     return run
 
 
-def test_pinned_version_reads_own_metadata():
-    # Installed editable, so our metadata's scoutsuite extra pins ScoutSuite.
-    assert si.pinned_version() == "5.14.0"
+def test_pinned_version_matches_the_dependency_group():
+    import re
+    from pathlib import Path
+
+    pyproject = (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(encoding="utf-8")
+    group = re.search(r"(?ms)^\[dependency-groups\].*?ScoutSuite==([0-9][^\"]*)", pyproject)
+    assert group and si.pinned_version() == group.group(1) == "5.14.0"
+
+
+def test_no_published_extra_pulls_scoutsuite():
+    # The pin is a dependency group (unpublished); a [scoutsuite] extra would let a PyPI
+    # install pull stock ScoutSuite with azure-identity 1.5.0 and protobuf 3.20.3.
+    from pathlib import Path
+
+    tomllib = pytest.importorskip("tomllib")
+    text = (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(encoding="utf-8")
+    data = tomllib.loads(text)
+    extras = data["project"].get("optional-dependencies", {})
+    assert "scoutsuite" not in extras
+    assert not any("scoutsuite" in req.lower() for reqs in extras.values() for req in reqs)
 
 
 def test_detect_version_parses_first_token():

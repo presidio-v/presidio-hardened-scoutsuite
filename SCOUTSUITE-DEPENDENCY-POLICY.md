@@ -23,7 +23,7 @@ must stay blocked until one of these paths is true:
 
 PyPI releases of the wrapper may continue independently when the wrapper itself has a clean
 runtime audit, because installing the base package does not install ScoutSuite. Container
-releases and `[scoutsuite]` lockfile refreshes remain subject to the hard audit gate.
+releases and `scoutsuite`-group lockfile refreshes remain subject to the hard audit gate.
 
 ## AWS-only runtime (since 2026-10-22, ScoutSuite 5.14.0)
 
@@ -51,7 +51,8 @@ dependencies equal the lock plus the exclusion list.
 
 ## How the gates use this
 
-`requirements.lock.audit-exceptions` lists every advisory ID above with its kind:
+`audit-exceptions.txt` lists every advisory ID above with its kind, scope, expiry, pinned
+version and reason:
 
 - The **CI `lock-audit` job** (every PR and push to `main`) ignores the accepted exceptions
   and the runtime-track blockers, so any *new* advisory in the lock fails CI when it appears.

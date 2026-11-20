@@ -75,8 +75,10 @@ container).
 ```bash
 pip install presidio-hardened-scoutsuite          # wrapper only (MIT)
 
-# Convenience extra that also installs ScoutSuite (GPL-2.0) into your env:
-pip install 'presidio-hardened-scoutsuite[scoutsuite]'
+# Bring your own ScoutSuite (GPL-2.0), the version the wrapper vets:
+pip install 'ScoutSuite==5.14.0'
+# or install the audited AWS-only runtime the image uses:
+pip install --no-deps --require-hashes -r requirements.lock
 
 # Optional extra for Ed25519-signed evidence (--evidence-out); HMAC needs no extra:
 pip install 'presidio-hardened-scoutsuite[crypto]'

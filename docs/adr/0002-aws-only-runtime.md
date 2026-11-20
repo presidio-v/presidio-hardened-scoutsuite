@@ -78,7 +78,9 @@ smoke test proves both on the installed tree.
   through this distribution. Operators run upstream ScoutSuite for those clouds.
   The bundled least-privilege identities and baselines for those clouds stay,
   and the offline report tools still read reports from any provider.
-- The `[scoutsuite]` extra still installs stock ScoutSuite with all its
-  dependencies; only the lock and the image are AWS-only.
+- The `[scoutsuite]` extra used to install stock ScoutSuite with all its
+  dependencies, including the azure-identity and protobuf versions with known
+  advisories. It was removed (unreleased version): the pin moved to the unpublished
+  `scoutsuite` dependency group, so no published install path pulls that tree.
 - Restoring a provider means removing its lines from the exclusion list, which
   brings its advisories back into the audit.

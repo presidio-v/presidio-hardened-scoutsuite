@@ -5,7 +5,7 @@
 # so the wrapper can be checked without installing GPL ScoutSuite.
 #
 # Regenerate against the actually-pinned ScoutSuite (run inside an env with the
-# '[scoutsuite]' extra installed):
+# pinned ScoutSuite installed: uv pip install --group scoutsuite):
 #
 #     presidio-scout-validate --regenerate --source installed
 #

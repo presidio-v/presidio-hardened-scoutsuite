@@ -20,14 +20,15 @@ ScoutSuite's GPL-2.0 terms and may ship under MIT.
 [ScoutSuite](https://github.com/nccgroup/ScoutSuite) (© NCC Group) is licensed
 **GPL-2.0-only**. This repository does **not** contain ScoutSuite's source.
 
-- When you `pip install 'presidio-hardened-scoutsuite[scoutsuite]'` or build the
-  container image, ScoutSuite is fetched and installed alongside the wrapper.
+- When you install `requirements.lock`, install `ScoutSuite` yourself, or build the
+  container image, ScoutSuite is fetched and installed alongside the wrapper. (The
+  `[scoutsuite]` extra was removed in the unreleased version; the pin now lives in a
+  dependency group that is not published.)
 - **The published container image therefore *distributes* GPL-2.0 software.**
   Anyone redistributing that image must comply with GPL-2.0 §3 (provide, or
   offer, the corresponding source). The pinned version is recorded in
   `requirements.lock`; the source is available from the upstream repository at
   the matching tag.
 
-If you only `pip install presidio-hardened-scoutsuite` (no `[scoutsuite]` extra)
-and supply your own `scout` binary, you are not redistributing ScoutSuite and
+If you only `pip install presidio-hardened-scoutsuite` and supply your own `scout` binary, you are not redistributing ScoutSuite and
 only the MIT terms apply to what you received here.

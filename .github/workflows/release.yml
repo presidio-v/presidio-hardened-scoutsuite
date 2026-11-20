@@ -26,20 +26,20 @@ jobs:
       - name: Audit locked runtime dependencies
         # Only "accepted" (proven unreachable, unexpired) exceptions are ignored;
         # "blocker" entries keep the release blocked. See
-        # requirements.lock.audit-exceptions and SCOUTSUITE-DEPENDENCY-POLICY.md.
+        # audit-exceptions.txt and SCOUTSUITE-DEPENDENCY-POLICY.md.
         run: |
           python -m pip install --upgrade pip "pip-audit==2.10.0"
           today=$(date -u +%F)
           ignore=()
-          while read -r id kind expires _; do
-            case "$id" in ""|"#"*) continue ;; esac
+          while read -r id scope kind expires rest; do
+            case "$id" in ""|"#"*|"@"*) continue ;; esac
             [ "$kind" = accepted ] || continue
             if [[ "$expires" < "$today" ]]; then
-              echo "::error file=requirements.lock.audit-exceptions::$id expired on $expires"
+              echo "::error file=audit-exceptions.txt::$id expired on $expires"
               exit 1
             fi
             ignore+=(--ignore-vuln "$id")
-          done < requirements.lock.audit-exceptions
+          done < audit-exceptions.txt
           # --no-deps --disable-pip: audit exactly the locked AWS-only set (ADR-0002).
           pip-audit -r requirements.lock --no-deps --disable-pip --progress-spinner off "${ignore[@]}"
 

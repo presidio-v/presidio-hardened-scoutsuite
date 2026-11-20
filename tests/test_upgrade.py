@@ -11,7 +11,7 @@ _PYPROJECT = """\
 [project]
 name = "presidio-hardened-scoutsuite"
 
-[project.optional-dependencies]
+[dependency-groups]
 scoutsuite = ["ScoutSuite==5.14.0"]
 """
 
@@ -172,7 +172,7 @@ def test_apply_text_pins(tmp_path):
     assert {p.name for p in changed} == {"pyproject.toml", "scout_integrity.py"}
     pins = U.discover_pins(repo)
     by_name = {p.name: p.version for p in pins}
-    assert by_name["scoutsuite extra (pyproject.toml)"] == "5.15.0"
+    assert by_name["scoutsuite dependency group (pyproject.toml)"] == "5.15.0"
     assert by_name["PINNED_SCOUTSUITE_VERSION (scout_integrity.py)"] == "5.15.0"
     # lock intentionally left stale -> now incoherent until regenerated
     assert by_name["requirements.lock"] == "5.14.0"

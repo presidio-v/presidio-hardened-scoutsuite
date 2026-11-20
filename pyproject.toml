@@ -35,14 +35,19 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Convenience extra that pulls in a pinned ScoutSuite. NOTE: ScoutSuite is
-# GPL-2.0 — installing this extra brings GPL software into your environment.
-scoutsuite = ["ScoutSuite==5.14.0"]
 # Ed25519 signing/verification for evidence emission (presidio-scout-evidence,
 # --evidence-out). HMAC-SHA256 works with the stdlib alone, so this stays
 # optional and the wrapper's runtime remains effectively dependency-free.
 crypto = ["cryptography>=48.0.1"]
 dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.6", "cryptography>=48.0.1"]
+
+[dependency-groups]
+# The pinned, vetted ScoutSuite. A dependency group, not an extra: groups are not
+# published to PyPI, so `pip install presidio-hardened-scoutsuite[...]` can no longer
+# pull stock ScoutSuite with its full provider tree (azure-identity 1.5.0 and
+# protobuf 3.20.3 carry known advisories; ADR-0002). The shipped runtime is
+# requirements.lock, compiled from this group. ScoutSuite is GPL-2.0.
+scoutsuite = ["ScoutSuite==5.14.0"]
 
 [project.scripts]
 presidio-scout = "presidio_scoutsuite.cli:main"
